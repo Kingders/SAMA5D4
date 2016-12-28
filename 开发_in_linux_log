@@ -1,0 +1,1929 @@
+20161207
+linux上使用EDBG:
+	开发板 EDGB_USB 接到linux dmesg:	
+[308172.946989] usb 2-1.2: new high-speed USB device number 4 using ehci-pci
+[308173.039761] usb 2-1.2: config 1 interface 2 altsetting 0 bulk endpoint 0x84 has invalid maxpacket 64
+[308173.039771] usb 2-1.2: config 1 interface 2 altsetting 0 bulk endpoint 0x5 has invalid maxpacket 64
+[308173.040772] usb 2-1.2: New USB device found, idVendor=03eb, idProduct=2111
+[308173.040780] usb 2-1.2: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+[308173.040785] usb 2-1.2: Product: EDBG CMSIS-DAP
+[308173.040790] usb 2-1.2: Manufacturer: Atmel Corp.
+[308173.040793] usb 2-1.2: SerialNumber: ATML0000004141319438
+[308173.044631] hid-generic 0003:03EB:2111.000E: hiddev0,hidraw1: USB HID v1.11 Device [Atmel Corp. EDBG CMSIS-DAP] on usb-0000:00:1d.0-1.2/input0
+[308173.185664] cdc_acm 2-1.2:1.1: ttyACM0: USB ACM device
+[308173.186015] usbcore: registered new interface driver cdc_acm
+[308173.186019] cdc_acm: USB Abstract Control Model driver for USB modems and ISDN adapters
+	直接就连上了,不用手动去装驱动文件	
+	用SecureCRT连接ttyACM0:115200,8,N,1可观察输出	
+linux上使用sam-ba烧录:
+	开发板 A5-USB-A 接到linux dmsg:
+[310103.548967] usb 1-1.2: new high-speed USB device number 17 using ehci-pci
+[310103.642544] usb 1-1.2: New USB device found, idVendor=0525, idProduct=a4a7
+[310103.642554] usb 1-1.2: New USB device strings: Mfr=1, Product=2, SerialNumber=0
+[310103.642560] usb 1-1.2: Product: Gadget Serial v2.4
+[310103.642564] usb 1-1.2: Manufacturer: Linux 4.1.0-linux4sam_5.3 with atmel_usba_udc
+[310103.649274] cdc_acm 1-1.2:2.0: ttyACM1: USB ACM device
+	安装sam-ba到linux,直接atmel下载sam-ba_3.1.4-linux_x86_64.tar.gz,解压即用(cd到samba目录,./sam-ba)
+	提示/usr/lib/x86_64-linux-gnu/libstdc++.so.6: version `CXXABI_1.3.9' not found, 相当麻烦,暂时放弃linux烧录
+	
+
+
+
+
+
+
+
+
+
+20161208	
+尝试编译:
+	make ARCH=arm sama5_defconfig
+	make ARCH=arm menuconfig	//只选 sama5d4 的板子
+	make ARCH=arm CROSS_COMPILE=arm-linux-
+	error:
+	/tmp/ccnZ9dmH.s: Assembler messages:
+	/tmp/ccybbHfr.s:176: Error: garbage following instruction -- `dsb nshst'
+	/tmp/ccybbHfr.s:184: Error: garbage following instruction -- `dsb nsh'
+	编译器版本不对:
+
+
+
+
+
+
+
+
+
+
+20161220
+重新安装 sam-ba_3.1.4到ubuntu
+	sudo tar -zxvf sam-ba_3.1.4-linux_x86_64.tar.gz -C /opt		//解压到/opt
+	到 /opt/sam-ba_3.1.4 目录下
+	sudo gedit ~/.bashrc 修改 常用户的.bashrc,末尾添加,搜索库路径:
+		LD_LIBRARY_PATH=/usr/local/lib64/:$LD_LIBRARY_PATH
+		export LD_LIBRARY_PATH
+	source ~/.bashrc 更新用户bashrc配置 
+		(如果不添加搜索库路径会出现,
+		sam-ba: symbol lookup error: sam-ba: undefined symbol: _ZN7QString18toLocal8Bit_helperEPK5QChari
+		等没有找到相关lib参数的错误)
+	sudo cp sam-ba /bin/sam-ba	拷贝执行文件到执行文件目录下,然后就可以使用sam-ba命令了
+	sam-ba 输入命令,从输出中验证是否正确安装.
+	提示/usr/lib/x86_64-linux-gnu/libstdc++.so.6: version `CXXABI_1.3.9' not found, 
+		安装更新的gcc工具,从而更新 C++ 库文件
+		sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+		sudo apt-get update
+		sudo apt-get install gcc-4.9 g++-4.9
+然后测试:
+	sam-ba -p serial:ttyACM1:115200 -b sama5d4-xplained -a lowlevel	//测试是否链接到开发板!!
+	一直提示 unknown port:	
+	发现原来:sam-ba_3.1.4 /sam-ba 本身也只是一个软连接,并不是真正的执行bin文件,这不是重点
+	上述安装思路:拷贝lib到系统搜索库,把执行bin拷到环境变量下,但是由于sam-ba 本身也只是一个软连接,所以最后运行功能并不完全
+	比如正确的sam-ba指令,却出现各种错误,如段错误,uknown port...开始怀疑是由于搜不到其他关键配置文件或者lib文件有关!!
+最后选择另外一条安装思路:
+	直接把这个 /opt/sam-ba_3.1.4 路径加入到环境变量里去!!!
+	sudo gedit ~/.bashrc 修改 常用户的.bashrc,末尾添加
+		export PATH=$PATH:/opt/sam-ba_3.1.4
+	source ~/.bashrc 更新用户bashrc配置
+	这样,sam-ba需要搜索什么文件都可以直接在自身路径找到!!
+	再次测试,一直提示:无权访问 serial ttyACM1,加sudo,表示找不到sam-ba命令
+	把/opt/sam-ba_3.1.4 路径也加入到root用户的环境变量里去
+	sudo gedit /root/.bashrc 修改 root用户的.bashrc,末尾添加:
+		export PATH=$PATH:/opt/sam-ba_3.1.4
+	sudo source /.bashrc 更新root用户bashrc配置
+	su 到root用户
+	再次测试,成功!
+	然而,回到常用户,加sudo,依然表示找不到sam-ba命令!!
+于是发现了 root用户 不等于 加sudo的常用户 !!
+	加sudo, root用户, 常用户区别:
+		root用户 和 常用户 都有自己的环境变量!!
+		root用户一直以最高权限执行命令,都能执行
+		常用户以常规权限执行命令,不一定能执行
+		常用户加sudo,并没有转变当前用户,但是可以提高到最高权限执行命令
+		但是加sudo时,常用户不再使用自己的环境变量,而是转到使用secure_path的环境变量上来,
+		即不使用.bashrc里修改过的环境变量
+	然而,secure_path的环境变量上没有我们的sam-ba命令,所以常用户加sudo后,并没有找到命令
+	解决办法是:
+		要求在常用户加sudo时,不自动转变到secure_path的环境变量上去
+		sudo gedit ~/.bashrc 修改 常用户的.bashrc,末尾添加
+			alias sudo='sudo env PATH=$PATH'
+		source ~/.bashrc 更新常用户bashrc配置
+最后,通过测试,sudo sam-ba -p serial:ttyACM1:115200 -b sama5d4-xplained -a lowlevel
+至此,sam-ba实现所用功能!!
+烧录sama5d4步骤：(测试使用的demo来自许工的linux4sam_5.3,非自己下载的更新版本的5.3)
+	套上 BOOT_DIS 帽,转到SAMS5D4芯片固化程序的位置
+	插上 A5-USB-A 供电，usb成功连接为AT91 USB to Serial Converter （COMx）
+	取出 BOOT_DIS 帽,转到 NANDFlash 位置
+	检查连接：
+	sudo sam-ba -p serial:ttyACM1:115200 -b sama5d4-xplained -a lowlevel //然后会检测连接到usb串口的连接情况
+	擦除nandflash：
+	sudo sam-ba -p serial:ttyACM1:115200 -b sama5d4-xplained -a nandflash -c erase	
+注意,先 cd 到 烧录文件所在目录!!
+	烧写 bootloader_1：
+	sudo sam-ba -p serial:ttyACM1:115200 -b sama5d4-xplained -a nandflash -c writeboot:at91bootstrap-sama5d4_xplained.bin
+	烧写 bootloader_2：
+	sudo sam-ba -p serial:ttyACM1:115200 -b sama5d4-xplained -a nandflash -c write:u-boot-sama5d4-xplained.bin:0x40000
+	烧写 env (包含commandline/bootargs)：
+	sudo sam-ba -p serial:ttyACM1:115200 -b sama5d4-xplained -a nandflash -c write:u-boot-env-sama5d4-xplained.bin:0xC0000
+	烧写 device tree block 表：
+	sudo sam-ba -p serial:ttyACM1:115200 -b sama5d4-xplained -a nandflash -c write:at91-sama5d4_xplained.dtb:0x180000
+	烧写 kernel：
+	sudo sam-ba -p serial:ttyACM1:115200 -b sama5d4-xplained -a nandflash -c write:zImage-sama5d4-xplained.bin:0x200000
+	烧写 rootfs：
+	sudo sam-ba -p serial:ttyACM1:115200 -b sama5d4-xplained -a nandflash -c write:atmel-xplained-demo-image-sama5d4-xplained.ubi:0x800000
+镜像组合烧写命令:(注意,先 cd 到 烧录文件所在目录!!)
+sudo sam-ba -p serial:ttyACM1:115200 -b sama5d4-xplained -a nandflash -c erase -c writeboot:at91bootstrap-sama5d4_xplained.bin -c write:u-boot-sama5d4-xplained.bin:0x40000 -c write:u-boot-env-sama5d4-xplained.bin:0xC0000 -c write:at91-sama5d4_xplained.dtb:0x180000 -c write:zImage-sama5d4-xplained.bin:0x200000 -c write:atmel-xplained-demo-image-sama5d4-xplained.ubi:0x800000
+
+开pr_debug
+例子:打开 i2c模块的 pr_debug:
+1,查看:
+	drivers/i2c/Makefile:有 ccflags-$(CONFIG_I2C_DEBUG_CORE) := -DDEBUG
+	drivers/i2c/busses/Makefile:有 ccflags-$(CONFIG_I2C_DEBUG_CORE) := -DDEBUG
+	表示支持 debug
+	(注意:ccflags-y  := -DDEBUG	//相当于给mfd目录下的所有文件都加上了 (#define DEBUG))
+2,打开.config观察:
+	# CONFIG_I2C_DEBUG_BUS is not set
+	# CONFIG_I2C_DEBUG_BUS is not set
+	表示之前编译的没有打开!!
+3,make ARCH=arm menuconfig
+	Device Drivers -> I2C support ->
+		(*)I2C Core debugging message
+		(*)I2C Bus debugging message
+	打开重新生成的.config观察
+		# CONFIG_I2C_DEBUG_BUS=y
+		# CONFIG_I2C_DEBUG_BUS=y
+	表示打开了!!
+4,include/linux/printk.h中:修改:
+	//#define CONSOLE_LOGLEVEL_DEFAULT 7 
+	#define CONSOLE_LOGLEVEL_DEFAULT 8 
+	由于这样设置的 pr_debug 使用printk(KERN_DEBUG...)
+	而printk(KERN_DEBUG...)的级别是7,#define CONSOLE_LOGLEVEL_DEFAULT 7 表示,只打印 小于级别7的消息
+	所以改为: #define CONSOLE_LOGLEVEL_DEFAULT 8
+5,重新编译(烧录并测试成功!!)
+6,补充:
+	pr_debug()在include/linux/printk.h 定义,按道理驱动文件中加入(#incude <linux/kernel.h>)就可以使用
+	pr_debug()其实可以设置为两种模式,上述只是设置成静态模式(kernel初始化时可以输出消息)
+
+
+
+
+
+
+
+
+
+
+20161221
+备份烧写命令:
+组合烧写：(不烧写env ，这样可以使用默认的uboot命令，自编译 zImage + dtb + ubifs + uboot + at91bootstrap)
+sudo sam-ba -p serial:ttyACM1:115200 -b sama5d4-xplained -a nandflash -c erase -c writeboot:at91bootstrap-sama5d4_xplained.bin -c write:u-boot-sama5d4-xplained.bin:0x40000 -c write:at91-sama5d4_xplained.dtb:0x180000 -c write:zImage:0x200000 -c write:atmel-xplained-demo-image-sama5d4-xplained.ubi:0x800000
+只刷新 zImage + dtb
+sudo sam-ba -p serial:ttyACM1:115200 -b sama5d4-xplained -a nandflash -c erase:0x200000:0x600000 -c erase:0x180000:0x80000 -c write:at91-sama5d4_xplained.dtb:0x180000 -c write:zImage:0x200000
+只刷新 zImage
+sudo sam-ba -p serial:ttyACM1:115200 -b sama5d4-xplained -a nandflash -c erase:0x200000:0x600000 -c write:zImage:0x200000
+
+编译完自动拷贝zImage到/demo
+arch/arm/boot/Makefile:
+$(obj)/zImage:	$(obj)/compressed/vmlinux FORCE
+	$(call if_changed,uimage)
+	@$(kecho) '  Image $@ is ready'
+	cp $(obj)/uImage /home/infortech-ubuntu-1404/SAMA5D4/demo/		//编译完自动拷贝文件到demo
+
+给 atmel_hlcdc 加入 pr_debug
+1,先改 platform_driver_的注册
+	原来:!!module_platform_driver(atmel_hlcdc_driver);
+	先观察:
+	printk.h
+	/* If you are writing a driver, please use dev_dbg instead */
+	#if defined(CONFIG_DYNAMIC_DEBUG)
+	/* dynamic_pr_debug() uses pr_fmt() internally so we don't need it here */
+	#define pr_debug(fmt, ...) \
+		dynamic_pr_debug(fmt, ##__VA_ARGS__)
+	#elif defined(DEBUG)
+	#define pr_debug(fmt, ...) \
+		printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__)	//静态模式的pr_debug
+	#else
+	#define pr_debug(fmt, ...) \
+		no_printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__)
+	#endif
+	
+	Platform_device.h
+	#define module_platform_driver(__platform_driver) \
+		module_driver(__platform_driver, platform_driver_register, \
+				platform_driver_unregister)
+	#define platform_driver_register(drv) \
+		__platform_driver_register(drv, THIS_MODULE)
+	void platform_driver_unregister(struct platform_driver *drv)
+	{
+		driver_unregister(&drv->driver);
+	}
+	
+	device.h
+	#define module_driver(__driver, __register, __unregister, ...) \
+	static int __init __driver##_init(void) \
+	{ \
+		return __register(&(__driver) , ##__VA_ARGS__); \	//注意platform_driver_register只有一个参数,__VA_ARGS__不用管
+	} \
+	module_init(__driver##_init); \
+	static void __exit __driver##_exit(void) \
+	{ \
+		__unregister(&(__driver) , ##__VA_ARGS__); \		//注意platform_driver_unregister只有一个参数,__VA_ARGS__不用管
+	} \
+	module_exit(__driver##_exit);
+然后修改:!!
+	atmel-hlcdc.c 加
+	#include <linux/kernel.h>	//包含 printk.h
+	static int __init atmel_hlcdc_driver_init(void) 
+	{
+		pr_debug("atmel-hlcd platform-driver registered !!")	//添加打印项!!
+		return platform_driver_register(&atmel_hlcdc_driver);	
+	}
+	module_init(atmel_hlcdc_driver_init);
+	static void __exit atmel_hlcdc_driver_exit(void)
+	{
+		platform_driver_unregister(&atmel_hlcdc_driver);
+	}
+	module_exit(atmel_hlcdc_driver_exit);
+	
+	drivers/mfd/Ｍakefile加入:
+	ccflags-y  := -DDEBUG		//相当于给mfd目录下的所有文件都加上了 (#define DEBUG)
+	经测试成功启动打印!!
+
+然后开启 hlcd 的 dts !!!
+	atmel-hlcdc.c 添加
+	static int atmel_hlcdc_probe(struct platform_device *pdev)
+	{	
+	....
+		//by william
+		pr_debug("atmel-hlcdc probe start !!\n ")	//添加probe打印项!!
+		....
+	at91-sama5d4_xplained.dts添加:
+		...
+		ahb {
+			apb {
+				hlcdc: hlcdc@f0000000 {
+					status = "okay";
+				};
+			.....
+	编译dtb!! (直接使用make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j8 编译内核命令就可以自动更新stb了!!)
+	只刷新 zImage + dtb 成功打印,即成功添加 hlcdc 的 platform_device!!
+
+再给 atmel_hlcdc_dc 加入 pr_debug
+	atmel-hlcdc_dc.c 加
+	#include <linux/kernel.h>	//包含 printk.h
+	static int atmel_hlcdc_dc_drm_probe(struct platform_device *pdev)
+	{
+		//by william
+		pr_debug("atmel-hlcdc-dc probe start !!\n");
+		.......
+	drivers/gpu/Makefile加入:	//失败操作
+	ccflags-y  := -DDEBUG		//相当于给gpu目录下(不包括多级子目录下的文件)的所有文件都加上了 (#define DEBUG) 
+					//所以这样并没有成功添加 pr_debug()
+	drivers/gpu/drm/atmel-hlcdc/Makefile加入:	//正确操作
+	ccflags-y  := -DDEBUG				//相当于给atmel-hlcdc目录下的所有文件都加上了 (#define DEBUG) 
+	经测试成功启动打印!!	
+				
+分析 atmel-hlcdc_probe!!
+	atmel_hlcdc 是一个mfd设备(复合设备),包含atmel-hlcdc-dc设备, 和pwm-atmel-hlcdc设备!!
+	重点结构体:
+	static const struct mfd_cell atmel_hlcdc_cells[] = {
+		{
+			.name = "atmel-hlcdc-pwm",
+			.of_compatible = "atmel,hlcdc-pwm",
+		},
+		{
+			.name = "atmel-hlcdc-dc",
+			.of_compatible = "atmel,hlcdc-display-controller",
+		},
+	};
+	struct atmel_hlcdc_regmap {
+		void __iomem *regs;
+	};
+	struct atmel_hlcdc {
+		struct regmap *regmap;
+		struct clk *periph_clk;
+		struct clk *sys_clk;
+		struct clk *slow_clk;
+		int irq;
+	};
+atmel-hlcdc_probe 流程:
+	分配一个 struct atmel_hlcdc_regmap 空间内存 *hregmap	//devm_kzalloc
+	分配一个 struct atmel_hlcdc 空间内存 *hlcdc
+	初始化 atmel_hlcdc:
+		获取resource,然后把得到指针给 hregmap->regs
+			(补充:platform_get_resource(pdev, IORESOURCE_MEM, 0); IORESOURCE_MEM表示获取的就是dt节点node 的reg内容)
+		获取中断号
+		在操作clock前,先获取对应的 struct clk 指针:	//devm_clk_get
+			periph_clk,
+			sys_clk,
+			slow_clk,
+		初始化 atmel-hlcdc_regmap,返回指针		//devm_regmap_init
+	把 atmel_hlcdc 这个数据的指针 挂入 dev->driver_data	//dev_set_drvdata, 
+								//注意旧版kernel是挂入private_data的,4.1 kernel 的 struct device 变化了.
+	hlcdc是一个复合设备,所以,接下来初始化子设备:		//mfd_add_devices -> mfd_add_device
+		就是根据当前 struct mfd_cell 即atmel_hlcdc_cells[] 初始化 子设备的platform_device结构,
+		然后通过 platform_device_add 注册到 platform_bus !!
+
+注册了子设备atmel-hlcd-dc(display-control)的platform_device到platform_bus,自然就要执行对应的probe!!,分析:
+	知识补充:	
+	drm 是一个 GPU 显示框架!!,在内核级别提供内存管理，中断处理， DMA控; 为应用程序提供统一的操作接口
+	重点结构体:
+	static struct drm_driver atmel_hlcdc_dc_driver = {
+		.driver_features = DRIVER_HAVE_IRQ | DRIVER_GEM |
+				   DRIVER_MODESET | DRIVER_PRIME |
+				   DRIVER_ATOMIC,
+		.preclose = atmel_hlcdc_dc_preclose,
+		.lastclose = atmel_hlcdc_dc_lastclose,
+		.irq_handler = atmel_hlcdc_dc_irq_handler,
+		.irq_preinstall = atmel_hlcdc_dc_irq_uninstall,
+		.irq_postinstall = atmel_hlcdc_dc_irq_postinstall,
+		.irq_uninstall = atmel_hlcdc_dc_irq_uninstall,
+		.get_vblank_counter = drm_vblank_count,
+		.enable_vblank = atmel_hlcdc_dc_enable_vblank,
+		.disable_vblank = atmel_hlcdc_dc_disable_vblank,
+		.gem_free_object = drm_gem_cma_free_object,
+		.gem_vm_ops = &drm_gem_cma_vm_ops,
+		.prime_handle_to_fd = drm_gem_prime_handle_to_fd,
+		.prime_fd_to_handle = drm_gem_prime_fd_to_handle,
+		.gem_prime_import = drm_gem_prime_import,
+		.gem_prime_export = drm_gem_prime_export,
+		.gem_prime_get_sg_table = drm_gem_cma_prime_get_sg_table,
+		.gem_prime_import_sg_table = drm_gem_cma_prime_import_sg_table,
+		.gem_prime_vmap = drm_gem_cma_prime_vmap,
+		.gem_prime_vunmap = drm_gem_cma_prime_vunmap,
+		.gem_prime_mmap = drm_gem_cma_prime_mmap,
+		.dumb_create = drm_gem_cma_dumb_create,
+		.dumb_map_offset = drm_gem_cma_dumb_map_offset,
+		.dumb_destroy = drm_gem_dumb_destroy,
+		.ioctls	= atmel_ioctls,
+		.num_ioctls= ARRAY_SIZE(atmel_ioctls),
+		.fops = &fops,
+		.name = "atmel-hlcdc",
+		.desc = "Atmel HLCD Controller DRM",
+		.date = "20141504",
+		.major = 1,
+		.minor = 0,
+	};
+	struct drm_device {
+		....
+		struct device *dev;
+		char *unique;				/**< unique name of the device */
+		/*
+		 * At load time, disabling the vblank interrupt won't be allowed since
+		 * old clients may not call the modeset ioctl and therefore misbehave.
+		 * Once the modeset ioctl *has* been called though, we can safely
+		 * disable them when unused.
+		 */
+		bool vblank_disable_allowed;
+		/*
+		 * If true, vblank interrupt will be disabled immediately when the
+		 * refcount drops to zero, as opposed to via the vblank disable
+		 * timer.
+		 * This can be set to true it the hardware has a working vblank
+		 * counter and the driver uses drm_vblank_on() and drm_vblank_off()
+		 * appropriately.
+		 */
+		bool vblank_disable_immediate;
+		/* array of size num_crtcs */
+		struct drm_vblank_crtc *vblank;
+		spinlock_t vblank_time_lock;    /**< Protects vblank count and time updates during vblank enable/disable */
+		spinlock_t vbl_lock;
+		u32 max_vblank_count;           /**< size of vblank counter register */
+		/**
+		 * List of events
+		 */
+		struct list_head vblank_event_list;
+		spinlock_t event_lock;
+		struct platform_device *platformdev; /**< Platform device struture */
+		......
+	};
+	static const struct of_device_id atmel_hlcdc_of_match[] = {
+		.........
+		{
+			.compatible = "atmel,sama5d4-hlcdc",
+			.data = &atmel_hlcdc_dc_sama5d4,
+		},
+		{ /* sentinel */ },
+	};
+	static const struct atmel_hlcdc_dc_desc atmel_hlcdc_dc_sama5d4 = {
+		.min_width = 0,
+		.max_width = 2048,
+		...//详细见 atmel_hlcdc_dc.c
+	};
+	struct device {
+		struct device *parent;
+		struct device_private *p;
+		struct device_node of_node;	//解压 dtb 后,存储device tree 节点的数据结构!!!
+		.....
+	};
+	struct device_node {			//解压 dtb 后,存储device tree 节点的数据结构!!!
+		const char *name;
+		const char *type;
+		phandle phandle;
+		const char *full_name;
+		struct fwnode_handle fwnode;
+		struct	property *properties;
+		struct	property *deadprops;	/* removed properties */
+		struct	device_node *parent;
+		struct	device_node *child;
+		struct	device_node *sibling;
+		struct	kobject kobj;
+		unsigned long _flags;
+		void	*data;
+	#if defined(CONFIG_SPARC)
+		const char *path_component_name;
+		unsigned int unique_id;
+		struct of_irq_controller *irq_trans;
+	#endif
+	};
+	struct atmel_hlcdc_dc {
+		const struct atmel_hlcdc_dc_desc *desc;
+		struct atmel_hlcdc *hlcdc;
+		struct drm_fbdev_cma *fbdev;
+		struct drm_crtc *crtc;
+		struct atmel_hlcdc_planes *planes;
+		struct atmel_hlcdc_layer *layers[ATMEL_HLCDC_MAX_LAYERS];
+		struct workqueue_struct *wq;
+		struct {
+			wait_queue_head_t wait;
+			bool pending;
+		} commit;
+	};
+atmel-hlcdc-dc_probe 流程:			//atmel_hlcdc_dc_drm_probe
+	分配一个 drm_device 空间内存 *ddev	//drm_dev_alloc
+	初始化 ddev
+		设置这个drm设备的唯一设备名		//drm_dev_set_unique
+		加载初始化 atmel-hlcdc-dc 到ddev	//atmel_hlcd_dc_load (包括了atmel-hlcdc-dc的platform_device注册?)
+		注册ddev到 drm框架?		//drm_dev_register
+		注册对应的用户空间接口到drm框架?	//atmel_hlcdc_dc_connector_plug_all -> drm_connector_register
+atmel_hlcd_dc_load 分析!!!
+	匹配 hlcdc 的 compatible (注意不是 hlcd_dc 的 compatible)!!
+	分配一个 atmel_hlcd_dc 空间内存 *dc	//devm_kzalloc
+	初始化 dc
+		建立一个工作队列名为atmel-hlcdc-dc	//dc->wq = alloc_ordered_workqueue(...)
+		初始化等待队列				//init_waitqueue_head()
+		dc->desc = match->data;
+		dc->hlcdc = dev_get_drvdata(dev->dev->parent);
+		ddev->dev_private = dc;			//源码是dev->dev_private = dc;实际上dev对应上述分析的 ddev
+		启动periph_clk				//clk_prepare-enable -> clk_enable( 奇怪是在不到clk_enable源码!!)
+							//clk_enable 没个厂家都有自己的clk_enable,找不到at91架构的!!!
+	启动 atmel_hlcd_dc 电源管理(PM)		//pm_runtime_enable
+	drm_vblank初始化			//drm_vblank_init	vblank显示完前帧图案与开始显示下一帧团之间的中间过程!!
+	设置 atmel_hlcd_dc			//atmel_hlcdc_dc_modeset_init (关于芯片硬件模块寄存器的初始化了???)
+	重置 drm 模式 ???			//drm_mode_config_reset
+	初始化 drm_irq ???			//drm_irq_install
+	把驱动数据挂入ddev			//platform_set_drvdata
+	初始化,使能 output polling???		//drm_kms_helper_poll_init	窗口显示激活
+	检测 是否发现热插拔设备???			//drm_helper_hpd_irq_event		
+	(未完待续,下一天的开发log讨论!!>>>) 	
+
+
+
+
+
+
+
+
+
+
+20161223
+先补充 linux drm(direct rending manager) 设备的框架知识!!
+	过去.用户程旭,直接操显卡设备来显示图像,这样,用户程序含大量针对特定显卡的接口程序,不利于移植,
+	现在,linux建议使用自身提供的 抽象出的 drm设备驱动 来做访问操作显卡的工作,而drm面向用户程序则提供统一的ioctl接口, 
+		这样,就更方便用户程序的移植,也对各种厂商的显卡操作有统一的管理
+	DRM提供两类 ioctl 行为:GEM(Graphics Execution Manager),KMS(Kernel Mode-Setting)
+	GEM针对 Framebuffer(显存)管理,
+		如显存的申请释放 (Framebuffer managing)，显存共享机制 (Memory sharing objects)，及显存同步机制 (Memory synchronization)
+	KMS 主要是完成显卡配置 (Display mode setting)
+	atmel-hlcdc文件中,哪些对应KMS, 哪些对应GEM?
+		atmel_hlcdc_crtc.c atmel_hlcdc_dc.c atmel_hlcdc_layer.c atmel_hlcdc_output.c atmel_hlcdc_plane.c
+	显卡主要是由三类设备组成：
+		Processing logic 指的是神秘的 GPU 模块，
+		Display controller 指的是 LCDC 控制器，
+		Hardware video acceleration 指的就是具体的显示接口 HDMI / eDP / … 
+	DRM KMS 对于显卡设备驱动有三个概念 CRTC / Encoder / Connector,
+		CRTC 就是指 Display Controller,CRTC 的常用行为如下：
+      			DPMS (Display Power Manage System) 电源状态管理 (crtc_funcs->dpms)
+			将 Framebuffer 转换成标准的 LCDC Timing ，其实就是一帧图像刷新的过程（crtc_funs->mode_set）
+			帧切换，即在 VBlank 消影期间，切换 Framebuffer（crtc_funcs->page_flip）
+			Gamma 校正值调整（crtc_funcs->gamma_set）
+		Encoder 就是指具体接口驱动 eDP / HDMI,Encoder 的常用行为如下：
+			DPMS (Display Power Manage System) 电源状态管理 (encoder_funcs->dpms)
+			将 VOP 输出的 lcdc Timing 打包转化为对应接口时序 HDMI TMDS / … (encoder_funcs->mode_set)
+		Connector 指的是具体外接的屏幕 Monitor / Panel。Connector 的常用行为如下：
+			获取上报 热拔插 Hotplug 状态
+			读取并解析屏 (Panel) 的 EDID 信息
+	drm 其他概念:
+		pagefilp:帧刷屏
+		plane:	(drm 的plane相当与,芯片上的图层,plane是drm软件架构上的图层,具有广泛意义!!,overlay是芯片硬件上的图层,)
+			(由于实现的功能类似,所以这里的 plane 一般直接映射 硬件的overlay )
+			(所以可以说,plane 是 芯片layer 与 linux-drm模块 的接口)
+			A plane represents an image source that can be blended with 
+			or overlayed on top of a CRTC during the scanout process
+		CRTC:	A CRTC is an abstraction representing a part of the chip that contains a pointer to a scanout buffer
+	简单以 HDMI Monitor 显示的过程为例，实例解析下 CRTC / Encoder / Connector 的行为：
+		1. 首先 HDMI 驱动检测到电视 Plugin 信号，读出电视的 EDID 信号，获取电视的分辨率信息 (DRM Connector)。
+		2. Userspace 将需要显示的数据填充在 framebuffer 里面，然后通过 libdrm 接口通知 VOP 设备开始显示。
+		3. 接着 VOP 驱动将 framebuffer 里面的数据转换成标准的 LCDC Timing 时序 (DRM CRTC)。
+		4. 同时 HDMI 驱动将 HDMI 硬件模块的 LCDC 时序配置与 VOP 输出时序一致，
+		   准备将输入的 LCDC Timing 转化为电视识别的 HDMI TMDS 信号 (DRM Encoder)。
+补充 linux runtime PM 框架知识!!
+	(未完)
+补充 sama5d4 lcdc 框架知识!!
+	datasheet:page668 寄存器列表
+	datasheet:page633表示:
+		图像数据通过 DEAG: DMA Engine Address Generation 流入 各layer图层
+		各layer图层再经过 GAB: Global Alpha Blender 混合成图片,
+		然后通过硬件时序模块输出如rgb信号到lcd屏从而成像!!!
+	The LCD module integrates the following digital blocks:(基本重点模块简介)
+		DMA Engine Address Generation (DEAG)—This block performs data prefetch and requests access to the AHB interface.
+		Input Overlay FIFO—Stores the stream of pixels
+		Color Lookup Table (CLUT)—These 256 RAM-based lookup table entries are selected 
+		 	when the color depth is set to 1, 2, 4 or 8 bpp.
+		Chroma Upsampling Engine (CUE)—This block is selected when the input image sampling format is YUV (Y’CbCr) 4:2:0 
+			and converts it to higher quality 4:4:4 image.
+		Color Space Conversion (CSC)—changes the color space from YUV to RGB
+		Two Dimension Scaler (2DSC)—Resizes the image
+		Global Alpha Blender (GAB)—Performs programmable 256-level alpha blending
+		Output FIFO—Stores the blended pixel prior to display
+		LCD Timing Engine—Provides a fully programmable HSYNC-VSYNC interface
+	The DMA controller reads the image through the AHB master interface. The LCD controller engine formats the
+		display data, then the GAB performs alpha blending if required, and writes the final pixel into the output FIFO. The
+		programmable timing engine drives a valid pixel onto the LCD_DAT[23:0] display bus.
+	Input FIFO:	the LCD module includes one input FIFO per overlay. These input FIFOs are used to buffer the AHB burst and
+		serialize the stream of pixels.
+	Output FIFO:	The LCD module includes one output FIFO that stores the blended pixel.
+	
+	layer(图层),有如下几层: 
+		overlay1(覆盖层1,即图层1)
+		overlay2(覆盖层2,即图层2)
+		base layer(基础层)
+		high end Overlay(高端图层)
+		每个图层都可以选择存放color lookup table 或者 RGB 编码的像素点pix图像
+		而高端图层更可以选择 yuv 编码的像素点的图像
+	GAB: Global Alpha Blender(alpha搅拌器,即图层混合器)
+紧接之前分析:atmel_hlcd_dc_load 里对硬件的初始化应该集中在 atmel_hlcdc_dc_modeset_init:
+	设置 drm 相关参数?		//drm_mode_config_init
+		INIT_LIST_HEAD(&dev->mode_config.fb_list);
+		INIT_LIST_HEAD(&dev->mode_config.crtc_list);
+		INIT_LIST_HEAD(&dev->mode_config.connector_list);
+		INIT_LIST_HEAD(&dev->mode_config.encoder_list);
+		INIT_LIST_HEAD(&dev->mode_config.property_list);
+		INIT_LIST_HEAD(&dev->mode_config.property_blob_list);
+		INIT_LIST_HEAD(&dev->mode_config.plane_list);
+		idr_init(&dev->mode_config.crtc_idr);
+		idr_init(&dev->mode_config.tile_idr);
+	建立 outputs 设备??		//atmel_hlcdc_create_outputs(其实就是发现hlcd-display-controler的子设备节点 port 接口,并初始化!!)
+	建立 planes ??			//atmel_hlcdc_create_planes
+		设置layer
+	建立 crtc ??			//atmel_hlcdc_crtc_create
+	设置 mode_config_funcs		//ddev->mode_config.funcs = &mode_config_funcs;
+		static const struct drm_mode_config_funcs mode_config_funcs = {
+			.fb_create = atmel_hlcdc_fb_create,
+			.output_poll_changed = atmel_hlcdc_fb_output_poll_changed,
+			.atomic_check = drm_atomic_helper_check,
+			.atomic_commit = atmel_hlcdc_dc_atomic_commit,
+		};
+快速查找出错处!! 对比输出错误码ret 与 errno.h里的数据
+怀疑 hdmi 与 drm 有关系,于是查看了资料,发现:
+	sama5d4并没有hdmi模块,而是通过外接 sil9022 芯片 把 rgb777 信号转为 hdmi信号输出,而sil9022也是通过i2c与sama5d4通讯
+	也就是说,hdmi不是芯片自己实现的,还是需要类型\cd信号输出然后通过转换芯片转换
+所以参考hdmi的dts,试写lcd信号的设备树信息
+	出现错误!! failed to create HLCDC outputs: -517
+	加 pr_debug 和对比 hdmi_dts发现是hdmi_dts的 of_drm_find_bridge 正确输出!! 
+
+
+
+
+
+
+
+
+
+
+
+20161226
+补充:裸屏参数!!
+	800 X 480 pixel
+	108(H) X 64.8(V) mm
+	each pixel: 0.135(H) x 0.135(V) mm
+	DotCLK: 33.36MHZ
+	FRAME frequency: 60 hz
+	lcd_power: 3.3V	  110mA   363mW
+	backlight: 23.1V  40ma	  924mW 
+继续挖掘 DRM 有用信息!!!
+
+继承试写 lcd dts节点 ,
+	发现,之前atmel_create_uotputs失败,是因为 atmel_hlcdc_check_endpoint失败!!,然而换作预装hdmi的dts时,却成功!!
+	原来hdmi的dts里 的 sil9022节点模块,使用了 drm_bridge_add(),所以 atmel_hlcdc_check_endpoint->of_drm_find_bridge 正确输出 
+	所所谓的 bridge 可以理解为 drm 的 encoder 
+	不使用 sil9022模块的我们应该如何修改 ??
+	从 check_endpoint 看到了,除了 bridge 匹配的方式外,还有 panel 匹配方式, 
+	查看代码,发现drm/panel被编译了,也就说,可以尝试在这里添加 信息,用于匹配!!
+先pannel 添加 pr_debug:
+	panel/Makefile: 添加 ccflags-y := -DDEBUG
+	panel-simple.c 添加:
+	#include <linux/kernel.h>
+	然后就可以在要检测的地方加pr_debug
+再次改写dts!!
+	panel-simple.c 添加:
+	static const struct drm_display_mode atmel_lcd_display_control_mode = {
+		.clock = 33260,
+		.hdisplay = 800,
+		.hsync_start = 800 + 168,
+		.hsync_end = 800 + 168 + 64,
+		.htotal= 800 + 168 + 64 + 88,
+		.vdisplay = 480,
+		.vsync_start = 480 + 37,
+		.vsync_end = 480 + 37 + 2,
+		.vtotal = 480 + 37 + 2 + 8,
+		.vrefresh = 60,
+	};
+	
+	static const struct panel_desc atmel_lcd_display_control = {
+		.modes = &atmel_lcd_display_control_mode,
+		.num_modes = 1,
+		.bpc = 8,
+		.size = {
+			.width = 108,
+			.height = 65,
+		},
+		.bus_format = MEDIA_BUS_FMT_RGB888_1X24,
+	};
+
+	static const struct of_device_id platform_of_match[] = {
+		...
+		{
+		//by william
+		.compatible = "atmel,lcd-display-control",
+		.data = &atmel_lcd_display_control,
+		},
+		...
+	}
+	dts添加: (参考sama5d3xdm.dtsi)
+	/{
+		........
+		ahb {
+			apb {
+				hlcdc: hlcdc@f0000000 {
+					status = "okay";
+	
+					hlcdc-display-controller {
+						pinctrl-names = "default";
+						pinctrl-0 = <&pinctrl_lcd_base &pinctrl_lcd_rgb888>;
+	
+						port@0 {
+							hlcdc_panel_output: endpoint@0 {
+								reg = <0>;
+								remote-endpoint = <&panel_input>;
+							};
+						};
+					};
+				};
+				........
+			};
+			......
+		};
+			....
+		backlight: backlight {
+			compatible = "pwm-backlight";
+			pwms = <&hlcdc_pwm 0 50000 0>;
+			brightness-levels = <0 4 8 16 32 64 128 255>;
+			default-brightness-level = <6>;
+			power-supply = <&bl_reg>;
+			status = "okay";
+		};
+	
+		bl_reg: backlight_regulator {
+			compatible = "regulator-fixed";
+			regulator-name = "backlight-power-supply";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			status = "okay";
+		};
+	
+		panel: panel {
+			compatible = "atmel,lcd-display-control", "simple-panel";
+			backlight = <&backlight>;
+			power-supply = <&panel_reg>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+	
+			port@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+	
+				panel_input: endpoint@0 {
+					reg = <0>;
+					remote-endpoint = <&hlcdc_panel_output>;
+				};
+			};
+		};
+	
+		panel_reg: panel_regulator {
+			compatible = "regulator-fixed";
+			regulator-name = "panel-power-supply";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			status = "okay";
+		};
+	};	
+	成功跳过错误,并 DRM device successfully registered  
+	但未接屏幕测试.
+	发生了一次奇怪现象: panel-simple-probe 独立执行了两次!!!执行了两次atmel-hlcdc-dc_probe!!独立执行了三次
+	多次调用直到把功能初始化了的机制是什么?
+	为什么,第一次 panel-simple-probe 会运行到一般断掉后面也没有恢复,而下一次却重新panel-simple-probe却完整执行??
+	没有时钟信号输出 !!
+搭建tftp服务器,以便于日后往开发板烧录测试文件!!
+	1.安装tftp的服务端和客户端：
+		sudo apt-get install tftpd-hpa ；安装tftp服务端
+		sudo apt-get install tftp-hpa   ；安装tftp客户端
+	2.安装xinetd:	sudo apt-get install xinetd：支持对tcp、udp、RPC服务的东东
+	3.mkdir ~/tftpboot
+		释放权限：sudo chmod 777 ~/tftpboot
+	4.配置TFTP服务器,编辑tftpd-hpa：	sudo gedit /etc/default/tftpd-hpa
+	# /etc/default/tftpd-hpa
+	TFTP_USERNAME="tftp"
+	TFTP_DIRECTORY="/home/infortech-ubuntu-1404/tftpboot"
+	TFTP_ADDRESS="0.0.0.0:69"
+	TFTP_OPTIONS="--secure"
+	5.重启xinetd服务:	sudo /etc/init.d/xinetd restart
+	6.重启tftpd服务:	sudo /etc/init.d/tftpd-hpa restart
+开发板tftp命令:
+	tftp -gl 文件名 服务器ip	(tftp -gl text.txt 192.168.105.117)	//下载文件到开发板!!
+
+
+
+
+
+
+
+
+
+
+
+20161227
+昨日添加了panel后初始化驱动成功,但是示波器检测排口发现没有输出!!
+	开了 bootup_logo 测试输出,发现没有输出!!
+	网上发现还要开framebuffer console !! 开后 lcd排针有输出
+	修改 panel-simple.c 的帧参数,发现相应改变了 vs hs clk 的输出频率,但是,并没有完全适配等同panel上设置的参数!!!!!!
+测试fb设备功能!!!编写一个简单的显示程序!!!
+	ubuntu jpg 转换 bmp :
+		sudo apt-get install Imagemagick
+		convert filename.jpg filename.bmp	//简单转换
+		如果你使用JPEG等大小和图片质量有关的图形格式化，可以使用-quality参数。参数的数值在0至100之间，数值越大文件越大，
+		通常情况下，60-80就可以了，譬如：convert -quality 80 filename.bmp filename.jpg
+workqueue学习:
+	关于workqueue 与 per-cpu的worker thread 的关系!!! (面向多核多线程的芯片,即多cpu芯片)
+	struct workqueue_struct {
+	    struct cpu_workqueue_struct *cpu_wq; －－－－－per-cpu work queue struct
+	    struct list_head list; －－－workqueue list
+	    const char *name;
+	    int singlethread; －－－－single thread or multi thread
+	    int freezeable;  －－－－和电源管理相关的一个flag
+	}; 
+	    struct cpu_workqueue_struct {
+	
+	        spinlock_t lock; －－－－用来保护worklist资源的访问
+	
+	        struct list_head worklist;
+	        wait_queue_head_t more_work; －－－－－等待队列头
+	        struct work_struct *current_work; －－－－当前正在处理的work
+	
+	        struct workqueue_struct *wq; －－－－－－指向work queue struct
+	        struct task_struct *thread; －－－－－－－worker thread task
+	
+	        int run_depth;        /* Detect run_workqueue() recursion depth */
+	    } ____cacheline_aligned;
+	假如用户创建了一个 workqueue 就有一个 workqueue_struct !!
+		workqueue_struct 里有一个 struct cpu_workqueue_struct 指针,
+		这个指针应该是指向 一个 struct cpu_workqueue_struct[] 队列的,(per cpu分配的)
+		每个struct cpu_workqueue_struct[] 队列成员面向对应的cpu,对应的worker thread,也只能被指定的cpu访问!! 
+	一般而言，当创建一个workqueue的时候会为每一个系统内的processor创建一个内核线程，该线程处理本cpu调度的work。
+	每个挂入workqueue的work都据实际情况在哪一个cpu上被调度，就挂入哪一个worker thread(即某个struct cpu_workqueue_struct队列成员)
+	调度work执行有两个接口，
+		一个是schedule_work，将work挂入系统默认workqueue（keventd_wq），
+		另外一个是queue_work，可以将work挂入指定的workqueue
+	到底插入workqueue的哪一个worker thread呢？这是由wq_per_cpu定义的：
+		static struct cpu_workqueue_struct *wq_per_cpu(struct workqueue_struct *wq, int cpu)
+		{
+ 	       	if (unlikely(is_single_threaded(wq)))
+        		    cpu = singlethread_cpu;
+        		return per_cpu_ptr(wq->cpu_wq, cpu);
+		}
+		普通情况下，都是根据当前的cpu id，通过per_cpu_ptr获取cpu_workqueue_struct的数据结构，对于single thread而言，cpu是固定的。 
+	不管是否是single thread workqueue，worker thread（cpu_workqueue_struct）的数据结构总是per cpu分配的（稍显浪费），
+		不过实际上对于single thread workqueue而言，
+		只会使用其中的一个cpu,(其中的一个worker thread,其中的一个struct cpu_workqueue_struct[] 队列成员)
+Concurrency Managed Workqueue 与 旧的workqueue 比较
+	接口API
+		1、初始化work的接口保持不变，可以静态或者动态创建work。
+		2、调度work执行也保持和旧的workqueue一致。
+		3、创建workqueue。和旧的create_workqueue接口不同，CMWQ采用了alloc_workqueue这样的接口符号，	
+	旧:
+		用户每建立一个 新workqueue 都会马上为每个cpu都新建一个新的work thread 线程
+		所以每个workqueue 都有一组work thread,( 一个struct cpu_workqueue_struct[] 队列)
+		并发处理问题:
+			a,b,c,d四个work 挂到同一个workqueue的同一个cpu里(同一个work thread 线程),
+			四个work只能排队串行执行
+	Concurrency Managed:
+		workqueue 与work_thread 概念分开!!
+		用户每建立一个 新workqueue 不会为每个cpu都新建一个新的work thread 线程
+		但是 引入了woeker pool 概念,worker pool 独立于workqueue
+		每个cpu都只有一个 worker pool,
+		每个加入到 workqueue 的 work,都会动态随机第地挂入 其中一个worker pool ,work只是与workqueue有联系
+		但是work到底安排到 那条线程里执行是不是分配一条新的线程执行,什么时候执行,由worker pool 自己执行决定!!
+		解决并发问题:
+			a,b,c,d四个work 挂到同一个workqueue的同一个cpu里(同一个worker pool),
+			四个work可行执行,
+			例如,a运行过程中遇到阻塞,woker pool可以另外生成一条新线程执行b,c,d
+			b遇阻塞时,同理另外建新线程执行c,d
+grep 使用技巧:
+	grep “字符串” *            如果要搜索的目录下没有目录的话，完全不用加参数
+	grep -r “字符串” *        如果有目录，-r可以递归搜索，好像-R也可以，而且man手册还区分了，可能在符号链接上有什么区别，但是没有试验过
+	grep -i “字符串” *        忽略字符串中的大小写
+	grep -n "字符串" *       列出字符串所在文件的行号，结合vim 文件 +行号 打开文件很有用
+	在grep实际使用中，可能还会结合转义字符\，比如带“->“的，就需要搜索时加转义”\->“不然搜不到的。反正有时候搜索带通用匹配符而又搜不到结果时， 
+	例子:grep -rin "samsung" 
+find命令:	
+	find . | grep "vt.c"	//列出文件名含 vt.c 字符 文件路径 
+终端中的复制/粘贴: Shift+Ctrl+C:复制 Shift+Ctrl+V:粘贴
+
+
+
+
+
+
+
+
+
+
+
+20161228
+昨日打开了framebuffer console 后信号针有输出,意味着应该能够看到bootup_logo
+	昨日编译的zImage配上官方hdmi.dtb 接入大电视,过看到图片和图标,
+	今天的lcd转接板也能正常工作!!!但偏暗!!! 开发板供电不足够? 开发板backlight 电路有问题?
+网上下载显示bmp软件的用户程序,成功编译,输出信号!!
+
+
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ VBLANK: 显示器扫描线完成最后一行后,需要重返左上角,这个过程叫做: vblank,也叫VBI(vertical blank interval) ,因为扫描线变得blank,以防止看到一个斜线显示在屏幕上.?????
+		
+		
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+////////////////////////////// regmap 模块概念
+3.0linux内核版本中，codec driver是直接调用i2c的i2c_master_send函数与i2c_transfer函数来实现i2c的读写，
+3.3版本，codec driver通过调用snd_soc_read和snd_soc_write函数来实现i2c的读写，
+	这两个函数内部包裹了codec->read和codec->write，而codec->read和codec->write的赋值是在snd_soc_codec_set_cache_io中，
+	最终也是调用了i2c_master_send函数与i2c_transfer函数
+3.10版本开始出现了regmap的接口，这个regmap将i2c、spi、mmio、irq都抽象出统一的接口regmap_read、regmap_write、regmap_update_bits等接口
+例如对于i2c接口
+devm_regmap_init_i2c(i2c, &regmap_i2c);或者使用
+devm_regmap_init(&i2c->dev, &regmap_i2c, &i2c->dev, config)
+|
+devm_regmap_init(struct device *dev, struct regmap_bus *bus, void *bus_content, struct regmap_config *config);
+1）注册方法regmap_bus和对象i2c：
+通过把struct regmap_bus regmap_i2c和i2c->dev注册到regmap模块中去，而regmap_bus中已经实现了read和write函数（调用的就是i2c_master_send与i2c_transfer）
+2）使用注册的对象和方法
+当调用regmap_read或者regmap_write的时候，这两个函数会取出struct regmap中的content即i2c，并调用之前注册的regmap_bus中的read和write函数来实现读和写。
+regmap_update_bit内部调用了regmap_read和regmap_write
+我觉得以上的原理挺重要的，我们可以自己实现类似的接口：提供注册的机制，能够将对象以及对象的方法注册进去；当需要调用的时候，取出对应的对象和方法。
+
+
+
+
+
+
+
+
+
+
+////////////////////////////// linux 4.1 流程
+但是在某个platform设备的设备信息被 device_add 到platferm总线上时，platform设备会执行probe，
+
+
+setup+_arch->setup_arch->unflatten_device_tree (将DTB二进制文件转换成节点是device_node的树状结构)
+
+
+板级初始化前，先挂载安装各种 bus设备（包括platform—bus设备）到linux上，
+然后挂载各种设备驱动信息到 对应的总线设备上，挂载各个platform设备的驱动信息到 platform总线上
+
+板级初始化：（重的说，从dtb处获得 各platform设备的设备信息内容，注册platform设备的设备信息到 platform总线上）
+sama5_dt_device_init DT_MACHINE_START(sama5_dt, "Atmel SAMA5")：.init_machine
+	at91_soc_init	//得到 soc，信息
+	soc_device_to_device
+	of_platform_populate(NULL, of_default_bus_match_table, NULL, soc_dev);		//应该只注册platform设备信息到 platform总线上
+		of_find_node_by_path("/")
+		of_platform_bus_create
+			of_get_property(bus, "compatible", NULL)
+			auxdata = of_dev_lookup(lookup, bus);
+			of_device_is_compatible(bus, "arm,primecell")			//比较compatible
+			of_amba_device_create(bus, bus_id, platform_data, parent);	//amba还是属于注册platform设备信息到 platform总线上）
+				dev = amba_device_alloc(NULL, 0, 0);
+					amba_device_initialize(dev, name);	
+						device_initialize(&dev->dev);		//device_initialize	
+				irq_of_parse_and_map
+				ret = of_address_to_resource(node, 0, &dev->res);
+					addrp = of_get_address(dev, index, &size, &flags);
+					__of_address_to_resource(dev, addrp, size, flags, name, r);
+						taddr = of_translate_address(dev, addrp);
+						port = pci_address_to_pio(taddr);
+				ret = amba_device_add(dev, &iomem_resource);
+					ret = request_resource(parent, &dev->res);
+					ret = amba_get_enable_pclk(dev);
+					amba_put_disable_pclk(dev);
+					ret = device_add(&dev->dev);		//device_add（还是属于注册platform设备信息到 platform总线上）
+			dev = of_platform_device_create_pdata(bus, bus_id, platform_data, parent);
+				dev = of_device_alloc(np, bus_id, parent);
+					dev = platform_device_alloc("", -1);
+					。。。
+				of_dma_configure(&dev->dev, dev->dev.of_node);
+				int of_device_add(struct platform_device *ofdev)
+					device_add(&ofdev->dev)				//device_add
+			for_each_child_of_node(bus, child) {
+				rc = of_platform_bus_create(child, matches, lookup, &dev->dev, strict);
+			of_node_set_flag(bus, OF_POPULATED_BUS);
+		of_node_set_flag
+		of_node_put
+	at91sam9x5_pm_init	//这里是启动电源
+		at91_dt_ramc();
+		at91_pm_init();
+		at91_pmc_fast_startup_init();
+	
+总的来说，板级初始化的 显性做法就是 把platform设备的设备信息挂到 platform总线上
+但是在某个platform设备的设备信息被 device_add 到platferm总线上时，platform设备会执行probe，
+
+
+ 	
+platform设备会执行probe，probe会把对应的具体设备的设备信息，挂入对应子系统的bus设备，
+诱发bus：match，诱发具体设备驱动probe，初始化具体设备驱动 注册并挂载设备到linux上！！
+
+例如 i2c-platform设备的probe
+static int at91_twi_probe(struct platform_device *pdev)		//i2c_at91.c
+	rc = i2c_add_numbered_adapter(&dev->adapter);
+		__i2c_add_numbered_adapter
+			i2c_register_adapter
+				{ dev_set_name(&adap->dev, "i2c-%d", adap->nr);
+				adap->dev.bus = &i2c_bus_type;
+				adap->dev.type = &i2c_adapter_type;
+				res = device_register(&adap->dev);  }	//把i2c adapter的设备信息 挂入 spi bus
+				bri->recover_bus--int (*recover_bus)(struct i2c_adapter *)	//从dtb中读取 具体其他外接从设备信息 挂入 i2c bus
+					//只有一个指针，实际函数在哪还不知道！！
+	
+	
+	
+	
+	
+例如 spi-platform设备的probe	
+static int atmel_spi_probe(struct platform_device *pdev)	//Spi_atmel.c
+	int devm_spi_register_master(struct device *dev, struct spi_master *master)
+		ret = spi_register_master(master);	
+			status = of_spi_register_master(master);	//从dtb得到一些信息
+			{ dev_set_name(&master->dev, "spi%u", master->bus_num);
+			status = device_add(&master->dev); }		//把spi master设备信息 挂入 spi bus
+			of_register_spi_devices(master);		//从dtb中读取 具体其他外接从设备信息 挂入 spi bus
+	
+	
+	
+	
+注意到，对于芯片的所有功能模块，指定子系统的 platform设备只是一个桥接的左右，并没有实际操作算法！！！
+而实际访问控制芯片寄存器的api 是又 主机设备提供的，
+例如i2c adapter spi master 才是真正操作芯片寄存器的挂载在linux上的设备
+而其他外接功能芯片的设备是通过有组织调用 主机设备的操作函数的 “虚拟”设备而已	
+
+主机设备与万能设备的区别？？
+看到主机设备的 device_register,但是没看到主机设备的 driver_register？
+主机设备是platform设备本身，还是另外靠xx bus match后初始化的另一个设备？？
+
+
+
+注意：of_xxxx_put()或者xxxx_put()是卸载未完全加载的 模块
+
+
+
+////////////////////////////// dts学习
+
+关于旧版内核板级信息,与新版dts的对比:
+	http://blog.csdn.net/sinat_26600745/article/details/47345257 
+
+
+基本知识
+http://blog.csdn.net/21cnbao/article/details/8457546
+
+1,
+#address-cells
+#size-cells
+描述子节点级的可寻址的 reg变量数量
+例如:
+{
+	#address-cells = <3>;	//表示 reg 有3个address内容
+	#size-cells = <2>;	//表示 reg 有2个size内容
+	a@0 {
+		device_type = "cpu";
+		compatible = "arm,cortex-a5";
+		reg = <1 78 0x67 88 1023 >;	//1,78,0x67为3个address内容, 88,1023为2个size内容
+		next-level-cache = <&L2>;
+	};
+};
+
+2,
+interrupt-parent
+interrupts =
+interrupt-controller
+/*遍历所有的node，寻找定义了interrupt-controller属性的node，如果定义了interrupt-controller属性则说明该node就是一个中断控制器。*/
+interrupt controller的处理
+初始化是通过start_kernel->init_IRQ->machine_desc->init_irq()实现的
+
+
+http://www.cnblogs.com/aaronLinux/p/5496559.html
+
+例子:
+http://www.cnblogs.com/aaronLinux/p/5551441.html
+此篇源文件arch/arm/boot/dts/imx6sx.dtsi
+uart5: serial@021f4000 {
+    compatible = "fsl,imx6sx-uart",
+                "fsl,imx6q-uart", "fsl,imx21-uart";
+    reg = <0x021f4000 0x4000>;
+    interrupts = <GIC_SPI 30 IRQ_TYPE_LEVEL_HIGH>;
+    clocks = <&clks IMX6SX_CLK_UART_IPG>,
+            <&clks IMX6SX_CLK_UART_SERIAL>;
+    clock-names = "ipg", "per";
+    dmas = <&sdma 33 4 0>, <&sdma 34 4 0>;
+    dma-names = "rx", "tx";
+    status = "disabled";
+};
+以上这段代码更多出现在*.dtsi中
+如uart5作为该外设的label，node-name@unit-address作为设备的名称，node-name只是设备类型，
+	uart1/uart2/uart3等可以都是serial名称，而@后面则跟着设备寄存器起始地址。
+interrupts对应的中断号和中断出发方式，uart5的父节点为aips2，而aips2的父节点为soc，soc节点定义了interrupt-parent = <&intc>;
+	给出了节点所依附的中断控制器，如果节点没有指定interrupt-parent，那么就从父节点继承，所以该uart5节点继承了soc的中断控制器，即intc. 
+	而intc节点的#interrupt-cells = <3>;所以就有了该节点中interrupts = <GIC_SPI 30 IRQ_TYPE_LEVEL_HIGH>;三个字段，
+	具体这三个字段的含义可以参考芯片文档的描述。其中GIC_SPI定义在include/dt-bindings/interrupt-controller/arm-gic.h值为0，　
+clock外设时钟，在include/dt-bindings/clock/imx6sx-clock.h，指定设备工作时钟
+status一般会设为disabled。
+&uart5 {
+    pinctrl-names = "default";
+    pinctrl-0 = <&pinctrl_uart5>;
+    fsl,uart-has-rtscts;
+    status = "okay";
+};
+以上这段代码更多出现在*.dts中
+注：如果看过内核/arch/arm/boot/dts目录的读者看到这可能有一个疑问。在每个.dsti和.dts中都会存在一个“/”根节点，
+	那么如果在一个设备树文件中include一个.dtsi文件，那么岂不是存在多个“/”根节点了么。
+	其实不然，编译器DTC在对.dts进行编译生成dtb时，会对node进行合并操作，最终生成的dtb只有一个root node。
+	Dtc会进行合并操作这一点从属性上也可以得到验证。这个稍后做讲解。
+在*.dts中如果想对该设备进行操作，需要进行override，至少status需要从disabled设置为okay, 
+	当然也有可能需要对compatible属性进行重写(为了和自己的driver匹配)，另外需要使用&label首先引用该设备，
+使用pinctrl-names和pinctrl-0进行引脚的配置，当然这里可能出现多组引脚的配置，例如:
+&usdhc3 {
+    pinctrl-names = "default", "state_100mhz", "state_200mhz";
+    pinctrl-0 = <&pinctrl_usdhc3>;
+    pinctrl-1 = <&pinctrl_usdhc3_100mhz>;
+    pinctrl-2 = <&pinctrl_usdhc3_200mhz>;
+    bus-width = <8>;
+    cd-gpios = <&gpio2 10 GPIO_ACTIVE_HIGH>;
+    wp-gpios = <&gpio2 15 GPIO_ACTIVE_HIGH>;
+    keep-power-in-suspend;
+    enable-sdio-wakeup;
+    vmmc-supply = <&vcc_sd3>;
+    status = "okay";
+};
+
+pinctrl_usdhc3: usdhc3grp {
+    fsl,pins = <
+        MX6SX_PAD_SD3_CMD__USDHC3_CMD        0x17069
+        MX6SX_PAD_SD3_CLK__USDHC3_CLK        0x10071
+        MX6SX_PAD_SD3_DATA0__USDHC3_DATA0    0x17069
+        MX6SX_PAD_SD3_DATA1__USDHC3_DATA1    0x17069
+        MX6SX_PAD_SD3_DATA2__USDHC3_DATA2    0x17069
+        MX6SX_PAD_SD3_DATA3__USDHC3_DATA3    0x17069
+        MX6SX_PAD_SD3_DATA4__USDHC3_DATA4    0x17069
+        MX6SX_PAD_SD3_DATA5__USDHC3_DATA5    0x17069
+        MX6SX_PAD_SD3_DATA6__USDHC3_DATA6    0x17069
+        MX6SX_PAD_SD3_DATA7__USDHC3_DATA7    0x17069
+        MX6SX_PAD_KEY_COL0__GPIO2_IO_10        0x17059 /* CD */
+        MX6SX_PAD_KEY_ROW0__GPIO2_IO_15        0x17059 /* WP */
+        >;
+};
+这种pinctrl的设置可参照/Documentation/devicetree/bindinsg/pinctrl下示例代码
+
+
+
+
+
+
+
+
+
+
+
+
+
+////////////////////////////// sama5d4 mmap 结构
+
+/*
+ * Internal Memory.		//
+ */
+#define ATMEL_BASE_ROM		0x00000000	片上rom始地址
+#define ATMEL_BASE_NFC		0x00100000	片上SRAM始地址
+#define ATMEL_BASE_SRAM		0x00200000	第二块片上ROM始地址,
+#define ATMEL_BASE_VDEC		0x00300000	/* Video Decoder Controller */
+#define ATMEL_BASE_UDPHS_FIFO	0x00400000	/* USB Device HS controller */
+#define ATMEL_BASE_OHCI		0x00500000	/* USB Host controller (OHCI) */
+#define ATMEL_BASE_EHCI		0x00600000	/* USB Host controller (EHCI) */
+#define ATMEL_BASE_AXI		0x00700000
+#define ATMEL_BASE_DAP		0x00800000
+#define ATMEL_BASE_SMD		0x00900000
+
+/*
+ * External memory
+ */
+#define ATMEL_BASE_CS0		0x10000000
+#define ATMEL_BASE_DDRCS	0x20000000
+#define ATMEL_BASE_CS1		0x60000000
+#define ATMEL_BASE_CS2		0x70000000
+#define ATMEL_BASE_CS3		0x80000000
+
+
+
+
+
+
+////////////////////////////// TFT_lcd
+
+SAMA5D4 : default lcd 接口  (对应RGB88的,注意,物理接口不能其他兼容RGBXXX,详细看pdf)
+1:	EDBG_ID_01		ID_SYS not connect
+2:	GND
+3:	LCD_DAT0_PA0		LCDDAT0 	Blue	
+5:	LCD_DAT0_PA1		LCDDAT1 
+5:	LCD_DAT0_PA2		LCDDAT2 
+6:	LCD_DAT0_PA3		LCDDAT3
+7:	GND
+8:	LCD_DAT0_PA4		LCDDAT4 	
+9:	LCD_DAT0_PA5		LCDDAT5 
+10:	LCD_DAT0_PA6		LCDDAT6 
+11:	LCD_DAT0_PA7		LCDDAT7
+12:	GND
+13:	LCD_DAT0_PA8		LCDDAT8		GREEN
+14:	LCD_DAT0_PA9		LCDDAT9 
+15:	LCD_DAT0_PA10		LCDDAT10 
+16:	LCD_DAT0_PA11		LCDDAT11
+17:	GND
+18:	LCD_DAT0_PA12		LCDDAT12	
+19:	LCD_DAT0_PA13		LCDDAT13
+20:	LCD_DAT0_PA14		LCDDAT14 
+21:	LCD_DAT0_PA15		LCDDAT15
+22:	GND
+23:	LCD_DAT0_PA16		LCDDAT16	RED
+24:	LCD_DAT0_PA17		LCDDAT17
+25:	LCD_DAT0_PA18		LCDDAT18 
+26:	LCD_DAT0_PA19		LCDDAT19
+27:	GND
+28:	LCD_DAT0_PA20		LCDDAT20
+29:	LCD_DAT0_PA21		LCDDAT21
+30:	LCD_DAT0_PA22		LCDDAT22 
+31:	LCD_DAT0_PA23		LCDDAT23
+32:	GND
+33:	LCD_PCK_PA28		LCDPCK
+34:	LCD_VSYNC_PA26		LCDVSYNC
+35:	LCD_HSYNC_PA27		LCDHSYNc 
+36:	LCD_DEN_PA29		LCDDEN
+37:	AD3_YM_PC30		YM 即 Y- 是并联到GND的一端
+38:	AD2_YP_PC29		YP 即 Y+ 是并联到VCC的一端
+39:	AD1_XM_PC28		XM 即 X- 是并联到GND的一端
+40:	AD0_XP_PC27		XP 即 X+ 是并联到VCC的一端
+41:	LCD_DISP_PA25		LCDDISP
+42:	LCD_TWD0_PA30		not connect
+43:	LCD_TWCK0_PA31		not connect
+44:	LCD_PE9			IRQ1 not connect
+45:	LCD_PE10		IRQ2 not connect
+46:	LCD_PWM_PA24		not connect
+47:	NRST_3V3		not connect
+48:	VCC_5V
+50:	GND
+
+裸屏!!
+1:	VLED-		LED Ground	//另外接 TPS61040 模块
+2:	VLED+		LED Power
+3:	DGND		Digital Ground
+4:	VCC		Power Supply (+3.3 V)
+5:	R0		Red Data Bit0
+6:	R1		Red Data Bit1
+7:	R2		Red Data Bit2
+8:	R3		Red Data Bit3
+9:	R4		Red Data Bit4
+10:	R5		Red Data Bit5
+11:	R6		Red Data Bit6
+12:	R7		Red Data Bit7
+13:	G0		Green Data Bit0
+14:	G1		Green Data Bit1
+15:	G2		Green Data Bit2
+16:	G3		Green Data Bit3
+17:	G4		Green Data Bit4
+18:	G5		Green Data Bit5
+19:	G6		Green Data Bit6
+20:	G7		Green Data Bit7
+21:	B0		Blue Data Bit0
+22:	B1		Blue Data Bit1
+23:	B2		Blue Data Bit2
+24:	B3		Blue Data Bit3
+25:	B4		Blue Data Bit4
+26:	B5		Blue Data Bit5
+27:	B6		Blue Data Bit6
+28:	B7		Blue Data Bit7
+29:	DGND		Digital Ground
+30:	DCLK		Dot Data Clock
+31:	DISP		Display On/Off		Usually pull high. High: Display On / Low: Display Off
+32:	Hsync		Horizontal Sync Input
+33:	Vsync		Vertical Sync Input
+34:	DE		Data Enable Control	DE=” H “: data can be access, DE=” L “: data cannot be access
+35:	N.C		N.C
+36:	DGND		Digital Ground
+37:	X-		触摸控制
+38:	Y-		触摸控制
+39:	X+		触摸控制
+40:	Y+		触摸控制
+
+XPT2046触摸控制芯片,
+ssd1960 单片机mcu 与 lcd裸屏 之间的转接芯片,(一般单片机本身没有lcd控制模块时才去使用有转接芯片的方案)
+
+adc touchscreen page1537
+
+
+////////////////////////////// linux 启动流程
+
+
+
+
+arch/arm/kernel/head.s: _INIT
+
+init/main.c:  asmlinkage __visible void __init start_kernel(void)
+
+
+
+
+
+
+////////////////////////////// linux 启动流程
+at91Tbootstep会把全局物理地址 0x40000 (nandflash空间)的0x80000字节内容拷到全局物理地址 0x26f00000 (对应ram空间)去,
+就是uboot内容
+uboot从 arch/arm/lib/veters.s -> _start -> b reset
+-> arch\arm\cpu\armv7\start.S:reset -> 
+
+
+
+////////////////////////////// linux 
+
+kset kobject :
+kobject 是抽象的通用数据结构,每一个linux内容 例如 device信息,drive信息 等等,都分得一个通用数据,主要用于内容的引用计数,
+当linux内容没有使用时,引用计数为0,linux内容会删除,kobject会从系统释放,
+kset是一个特殊的kobject 指向内容是一个许多kobject指针的链表
+kset 与 kobject 的关系就像 文件夹 和 文件,但文件夹本身是一个有列表信息的文件
+每个 kobject kset  在sys/里都有响应的文件夹,而 kobject 的 attrs属性内容以文件的形式存在这些文件夹里
+
+
+
+
+
+#define ACCESS_ONCE(x) (*(volatile typeof(x) *)&(x))
+owner = ACCESS_ONCE(lock->owner); //ACCESS_ONCE表示一定要从实际内存地址访问这个变量lock->owner,不要被优化,不要从cpu_cache缓存里读出而不访问内存
+
+
+
+
+
+
+
+
+
+
+
+
+GPIO 通用相关:
+pin control subsystem的文件列表
+
+1、源文件列表
+
+我们整理linux/drivers/pinctrl目录下pin control subsystem的源文件列表如下：
+文件名 	描述
+core.c core.h 	pin control subsystem的core driver
+pinctrl-utils.c pinctrl-utils.h 	pin control subsystem的一些utility接口函数
+pinmux.c pinmux.h 	pin control subsystem的core driver(pin muxing部分的代码，也称为pinmux driver)
+pinconf.c pinconf.h 	pin control subsystem的core driver(pin config部分的代码，也称为pin config driver)
+devicetree.c devicetree.h 	pin control subsystem的device tree代码
+pinctrl-xxxx.c 	各种pin controller的low level driver
+在pin controller driver文档中 ，我们以2416的pin controller为例，描述了一个具体的low level的driver，这个driver涉及的文件包括pinctrl-samsung.c，pinctrl-samsung.h和pinctrl-s3c24xx.c。
+
+2、和其他内核模块接口头文件
+很多内核的其他模块需要用到pin control subsystem的服务，这些头文件就定义了pin control subsystem的外部接口以及相关的数据结构。我们整理linux/include/linux/pinctrl目录下pin control subsystem的外部接口头文件列表如下：
+文件名 	描述
+consumer.h 	其他的driver要使用pin control subsystem的下列接口：
+a、设置引脚复用功能
+b、配置引脚的电气特性
+这时候需要include这个头文件
+devinfo.h 	这是for linux内核的驱动模型模块（driver model）使用的接口。struct device中包括了一个struct dev_pin_info    *pins的成员，这个成员描述了该设备的引脚的初始状态信息，在probe之前，driver model中的core driver在调用driver的probe函数之前会先设定pin state
+machine.h 	和machine模块的接口。
+
+3、Low level pin controller driver接口
+我们整理linux/include/linux/pinctrl目录下pin control subsystem提供给底层specific pin controller driver的头文件列表如下：
+文件名 	描述
+pinconf-generic.h 	这个接口主要是提供给各种pin controller driver使用的，不是外部接口。
+pinconf.h 	pin configuration 接口
+pinctrl-state.h 	pin control state状态定义
+pinmux.h 	pin mux function接口 
+
+
+
+
+
+
+
+
+
+
+
+device tree 与gpio 设置:
+    device-node-name { 
+            定义该device自己的属性  
+
+            pinctrl-names = "sleep", "active";－－－－－－（1）
+            pinctrl-0 = <pin-config-0-a>;－－－－－－－－－－－－－－（2）
+            pinctrl-1 = <pin-config-1-a pin-config-1-b>;        
+        };
+
+ （1）pinctrl-names定义了一个state列表。那么什么是state呢？具体说应该是pin state，对于一个client device，它使用了一组pin，这一组pin应该同时处于某种状态，毕竟这些pin是属于一个具体的设备功能。state的定义和电源管理关系比较紧密，例如当设备active的时候，我们需要pin controller将相关的一组pin设定为具体的设备功能，而当设备进入sleep状态的时候，需要pin controller将相关的一组pin设定为普通GPIO，并精确的控制GPIO状态以便节省系统的功耗。state有两种，标识，一种就是pinctrl-names定义的字符串列表，另外一种就是ID。ID从0开始，依次加一。根据例子中的定义，state ID等于0（名字是active）的state对应pinctrl-0属性，state ID等于1（名字是idle）的state对应pinctrl-1属性。具体设备state的定义和各个设备相关，具体参考在自己的device bind。 
+（2）pinctrl-x的定义。pinctrl-x是一个句柄（phandle）列表，每个句柄指向一个pin configuration。有时候，一个state对应多个pin configure。例如在active的时候，I2C功能有两种配置，一种是从pin ID{7,8}引出，另外一个是从pin ID{69,103}引出。 
+
+serial@50000000 { 
+        ……
+        pinctrl-names = "default";
+        pinctrl-0 = <0x2 0x3>;
+    }; 
+该serial device只定义了一个state就是default，对应pinctrl-0属性定义。pinctrl-0是一个句柄（phandle）列表，每个句柄指向一个pin configuration。0x2对应上节中的uart0-data节点，0x03对应uart0-fctl 节点，也就是说，这个串口有两种配置，一种是从gph bank中的第一个和第二个GPIO pin引出，另外一个是从gph bank中的第8个和第9个GPIO pin引出。
+
+（5）一个pin configuration的device tree node被解析成两个描述符，一个是samsung pin group的描述符，另外一个是samsung pin mux function描述符。这两个描述符的名字都是根据dts file中的pin configuration的device node name生成，只不过pin group的名字附加-grp的后缀，而function描述符的名字后面附加-mux的后缀。 
+    struct of_device_id
+    {
+        char    name[32];－－－－－－要匹配的device node的名字
+        char    type[32];－－－－－－－要匹配的device node的类型
+        char    compatible[128];－－－匹配字符串（DT compatible string），用来匹配适合的device node
+        const void *data;－－－－－－－－对于GIC，这里是初始化函数指针
+    };
+
+这个数据结构主要被用来进行Device node和driver模块进行匹配用的。从该数据结构的定义可以看出，在匹配过程中，device name、device type和DT compatible string都是考虑的因素。更细节的内容请参考__of_device_is_compatible函数。 
+
+
+
+
+
+
+
+
+
+
+
+
+Linux kernel的中断子系统 gic模块
+gic控制所有中断,外部中断先通过gic distributor 选择由哪一个cpu处理这次这个中断行为,然后通过cpu interface 传递到中断该cpu当前运作,让其执行这次中断任务!!!!!
+中断虽然发生了，但软件不一定立刻响应，可能由于在内核态执行的某些操作不希望被外部事件打断而主动关闭了中断（或是关闭了CPU的中断，或者MASK了该IRQ number），这时候，中断信号没有立刻得到响应，软件仍然在内核态执行低优先级任务系统调用的代码。
+
+2.6内核和2.4内核显著的不同是提供了一个CONFIG_PREEMPT的选项，打开该选项后，linux kernel就支持了内核代码的抢占（当然不能在临界区）
+所谓抢占式就是中断任务处理完后,重新调度,而不是回到之前被打断的进程
+ （1）为了同步，内核中总有些代码需要持有自旋锁资源，或者显式的调用preempt_disable来禁止抢占，这时候不允许抢占 
+ （2）中断上下文（并非只是中断handler，还包括softirq、timer、tasklet）总是可以抢占进程上下文 
+因此，即便是打开了PREEMPT的选项，实际上linux系统的任务响应时间仍然是不确定的。一方面内核代码的临界区非常多，我们需要找到，系统中持有锁，或者禁止抢占的最大的时间片。另外一方面，在上图的T4中，能顺利的调度高优先级任务并非易事，这时候可能有触发的软中断，也可能有新来的中断，也可能某些driver的tasklet要执行，只有在没有任何bottom half的任务要执行的时候，调度器才会启动调度。 
+
+ARM处理器有多种processor mode，例如user mode（用户空间的AP所处于的模式）、supervisor mode（即SVC mode，大部分的内核态代码都处于这种mode）、IRQ mode（发生中断后，处理器会切入到该mode）等。对于linux kernel，其中断处理处理过程中，ARM 处理器大部分都是处于SVC mode。但是，实际上产生中断的时候，ARM处理器实际上是进入IRQ mode，因此在进入真正的IRQ异常处理之前会有一小段IRQ mode的操作，之后会进入SVC mode进行真正的IRQ异常处理。由于IRQ mode只是一个过度，因此IRQ mode的栈很小，只有12个字节，
+struct stack {
+    u32 irq[3];
+    u32 abt[3];
+    u32 und[3];
+} ____cacheline_aligned; 
+ static struct stack stacks[NR_CPUS]; 
+除了irq mode，linux kernel在处理abt mode（当发生data abort exception或者prefetch abort exception的时候进入的模式）和und mode（处理器遇到一个未定义的指令的时候进入的异常模式）的时候也是采用了相同的策略。也就是经过一个简短的abt或者und mode之后，stack切换到svc mode的栈上，这个栈就是发生异常那个时间点current thread的内核栈。anyway，在irq mode和svc mode之间总是需要一个stack保存数据，这就是中断模式的stack，系统初始化的时候，cpu_init函数中会进行中断模式stack的设定
+ 嵌入式汇编的语法格式是：asm(code : output operand list : input operand list : clobber list);大家对着上面的code就可以分开各段内容了。在input operand list中，有两种限制符（constraint），"r"或者"I"，"I"表示立即数（Immediate operands），"r"表示用通用寄存器传递参数。clobber list中有一个r14，表示在汇编代码中修改了r14的值，这些信息是编译器需要的内容。
+
+对于SMP，bootstrap CPU会在系统初始化的时候执行cpu_init函数，进行本CPU的irq、abt和und三种模式的内核栈的设定，具体调用序列是：start_kernel--->setup_arch--->setup_processor--->cpu_init。对于系统中其他的CPU，bootstrap CPU会在系统初始化的最后，对每一个online的CPU进行初始化，具体的调用序列是：start_kernel--->rest_init--->kernel_init--->kernel_init_freeable--->kernel_init_freeable--->smp_init--->cpu_up--->_cpu_up--->__cpu_up。__cpu_up函数是和CPU architecture相关的。对于ARM，其调用序列是__cpu_up--->boot_secondary--->smp_ops.smp_boot_secondary(SOC相关代码)--->secondary_startup--->__secondary_switched--->secondary_start_kernel--->cpu_init。 
+在使用了MMU之后，具体异常向量表放在那个物理地址已经不重要了，重要的是把它映射到0xffff0000的虚拟地址就OK了，具体代码如下：
+
+    static void __init devicemaps_init(const struct machine_desc *mdesc)
+    {
+        ……
+        vectors = early_alloc(PAGE_SIZE * 2); －－－－－分配两个page的物理页帧
+        early_trap_init(vectors); －－－－－－－copy向量表以及相关help function到该区域
+        ……
+        map.pfn = __phys_to_pfn(virt_to_phys(vectors));
+        map.virtual = 0xffff0000;
+        map.length = PAGE_SIZE;
+    #ifdef CONFIG_KUSER_HELPERS
+        map.type = MT_HIGH_VECTORS;
+    #else
+        map.type = MT_LOW_VECTORS;
+    #endif
+        create_mapping(&map); －－－－－－－－－－映射0xffff0000的那个page frame
+        if (!vectors_high()) {－－－如果SCTLR.V的值设定为low vectors，那么还要映射0地址开始的memory
+            map.virtual = 0;
+            map.length = PAGE_SIZE * 2;
+            map.type = MT_LOW_VECTORS;
+            create_mapping(&map);
+        }
+        map.pfn += 1;
+        map.virtual = 0xffff0000 + PAGE_SIZE;
+        map.length = PAGE_SIZE;
+        map.type = MT_LOW_VECTORS;
+        create_mapping(&map); －－－－－－－－－－映射high vecotr开始的第二个page frame
+    ……
+    }
+
+当外设（SOC内部或者外部都可以）检测到了中断事件，就会通过interrupt requestion line上的电平或者边沿（上升沿或者下降沿或者both）通知到该外设连接到的那个中断控制器，而中断控制器就会在多个处理器中选择一个，并把该中断通过IRQ（或者FIQ，本文不讨论FIQ的情况）分发给该processor。ARM处理器感知到了中断事件后，会进行下面一系列的动作：
+1、修改CPSR（Current Program Status Register）寄存器中的M[4:0]。M[4:0]表示了ARM处理器当前处于的模式（ processor modes）。ARM定义的mode包括： 
+处理器模式 	缩写 	对应的M[4:0]编码 	Privilege level
+User 		usr 	10000 			PL0
+FIQ 		fiq 	10001 			PL1
+IRQ 		irq 	10010 			PL1
+Supervisor 	svc 	10011 			PL1
+Monitor 	mon 	10110 			PL1
+Abort 		abt 	10111 			PL1
+Hyp 		hyp 	11010 			PL2
+Undefined 	und 	11011 			PL1
+System 		sys 	11111 			PL1 
+ 一旦设定了CPSR.M，ARM处理器就会将processor mode切换到IRQ mode。 
+
+2、保存发生中断那一点的CPSR值（step 1之前的状态）和PC值
+ARM处理器支持9种processor mode，每种mode看到的ARM core register（R0～R15，共计16个）都是不同的。每种mode都是从一个包括所有的Banked ARM core register中选取。全部Banked ARM core register包括
+
+Usr 	System 	Hyp 	Supervisor 	abort 	undefined 	Monitor 	IRQ 	FIQ
+R0_usr 	  	  	  	  	  	  	  	 
+R1_usr 	  	  	  	  	  	  	  	 
+R2_usr 	  	  	  	  	  	  	  	 
+R3_usr 	  	  	  	  	  	  	  	 
+R4_usr 	  	  	  	  	  	  	  	 
+R5_usr 	  	  	  	  	  	  	  	 
+R6_usr 	  	  	  	  	  	  	  	 
+R7_usr 	  	  	  	  	  	  	  	 
+R8_usr 	  	  	  	  	  	  	  				R8_fiq
+R9_usr 	  	  	  	  	  	  	  				R9_fiq
+R10_usr 	  	  	  	  	  	  	  			R10_fiq
+R11_usr 	  	  	  	  	  	  	  			R11_fiq
+R12_usr 	  	  	  	  	  	  	  			R12_fiq
+SP_usr 	  	SP_hyp 	SP_svc 		SP_abt 	SP_und 		SP_mon 		SP_irq 	SP_fiq
+LR_usr 	  	  	LR_svc 		LR_abt 	LR_und 		LR_mon 		LR_irq 	LR_fiq
+PC 	  	  	  	  	  	  	  	 
+CPSR 	  	  	  	  	  	  	  	 
+  	  	SPSR_hyp SPSR_svc 	SPSR_abt SPSR_und 	SPSR_mon 	SPSR_irq SPSR_fiq
+  	  	ELR_hyp 	  	  	  	  	  	  
+在IRQ mode下，CPU看到的R0～R12寄存器、PC以及CPSR是和usr mode（userspace）或者svc mode（kernel space）是一样的。不同的是IRQ mode下，有自己的R13(SP，stack pointer）、R14（LR，link register）和SPSR（Saved Program Status Register）。 
+CPSR是共用的，虽然中断可能发生在usr mode（用户空间），也可能是svc mode（内核空间），不过这些信息都是体现在CPSR寄存器中。硬件会将发生中断那一刻的CPSR保存在SPSR寄存器中（由于不同的mode下有不同的SPSR寄存器，因此更准确的说应该是SPSR-irq，也就是IRQ mode中的SPSR寄存器）。 
+PC也是共用的，由于后续PC会被修改为irq exception vector，因此有必要保存PC值。当然，与其说保存PC值，不如说是保存返回执行的地址。对于IRQ而言，我们期望返回地址是发生中断那一点执行指令的下一条指令。具体的返回地址保存在lr寄存器中（注意：这个lr寄存器是IRQ mode的lr寄存器，可以表示为lr_irq）：
+ （1）对于thumb state，lr_irq ＝ PC
+（2）对于ARM state，lr_irq ＝ PC － 4 
+
+contex-A9 的中断管理器gic模块
+ GIC-V2支持的中断类型有下面几种：
+（a）外设中断（Peripheral interrupt）。有实际物理interrupt request signal的那些中断，上面已经介绍过了。
+（b）软件触发的中断（SGI，Software-generated interrupt）。软件可以通过写GICD_SGIR寄存器来触发一个中断事件，这样的中断，可以用于processor之间的通信。
+（c）虚拟中断（Virtual interrupt）和Maintenance interrupt。这两种中断和本文无关，不再赘述。 
+自外设的interrupt source输入信号。分成两种类型，分别是PPI（Private Peripheral Interrupt）和SPI（Shared Peripheral Interrupt）。其实从名字就可以看出来两种类型中断信号的特点，PPI中断信号是CPU私有的，每个CPU都有其特定的PPI信号线。而SPI是所有CPU之间共享的。通过寄存器GICD_TYPER可以配置SPI的个数（最多480个）。GIC-400支持多少个SPI中断，其输入信号线就有多少个SPI interrupt request signal。同样的，通过寄存器GICD_TYPER也可以配置CPU interface的个数（最多8个），GIC-400支持多少个CPU interface，其输入信号线就提供多少组PPI中断信号线。一组PPI中断信号线包括6个实际的signal：
+（a）nLEGACYIRQ信号线。对应interrupt ID 31，在bypass mode下（这里的bypass是指bypass GIC functionality，直接连接到某个processor上），nLEGACYIRQ可以直接连到对应CPU的nIRQCPU信号线上。在这样的设置下，该CPU不参与其他属于该CPU的PPI以及SPI中断的响应，而是特别为这一根中断线服务。
+（b）nCNTPNSIRQ信号线。来自Non-secure physical timer的中断事件，对应interrupt ID 30。
+（c）nCNTPSIRQ信号线。来自secure physical timer的中断事件，对应interrupt ID 29。
+（d）nLEGACYFIQ信号线。对应interrupt ID 28。概念同nLEGACYIRQ信号线，不再描述。
+（e）nCNTVIRQ信号线。对应interrupt ID 27。Virtual Timer Event，和虚拟化相关，这里不与描述。
+（f）nCNTHPIRQ信号线。对应interrupt ID 26。Hypervisor Timer Event，和虚拟化相关，这里不与描述。
+对于Cortex A15的GIC实现，其PPI中断信号线除了上面的6个，还有一个叫做Virtual Maintenance Interrupt，对应interrupt ID 25。
+对于Cortex A9的GIC实现，其PPI中断信号线包括5根：
+（a）nLEGACYIRQ信号线和nLEGACYFIQ信号线。对应interrupt ID 31和interrupt ID 28。这部分和上面一致
+（b）由于Cortext A9的每个处理器都有自己的Private timer和watch dog timer，这两个HW block分别使用了ID 29和ID 30
+（c）Cortext A9内嵌一个global timer为系统内的所有processor共享，对应interrupt ID 27
+关于private timer和global timer的描述，请参考时间子系统的相关文档。
+关于一系列和虚拟化相关的中断，请参考虚拟化的系列文档。
+（3）输出信号
+所谓输出信号，其实就是GIC和各个CPU直接的接口，这些接口包括：
+（a）触发CPU中断的信号。nIRQCPU和nFIQCPU信号线，熟悉ARM CPU的工程师对这两个信号线应该不陌生，主要用来触发ARM cpu进入IRQ mode和FIQ mode。
+（b）Wake up信号。nFIQOUT和nIRQOUT信号线，去ARM CPU的电源管理模块，用来唤醒CPU的
+（c）AXI slave interface signals。AXI（Advanced eXtensible Interface）是一种总线协议，属于AMBA规范的一部分。通过这些信号线，ARM CPU可以和GIC硬件block进行通信（例如寄存器访问）。
+（4）中断号的分配
+GIC-V2支持的中断类型有下面几种：
+（a）外设中断（Peripheral interrupt）。有实际物理interrupt request signal的那些中断，上面已经介绍过了。
+（b）软件触发的中断（SGI，Software-generated interrupt）。软件可以通过写GICD_SGIR寄存器来触发一个中断事件，这样的中断，可以用于processor之间的通信。
+（c）虚拟中断（Virtual interrupt）和Maintenance interrupt。这两种中断和本文无关，不再赘述。
+为了标识这些interrupt source，我们必须要对它们进行编码，具体的ID分配情况如下：
+（a）ID0~ID31是用于分发到一个特定的process的interrupt。标识这些interrupt不能仅仅依靠ID，因为各个interrupt source都用同样的ID0~ID31来标识，因此识别这些interrupt需要interrupt ID ＋ CPU interface number。ID0~ID15用于SGI，ID16~ID31用于PPI。PPI类型的中断会送到其私有的process上，和其他的process无关。SGI是通过写GICD_SGIR寄存器而触发的中断。Distributor通过processor source ID、中断ID和target processor ID来唯一识别一个SGI。
+（b）ID32~ID1019用于SPI。 这是GIC规范的最大size，实际上GIC-400最大支持480个SPI，Cortex-A15和A9上的GIC最多支持224个SPI。 
+
+不同的GIC-V2的实现总会有一些不同，这些信息可以通过Device tree的机制来传递。Device node中定义了各种属性，其中就包括了memory资源，IRQ描述等信息，这些信息需要在初始化的时候传递给具体的驱动，因此需要一个Device node和driver模块的匹配过程。在Device Tree模块中会包括系统中所有的device node，如果我们的系统使用了GIC-400，那么系统的device node数据库中会有一个node是GIC-400的，一个示例性的GIC-400的device node（我们以瑞芯微的RK3288处理器为例）定义如下：
+    gic: interrupt-controller@ffc01000 {
+        compatible = "arm,gic-400";
+        interrupt-controller;
+        #interrupt-cells = <3>;
+        #address-cells = <0>;
+
+        reg = <0xffc01000 0x1000="">,－－－－Distributor address range
+              <0xffc02000 0x1000="">,－－－－－CPU interface address range
+              <0xffc04000 0x2000="">,－－－－－Virtual interface control block
+              <0xffc06000 0x2000="">;－－－－－Virtual CPU interfaces
+        interrupts = ;
+    };
+     void __init irqchip_init(void)
+    {
+        of_irq_init(__irqchip_begin);
+    }
+__irqchip_begin就是内核irq chip table的首地址，这个table也就保存了kernel支持的所有的中断控制器的ID信息（用于和device node的匹配）。of_irq_init函数执行之前，系统已经完成了device tree的初始化，因此系统中的所有的设备节点都已经形成了一个树状结构，每个节点代表一个设备的device node。of_irq_init是在所有的device node中寻找中断控制器节点，形成树状结构（系统可以有多个interrupt controller，之所以形成中断控制器的树状结构，是为了让系统中所有的中断控制器驱动按照一定的顺序进行初始化）。之后，从root interrupt controller节点开始，对于每一个interrupt controller的device node，扫描irq chip table，进行匹配，一旦匹配到，就调用该interrupt controller的初始化函数，并把该中断控制器的device node以及parent中断控制器的device node作为参数传递给irq chip driver。。具体的匹配过程的代码属于Device Tree模块的内容，
+ 我们首先看看这个函数的参数，node参数代表需要初始化的那个interrupt controller的device node，parent参数指向其parent。在映射GIC-400的memory map I/O space的时候，我们只是映射了Distributor和CPU interface的寄存器地址空间，和虚拟化处理相关的寄存器没有映射，因此这个版本的GIC driver应该是不支持虚拟化的（不知道后续版本是否支持，在一个嵌入式平台上支持虚拟化有实际意义吗？最先支持虚拟化的应该是ARM64+GICV3/4这样的平台）。
+
+要了解cpu-offset属性，首先要了解什么是banked register。所谓banked register就是在一个地址上提供多个寄存器副本。比如说系统中有四个CPU，这些CPU访问某个寄存器的时候地址是一样的，但是对于banked register，实际上，不同的CPU访问的是不同的寄存器，虽然它们的地址是一样的。如果GIC没有banked register，那么需要提供根据CPU index给出一系列地址偏移，而地址偏移=cpu-offset * cpu-nr
+ 每个interrupt controller都会形成一个irq domain，负责解析其下游的interrut source。如果interrupt controller有级联的情况，那么一个非root interrupt controller的中断控制器也是其parent irq domain的一个普通的interrupt source。struct irq_domain定义如下：
+    struct irq_domain {
+    ……
+        const struct irq_domain_ops *ops;
+        void *host_data;
+    ……
+    };
+ 对于GIC支持的IRQ的数目，这里还要赘述几句。实际上并非GIC支持多少个HW interrupt ID，其就支持多少个IRQ。对于SGI，其处理比较特别，并不归入IRQ number中。因此，对于GIC而言，其SGI（从0到15的那些HW interrupt ID）不需要irq domain进行映射处理，也就是说SGI没有对应的IRQ number。如果系统越来越复杂，一个GIC不能支持所有的interrupt source（目前GIC支持1020个中断源，这个数目已经非常的大了），那么系统还需要引入secondary GIC，这个GIC主要负责扩展外设相关的interrupt source，也就是说，secondary GIC的SGI和PPI都变得冗余了（这些功能，primary GIC已经提供了）。这些信息可以协助理解代码中的hwirq_base的设定。
+（d）通过Distributor中的寄存器可以控制送达CPU interface，中断来到了GIC的CPU interface是否可以真正送达CPU呢？也不一定，还有一道关卡，也就是CPU interface中的Interrupt Priority Mask Register。这个寄存器设定了一个中断优先级的值，只有中断优先级高过该值的中断请求才会被送到CPU上去。我们在前面初始化的时候，给每个interrupt ID设定的缺省优先级是0xa0，这里设定的priority filter的优先级值是0xf0。数值越小，优先级越过。因此，这样的设定就是让所有的interrupt source都可以送达CPU，在CPU interface这里不做控制了。 
+ 对于GIC而言，其中断状态有四种：
+中断状态 	描述
+Inactive 	中断未触发状态，该中断即没有Pending也没有Active
+Pending 	由于外设硬件产生了中断事件（或者软件触发）该中断事件已经通过硬件信号通知到GIC，等待GIC分配的那个CPU进行处理
+Active 	CPU已经应答（acknowledge）了该interrupt请求，并且正在处理中
+Active and Pending 	当一个中断源处于Active状态的时候，同一中断源又触发了中断，进入pending状态
+processor ack了一个中断后，该中断会被设定为active。当处理完成后，仍然要通知GIC，中断已经处理完毕了。这时候，如果没有pending的中断，GIC就会将该interrupt设定为inactive状态。操作GIC中的End of Interrupt Register可以完成end of interrupt事件通知。 
+4、BSP（bootstrap processor）之外，其他CPU的callback函数
+对于multi processor系统，不可能初始化代码在所有的processor上都执行一遍，实际上，系统的硬件会选取一个processor作为引导处理器，我们称之BSP。这个processor会首先执行，其他的CPU都是处于reset状态，等到BSP初始化完成之后，release所有的non-BSP，这时候，系统中的各种外设硬件条件和软件条件（例如per CPU变量）都准备好了，各个non-BSP执行自己CPU specific的初始化就OK了。
+上面描述的都是BSP的初始化过程，具体包括：
+    ……
+        gic_dist_init(gic);－－－－－－初始化GIC的Distributor
+        gic_cpu_init(gic);－－－－－－初始化BSP的CPU interface
+        gic_pm_init(gic);－－－－－－初始化GIC的Power management
+    ……
+对于GIC的Distributor和Power management，这两部分是全局性的，BSP执行初始化一次就OK了。对于CPU interface，每个processor负责初始化自己的连接的那个CPU interface HW block。我们用下面这个图片来描述这个过程： 
+ booting
+  假设CPUx被选定为BSP，那么第三章描述的初始化过程在该CPU上欢畅的执行。这时候，被初始化的GIC硬件包括：root GIC的Distributor、root GIC CPU Interface x（连接BSP的那个CPU interface）以及其他的级联的非root GIC（上图中绿色block，当然，我偷懒，没有画non-root GIC）。
+BSP初始化完成之后，各个其他的CPU运行起来，会发送CPU_STARTING消息给关注该消息的模块。毫无疑问，GIC driver模块当然要关注这样的消息，在初始化过程中会注册callback函数如下：
+    register_cpu_notifier(&gic_cpu_notifier);
+GIC相关的回调函数定义如下：
+
+    static struct notifier_block gic_cpu_notifier = {
+        .notifier_call = gic_secondary_init,
+        .priority = 100,
+    };
+
+    static int gic_secondary_init(struct notifier_block *nfb, unsigned long action,  void *hcpu)
+    {
+        if (action == CPU_STARTING || action == CPU_STARTING_FROZEN)
+            gic_cpu_init(&gic_data[0]);－－－－－－－－－初始化那些非BSP的CPU interface
+        return NOTIFY_OK;
+    }
+
+因此，当non-BSP booting up的时候，发送CPU_STARTING消息，调用GIC的callback函数，对上图中的紫色的CPU Interface HW block进行初始化，这样，就完成了全部GIC硬件的初始化过程。 
+ 
+当网卡控制器的FIFO收到的来自以太网的数据的时候（例如半满的时候，可以软件设定），可以将该事件通过irq signal送达Interrupt Controller。Interrupt Controller可以把中断分发给系统中的Processor A or B。
+NIC的中断处理过程大概包括：mask and ack interrupt controller-------->ack NIC-------->copy FIFO to ram------>handle Data in the ram----------->unmask interrupt controller
+我们先假设Processor A处理了这个网卡中断事件，于是NIC的中断handler在Processor A上欢快的执行，这时候，Processor A的本地中断是disable的。NIC的中断handler在执行的过程中，网络数据仍然源源不断的到来，但是，如果NIC的中断handler不操作NIC的寄存器来ack这个中断的话，NIC是不会触发下一次中断的。还好，我们的NIC interrupt handler总是在最开始就会ack，因此，这不会导致性能问题。ack之后，NIC已经具体再次trigger中断的能力。当Processor A上的handler 在处理接收来自网络的数据的时候，NIC的FIFO很可能又收到新的数据，并trigger了中断，这时候，Interrupt controller还没有umask，因此，即便还有Processor B（也就是说有处理器资源），中断控制器也无法把这个中断送达处理器系统。因此，只能眼睁睁的看着NIC FIFO填满数据，数据溢出，或者向对端发出拥塞信号，无论如何，整体的系统性能是受到严重的影响。
+注意：对于新的interrupt controller，可能没有mask和umask操作，但是原理是一样的，只不过NIC的handler执行完毕要发生EOI而已。
+要解决上面的问题，最重要的是尽快的执行完中断handler，打开中断，unmask IRQ（或者发送EOI），方法就是把耗时的handle Data in the ram这个步骤踢出handler，让其在bottom half中执行。  
+
+ 三、理解softirq需要的基础知识（各种context）
+1、preempt_count
+为了更好的理解下面的内容，我们需要先看看一些基础知识：一个task的thread info数据结构定义如下（只保留和本场景相关的内容）：
+
+    struct thread_info { 
+        ……
+        int            preempt_count;    /* 0 => preemptable, <0 => bug */
+        ……
+    };
+
+preempt_count这个成员被用来判断当前进程是否可以被抢占。如果preempt_count不等于0（可能是代码调用preempt_disable显式的禁止了抢占，也可能是处于中断上下文等），说明当前不能进行抢占，如果preempt_count等于0，说明已经具备了抢占的条件（当然具体是否要抢占当前进程还是要看看thread info中的flag成员是否设定了_TIF_NEED_RESCHED这个标记，可能是当前的进程的时间片用完了，也可能是由于中断唤醒了优先级更高的进程）。 具体preempt_count的数据格式可以参考下图：
+preempt_count:
+reservebits	bit21		bit20		bit16~19	bit9~15	bit8	bit0~7
+		preempt_active	NMI_flag	hardirq_count	softing_count	preemption_count
+preemption count用来记录当前被显式的禁止抢占的次数，也就是说，每调用一次preempt_disable，preemption count就会加一，调用preempt_enable，该区域的数值会减去一。preempt_disable和preempt_enable必须成对出现，可以嵌套，最大嵌套的深度是255。
+hardirq count描述当前中断handler嵌套的深度。对于ARM平台的linux kernel，其中断部分的代码如下：
+    void handle_IRQ(unsigned int irq, struct pt_regs *regs)
+    {
+        struct pt_regs *old_regs = set_irq_regs(regs);
+
+        irq_enter(); 
+        generic_handle_irq(irq);
+
+        irq_exit();
+        set_irq_regs(old_regs);
+    }
+通用的IRQ handler被irq_enter和irq_exit这两个函数包围。irq_enter说明进入到IRQ context，而irq_exit则说明退出IRQ context。在irq_enter函数中会调用preempt_count_add(HARDIRQ_OFFSET)，为hardirq count的bit field增加1。在irq_exit函数中，会调用preempt_count_sub(HARDIRQ_OFFSET)，为hardirq count的bit field减去1。hardirq count占用了4个bit，说明硬件中断handler最大可以嵌套15层。在旧的内核中，hardirq count占用了12个bit，支持4096个嵌套。当然，在旧的kernel中还区分fast interrupt handler和slow interrupt handler，中断handler最大可以嵌套的次数理论上等于系统IRQ的个数。在实际中，这个数目不可能那么大（内核栈就受不了），因此，即使系统支持了非常大的中断个数，也不可能各个中断依次嵌套，达到理论的上限。基于这样的考虑，后来内核减少了hardirq count占用bit数目，改成了10个bit（在general arch的代码中修改为10，实际上，各个arch可以redefine自己的hardirq count的bit数）。但是，当内核大佬们决定废弃slow interrupt handler的时候，实际上，中断的嵌套已经不会发生了。因此，理论上，hardirq count要么是0，要么是1。不过呢，不能总拿理论说事，实际上，万一有写奇葩或者老古董driver在handler中打开中断，那么这时候中断嵌套还是会发生的，但是，应该不会太多（一个系统中怎么可能有那么多奇葩呢？呵呵），因此，目前hardirq count占用了4个bit，应付15个奇葩driver是妥妥的。
+对softirq count进行操作有两个场景：
+（1）也是在进入soft irq handler之前给 softirq count加一，退出soft irq handler之后给 softirq count减去一。由于soft irq handler在一个CPU上是不会并发的，总是串行执行，因此，这个场景下只需要一个bit就够了，也就是上图中的bit 8。通过该bit可以知道当前task是否在sofirq context。
+（2）由于内核同步的需求，进程上下文需要禁止softirq。这时候，kernel提供了local_bf_enable和local_bf_disable这样的接口函数。这部分的概念是和preempt disable/enable类似的，占用了bit9～15，最大可以支持127次嵌套。 
+ 2、一个task的各种上下文
+看完了preempt_count之后，我们来介绍各种context：
+    #define in_irq()        (hardirq_count())
+    #define in_softirq()        (softirq_count())
+    #define in_interrupt()        (irq_count())
+    #define in_serving_softirq()    (softirq_count() & SOFTIRQ_OFFSET)
+这里首先要介绍的是一个叫做IRQ context的术语。这里的IRQ context其实就是hard irq context，也就是说明当前正在执行中断handler（top half），只要preempt_count中的hardirq count大于0（＝1是没有中断嵌套，如果大于1，说明有中断嵌套），那么就是IRQ context。
+softirq context并没有那么的直接，一般人会认为当sofirq handler正在执行的时候就是softirq context。这样说当然没有错，sofirq handler正在执行的时候，会增加softirq count，当然是softirq context。不过，在其他context的情况下，例如进程上下文中，有有可能因为同步的要求而调用local_bh_disable，这时候，通过local_bh_disable/enable保护起来的代码也是执行在softirq context中。当然，这时候其实并没有正在执行softirq handler。如果你确实想知道当前是否正在执行softirq handler，in_serving_softirq可以完成这个使命，这是通过操作preempt_count的bit 8来完成的。
+所谓中断上下文，就是IRQ context ＋ softirq context＋NMI context。 
+关于开发中断的kernel-API 架构 workqueue softirq tasklet waitlist!!
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+http://www.wowotech.net/device_model/bus.html
+bus设备:
+ subsys、devices_kset、drivers_kset是三个kset，由"Linux设备模型(2)_Kobject”中对kset的描述可知，kset是一个特殊的kobject，用来集合相似的kobject，它在sysfs中也会以目录的形式体现。其中subsys，代表了本bus（如/sys/bus/spi），它下面可以包含其它的kset或者其它的kobject；devices_kset和drivers_kset则是bus下面的两个kset（如/sys/bus/spi/devices和/sys/bus/spi/drivers），分别包括本bus下所有的device和device_driver。
+
+interface是一个list head，用于保存该bus下所有的interface。有关interface的概念后面会详细介绍。 
+ bus和class指针，分别保存上层的bus或者class指针。 
+
+ bus_add_device的处理逻辑：
+
+    调用内部的device_add_attrs接口，将由bus->dev_attrs指针定义的默认attribute添加到内核中，它们会体现在/sys/devices/xxx/xxx_device/目录中
+    调用sysfs_create_link接口，将该device在sysfs中的目录，链接到该bus的devices目录下，例如：
+
+    xxx# ls /sys/bus/spi/devices/spi1.0 -l                                                        
+    lrwxrwxrwx root     root              2014-04-11 10:46 spi1.0 -> ../../../devices/platform/s3c64xx-spi.1/spi_master/spi1/spi1.0
+    其中/sys/devices/…/spi1.0，为该device在sysfs中真正的位置，而为了方便管理，内核在该设备所在的bus的xxx_bus/devices目录中，创建了一个符号链接
+    调用sysfs_create_link接口，在该设备的sysfs目录中（如/sys/devices/platform/alarm/）中，创建一个指向该设备所在bus目录的链接，取名为subsystem，例如：
+
+    xxx # ls /sys/devices/platform/alarm/subsystem -l                                                
+    lrwxrwxrwx root     root              2014-04-11 10:28 subsystem -> ../../../bus/platform
+    最后，毫无疑问，要把该设备指针保存在bus->priv->klist_devices中
+
+ bus_add_driver的处理逻辑：
+
+    为该driver的struct driver_private指针（priv）分配空间，并初始化其中的priv->klist_devices、priv->driver、priv->kobj.kset等变量，同时将该指针保存在device_driver的p处
+    将driver的kset（priv->kobj.kset）设置为bus的drivers kset（bus->p->drivers_kset），这就意味着所有driver的kobject都位于bus->p->drivers_kset之下（寄/sys/bus/xxx/drivers目录下）
+    以driver的名字为参数，调用kobject_init_and_add接口，在sysfs中注册driver的kobject，体现在/sys/bus/xxx/drivers/目录下，如/sys/bus/spi/drivers/spidev
+    将该driver保存在bus的klist_drivers链表中，并根据drivers_autoprobe的值，选择是否调用driver_attach进行probe
+    调用driver_create_file接口，在sysfs的该driver的目录下，创建uevent attribute
+    调用driver_add_attrs接口，在sysfs的该driver的目录下，创建由bus->drv_attrs指针定义的默认attribute
+    同时根据suppress_bind_attrs标志，决定是否在sysfs的该driver的目录下，创建bind和unbind attribute（具体可参考"Linux设备模型(5)_device和device driver”中的介绍） 
+
+
+
+
+
+
+trace处理	有一个debug linux用户程序的手段
+Linux的内核提供了ptrace这样的系统调用，通过它，一个进程（我们称之 tracer，例如strace、gdb）可以观测和控制另外一个进程（被trace的进程，我们称之tracee）的执行。一旦Tracer和 tracee建立了跟踪关系，那么所有发送给tracee的信号(除SIGKILL)都会汇报给Tracer，以便Tracer可以控制或者观测 tracee的执行。例如断点的操作。Tracer程序一般会提供界面，以便用户可以设定一个断点（当tracee运行到断点时，会停下来）。当用户设定 了断点后，tracer就会保存该位置的指令，然后向该位置写入SWI __ARM_NR_breakpoint（这种断点是soft break point，可以设定无限多个，对于hard break point是和CPU体系结构相关，一般支持2个）。当执行到断点位置的时候，发生软中断，内核会给tracee进程发出SIGTRAP信号，当然这个信号也会被tracer捕获。对于tracee，当收到信号的时候，无论是什么信号，甚至是ignor的信号，tracee进程都会停止运行。Tracer进程可以对tracee进行各种操作，例如观察tracer的寄存器，观察变量等等。 
+
+
+
+
+
+
+
+
+
+
+struct class是class的抽象，它的定义如下：
+   1: /* include/linux/device.h, line 332 */
+   2: struct class {
+   3:         const char              *name;
+   4:         struct module           *owner;
+   5:  
+   6:         struct class_attribute          *class_attrs;
+   7:         struct device_attribute         *dev_attrs;
+   8:         struct bin_attribute            *dev_bin_attrs;
+   9:         struct kobject                  *dev_kobj;
+  10:  
+  11:         int (*dev_uevent)(struct device *dev, struct kobj_uevent_env *env);
+  12:         char *(*devnode)(struct device *dev, umode_t *mode);
+  13:  
+  14:         void (*class_release)(struct class *class);
+  15:         void (*dev_release)(struct device *dev);
+  16:  
+  17:         int (*suspend)(struct device *dev, pm_message_t state);
+  18:         int (*resume)(struct device *dev);
+  19:  
+  20:         const struct kobj_ns_type_operations *ns_type;
+  21:         const void *(*namespace)(struct device *dev);
+  22:  
+  23:         const struct dev_pm_ops *pm;
+  24:  
+  25:         struct subsys_private *p;
+  26: };
+    其实struct class和struct bus很类似，解释如下：
+    name，class的名称，会在“/sys/class/”目录下体现。
+    class_atrrs，该class的默认attribute，会在class注册到内核时，自动在“/sys/class/xxx_class”下创建对应的attribute文件。
+    dev_attrs，该class下每个设备的attribute，会在设备注册到内核时，自动在该设备的sysfs目录下创建对应的attribute文件。
+    dev_bin_attrs，类似dev_attrs，只不过是二进制类型attribute。
+    dev_kobj，表示该class下的设备在/sys/dev/下的目录，现在一般有char和block两个，如果dev_kobj为NULL，则默认选择char。
+    dev_uevent，当该class下有设备发生变化时，会调用class的uevent回调函数。
+    class_release，用于release自身的回调函数。
+    dev_release，用于release class内设备的回调函数。在device_release接口中，会依次检查Device、Device Type以及Device所在的class，是否注册release接口，如果有则调用相应的release接口release设备指针。
+    p，和“Linux设备模型(6)_Bus”中struct bus结构一样，不再说明。
+
+    device的注册最终是由device_add接口（drivers/base/core.c）实现了，该接口中和class有关的动作包括：
+
+        调用device_add_class_symlinks接口，创建3.1小节描述的各种符号链接，即：在对应class的目录下，创建指向device的符号链接；在device的目录下，创建名称为subsystem、指向对应class目录的符号链接
+        调用device_add_attrs，添加由class指定的attributes（class->dev_attrs）
+        如果存在对应该class的add_dev回调函数，调用该回调函数
+依旧没有弄清楚class在内核到底是怎么使用的
+
+
+
+
+
+
+
+
+
+电源管理有关的Source code分别位于：
+
+    kernel/power/ *
+    drivers/power/
+    drivers/base/power/*
+    drivers/cpuidle/*
+    drivers/cpufreq/*
+    drivers/devfreq/*
+    include/linux/power_supply.h
+    include/linux/cpuidle.h
+    include/linux/cpufreq.h
+    include/linux/cpu_pm.h
+    include/linux/device.h
+    include/linux/pm.h
+    include/linux/pm domain.h
+    include/linux/pm runtime.h
+    include/linux/pm wakeup.h
+    include/linux/suspend.h
+    Documentation/power/*.txt
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

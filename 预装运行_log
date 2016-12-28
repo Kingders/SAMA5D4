@@ -1,0 +1,1693 @@
+RomBOOT
+
+
+AT91Bootstrap 3.8.5 (Sat Apr 16 13:13:22 CEST 2016)
+
+EEPROM: Loading AT24xx information ...
+EEPROM: BoardName | [Revid] | VendorName
+HW Info: The total size isn't correct
+
+EEPROM: Using default information
+
+EEPROM: Board sn: 0x1012420 revision: 0x680820
+
+HDMI SiI9022: Enter D3 Cold mode
+NAND: ONFI flash detected
+NAND: Manufacturer ID: 0x2c Chip ID: 0x34
+NAND: Page Bytes: 0x1000, Spare Bytes: 0xe0
+NAND: ECC Correctability Bits: 0x8, ECC Sector Bytes: 0x200
+NAND: Disable On-Die ECC
+NAND: Initialize PMECC params, cap: 0x8, sector: 0x200
+NAND: Image: Copy 0x80000 bytes from 0x40000 to 0x26f00000
+NAND: Done to load image
+
+
+U-Boot 2016.03-linux4sam_5.3 (Apr 16 2016 - 13:13:27 +0200)
+
+CPU: SAMA5D44
+Crystal frequency:       12 MHz
+CPU clock        :      600 MHz
+Master clock     :      200 MHz
+I2C:   ready
+DRAM:  512 MiB
+NAND:  512 MiB
+MMC:   mci: 0
+In:    serial
+Out:   serial
+Err:   serial
+Net:   gmac0, usb_ether
+Error: usb_ether address not set.
+
+Hit any key to stop autoboot:  0 
+
+NAND read: device 0 offset 0x180000, size 0x7d0f
+ 32015 bytes read: OK
+
+NAND read: device 0 offset 0x200000, size 0x3636a0
+ 3552928 bytes read: OK
+Kernel image @ 0x22000000 [ 0x000000 - 0x3636a0 ]
+## Flattened Device Tree blob at 21000000
+   Booting using the fdt blob at 0x21000000
+   Loading Device Tree to 3fb4d000, end 3fb57d0e ... OK
+
+Starting kernel ...
+
+Booting Linux on physical CPU 0x0
+Linux version 4.1.0-linux4sam_5.3 (ldesroches@ibiza) (gcc version 5.2.0 (GCC) ) #1 Sat Apr 16 13:14:33 CEST 2016
+CPU: ARMv7 Processor [410fc051] revision 1 (ARMv7), cr=10c53c7d
+CPU: PIPT / VIPT nonaliasing data cache, VIPT aliasing instruction cache
+Machine model: Atmel SAMA5D4 Xplained
+cma: Reserved 64 MiB at 0x38000000
+Memory policy: Data cache writeback
+CPU: All CPU(s) started in SVC mode.
+Built 1 zonelists in Zone order, mobility grouping on.  Total pages: 130048
+Kernel command line: console=ttyS0,115200 mtdparts=atmel_nand:256k(bootstrap)ro,512k(uboot)ro,256k(env),256k(env_redundant),256k(spare),512k(dtb),6M(kernel)ro,-(rootfs) rootfstype=ubifs ubi.mtd=7 root=ubi0:rootfs rw video=
+PID hash table entries: 2048 (order: 1, 8192 bytes)
+Dentry cache hash table entries: 65536 (order: 6, 262144 bytes)
+Inode-cache hash table entries: 32768 (order: 5, 131072 bytes)
+Memory: 446736K/524288K available (4985K kernel code, 179K rwdata, 1660K rodata, 192K init, 159K bss, 12016K reserved, 65536K cma-reserved)
+Virtual kernel memory layout:
+    vector  : 0xffff0000 - 0xffff1000   (   4 kB)
+    fixmap  : 0xffc00000 - 0xfff00000   (3072 kB)
+    vmalloc : 0xe0800000 - 0xff000000   ( 488 MB)
+    lowmem  : 0xc0000000 - 0xe0000000   ( 512 MB)
+    modules : 0xbf000000 - 0xc0000000   (  16 MB)
+      .text : 0xc0008000 - 0xc0685928   (6647 kB)
+      .init : 0xc0686000 - 0xc06b6000   ( 192 kB)
+      .data : 0xc06b6000 - 0xc06e2ed8   ( 180 kB)
+       .bss : 0xc06e2ed8 - 0xc070ad3c   ( 160 kB)
+NR_IRQS:16 nr_irqs:16 16
+L2C-310 ID prefetch enabled, offset 2 lines
+L2C-310 dynamic clock gating enabled, standby mode enabled
+L2C-310 cache controller enabled, 8 ways, 128 kB
+L2C-310: CACHE_ID 0x410000c9, AUX_CTRL 0x36020000
+clocksource pit: mask: 0x7ffffff max_cycles: 0x7ffffff, max_idle_ns: 9556302164 ns
+sched_clock: 32 bits at 100 Hz, resolution 10000000ns, wraps every 21474836475000000ns
+Console: colour dummy device 80x30
+Calibrating delay loop... 398.13 BogoMIPS (lpj=1990656)
+pid_max: default: 32768 minimum: 301
+Mount-cache hash table entries: 1024 (order: 0, 4096 bytes)
+Mountpoint-cache hash table entries: 1024 (order: 0, 4096 bytes)
+CPU: Testing write buffer coherency: ok
+Setting up static identity map for 0x20008200 - 0x20008258
+devtmpfs: initialized
+VFP support v0.3: implementor 41 architecture 2 part 30 variant 5 rev 1
+clocksource jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 19112604462750000 ns
+pinctrl core: initialized pinctrl subsystem
+NET: Registered protocol family 16
+DMA: preallocated 256 KiB pool for atomic coherent allocations
+cpuidle: using governor ladder
+cpuidle: using governor menu
+AT91: Detected SoC family: sama5d4
+AT91: Detected SoC: sama5d44, revision 0
+gpio-at91 fc06a000.gpio: at address e081a000
+gpio-at91 fc06b000.gpio: at address e081c000
+gpio-at91 fc06c000.gpio: at address e081e000
+gpio-at91 fc068000.gpio: at address e0832000
+gpio-at91 fc06d000.gpio: at address e0834000
+pinctrl-at91 ahb:apb:pinctrl@fc06a000: initialized AT91 pinctrl driver
+clocksource tcb_clksrc: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 152900835740 ns
+at_xdmac f0004000.dma-controller: 16 channels, mapped at 0xe083a000
+at_xdmac f0014000.dma-controller: 16 channels, mapped at 0xe083c000
+SCSI subsystem initialized
+usbcore: registered new interface driver usbfs
+usbcore: registered new interface driver hub
+usbcore: registered new device driver usb
+at91_i2c f8014000.i2c: using dma0chan0 (tx) and dma0chan1 (rx) for DMA transfers
+at91_i2c f8014000.i2c: AT91 i2c bus driver (hw version: 0x502).
+media: Linux media interface: v0.10
+Linux video capture interface: v2.00
+Advanced Linux Sound Architecture Driver Initialized.
+Switched to clocksource tcb_clksrc
+NET: Registered protocol family 2
+TCP established hash table entries: 4096 (order: 2, 16384 bytes)
+TCP bind hash table entries: 4096 (order: 2, 16384 bytes)
+TCP: Hash tables configured (established 4096 bind 4096)
+UDP hash table entries: 256 (order: 0, 4096 bytes)
+UDP-Lite hash table entries: 256 (order: 0, 4096 bytes)
+NET: Registered protocol family 1
+RPC: Registered named UNIX socket transport module.
+RPC: Registered udp transport module.
+RPC: Registered tcp transport module.
+RPC: Registered tcp NFSv4.1 backchannel transport module.
+futex hash table entries: 256 (order: -1, 3072 bytes)
+io scheduler noop registered (default)
+fc00c000.serial: ttyS0 at MMIO 0xfc00c000 (irq = 35, base_baud = 6250000) is a ATMEL_SERIAL
+console [ttyS0] enabled
+fc010000.serial: ttyS1 at MMIO 0xfc010000 (irq = 36, base_baud = 6250000) is a ATMEL_SERIAL
+[drm] Initialized drm 1.1.0 20060810
+brd: module loaded
+loop: module loaded
+atmel_nand_nfc 90000000.nfc: NFC is probed.
+atmel_nand 80000000.nand: Cannot get PMECC lookup table offset, will build a lookup table in runtime.
+atmel_nand 80000000.nand: Use On Flash BBT
+atmel_nand 80000000.nand: Using dma0chan2 for DMA transfers.
+nand: device found, Manufacturer ID: 0x2c, Chip ID: 0xdc
+nand: Micron MT29F4G08ABAEAWP
+nand: 512 MiB, SLC, erase size: 256 KiB, page size: 4096, OOB size: 224
+atmel_nand 80000000.nand: minimum ECC: 8 bits in 512 bytes
+atmel_nand 80000000.nand: Initialize PMECC params, cap: 8, sector: 512
+atmel_nand 80000000.nand: Using NFC Sram read and write
+Bad block table found at page 131008, version 0x01
+Bad block table found at page 130944, version 0x01
+8 cmdlinepart partitions found on MTD device atmel_nand
+Creating 8 MTD partitions on "atmel_nand":
+0x000000000000-0x000000040000 : "bootstrap"
+0x000000040000-0x0000000c0000 : "uboot"
+0x0000000c0000-0x000000100000 : "env"
+0x000000100000-0x000000140000 : "env_redundant"
+0x000000140000-0x000000180000 : "spare"
+0x000000180000-0x000000200000 : "dtb"
+0x000000200000-0x000000800000 : "kernel"
+0x000000800000-0x000020000000 : "rootfs"
+atmel_spi f8010000.spi: version: 0x221
+atmel_spi f8010000.spi: Using dma0chan3 (tx) and dma0chan4 (rx) for DMA transfers
+atmel_spi f8010000.spi: Atmel SPI Controller at 0xf8010000 (irq 30)
+m25p80 spi32766.0: unrecognized JEDEC id bytes: 00,  0,  0
+atmel_spi fc018000.spi: version: 0x221
+atmel_spi fc018000.spi: Using dma0chan5 (tx) and dma0chan6 (rx) for DMA transfers
+atmel_spi fc018000.spi: Atmel SPI Controller at 0xfc018000 (irq 37)
+CAN device driver interface
+libphy: MACB_mii_bus: probed
+macb f8020000.ethernet eth0: Cadence GEM rev 0x00020120 at 0xf8020000 irq 33 (fc:c2:3d:0d:d5:6c)
+macb f8020000.ethernet eth0: attached PHY driver [Micrel KSZ8081 or KSZ8091] (mii_bus:phy_addr=f8020000.etherne:01, irq=177)
+ehci_hcd: USB 2.0 'Enhanced' Host Controller (EHCI) Driver
+ehci-atmel: EHCI Atmel driver
+atmel-ehci 600000.ehci: EHCI Host Controller
+atmel-ehci 600000.ehci: new USB bus registered, assigned bus number 1
+atmel-ehci 600000.ehci: irq 25, io mem 0x00600000
+atmel-ehci 600000.ehci: USB 2.0 started, EHCI 1.00
+usb usb1: New USB device found, idVendor=1d6b, idProduct=0002
+usb usb1: New USB device strings: Mfr=3, Product=2, SerialNumber=1
+usb usb1: Product: EHCI Host Controller
+usb usb1: Manufacturer: Linux 4.1.0-linux4sam_5.3 ehci_hcd
+usb usb1: SerialNumber: 600000.ehci
+hub 1-0:1.0: USB hub found
+hub 1-0:1.0: 3 ports detected
+ohci_hcd: USB 1.1 'Open' Host Controller (OHCI) Driver
+ohci-atmel: OHCI Atmel driver
+at91_ohci 500000.ohci: USB Host Controller
+at91_ohci 500000.ohci: new USB bus registered, assigned bus number 2
+at91_ohci 500000.ohci: irq 25, io mem 0x00500000
+usb usb2: New USB device found, idVendor=1d6b, idProduct=0001
+usb usb2: New USB device strings: Mfr=3, Product=2, SerialNumber=1
+usb usb2: Product: USB Host Controller
+usb usb2: Manufacturer: Linux 4.1.0-linux4sam_5.3 ohci_hcd
+usb usb2: SerialNumber: at91
+hub 2-0:1.0: USB hub found
+hub 2-0:1.0: 3 ports detected
+usbcore: registered new interface driver cdc_acm
+cdc_acm: USB Abstract Control Model driver for USB modems and ISDN adapters
+usbcore: registered new interface driver usb-storage
+usbcore: registered new interface driver usbserial
+usbcore: registered new interface driver usbserial_generic
+usbserial: USB Serial support registered for generic
+usbcore: registered new interface driver ftdi_sio
+usbserial: USB Serial support registered for FTDI USB Serial Device
+usbcore: registered new interface driver pl2303
+usbserial: USB Serial support registered for pl2303
+rtc rtc0: alarm rollover not handled
+rtc rtc0: invalid alarm value: 1900-1-1 0:0:0
+at91_rtc fc0686b0.rtc: rtc core: registered fc0686b0.rtc as rtc0
+at91_rtc fc0686b0.rtc: AT91 Real Time Clock driver.
+i2c /dev entries driver
+AT91: Starting after user reset
+sama5d4_wdt fc068640.watchdog: failed to get IRQ from DT
+sama5d4_wdt fc068640.watchdog: initialized (timeout = 16 sec, nowayout = 0)
+sdhci: Secure Digital Host Controller Interface driver
+sdhci: Copyright(c) Pierre Ossman
+atmel_mci fc000000.mmc: version: 0x600
+atmel_mci fc000000.mmc: using dma0chan7 for DMA transfers
+VDD MCI1: supplied by VCC 3V3
+atmel_mci fc000000.mmc: Atmel MCI controller at 0xfc000000 irq 34, 1 slots
+sdhci-pltfm: SDHCI platform and OF driver helper
+ledtrig-cpu: registered to indicate activity on CPUs
+atmel_aes fc044000.aes: version: 0x201
+atmel_aes fc044000.aes: Atmel AES - Using dma1chan0, dma1chan1 for DMA transfers
+atmel_sha fc050000.sha: version: 0x420
+atmel_sha fc050000.sha: using dma1chan2 for DMA transfers
+atmel_sha fc050000.sha: Atmel SHA1/SHA256/SHA224/SHA384/SHA512
+atmel_tdes fc04c000.tdes: version: 0x702
+atmel_tdes fc04c000.tdes: using dma1chan3, dma1chan4 for DMA transfers
+atmel_tdes fc04c000.tdes: Atmel DES/TDES
+usbcore: registered new interface driver usbhid
+usbhid: USB HID core driver
+iio iio:device0: Resolution used: 10 bits
+iio iio:device0: ADC Touch screen is disabled.
+NET: Registered protocol family 17
+can: controller area network core (rev 20120528 abi 9)
+NET: Registered protocol family 29
+can: raw protocol (rev 20120528)
+can: broadcast manager protocol (rev 20120528 t)
+can: netlink gateway (rev 20130117) max_hops=1
+ubi0: attaching mtd7
+random: nonblocking pool is initialized
+ubi0: scanning is finished
+ubi0: attached mtd7 (name "rootfs", size 504 MiB)
+ubi0: PEB size: 262144 bytes (256 KiB), LEB size: 253952 bytes
+ubi0: min./max. I/O unit sizes: 4096/4096, sub-page size 4096
+ubi0: VID header offset: 4096 (aligned 4096), data offset: 8192
+ubi0: good PEBs: 2012, bad PEBs: 4, corrupted PEBs: 0
+ubi0: user volume: 1, internal volumes: 1, max. volumes count: 128
+ubi0: max/mean erase counter: 2/0, WL threshold: 4096, image sequence number: 400630375
+ubi0: available PEBs: 0, total reserved PEBs: 2012, PEBs reserved for bad PEB handling: 36
+ubi0: background thread "ubi_bgt0d" started, PID 642
+input: gpio_keys as /devices/soc0/gpio_keys/input/input0
+at91_rtc fc0686b0.rtc: setting system clock to 2016-04-16 11:38:32 UTC (1460806712)
+ALSA device list:
+  No soundcards found.
+UBIFS (ubi0:0): background thread "ubifs_bgt0_0" started, PID 651
+UBIFS (ubi0:0): recovery needed
+UBIFS (ubi0:0): recovery completed
+UBIFS (ubi0:0): UBIFS: mounted UBI device 0, volume 0, name "rootfs"
+UBIFS (ubi0:0): LEB size: 253952 bytes (248 KiB), min./max. I/O unit sizes: 4096 bytes/4096 bytes
+UBIFS (ubi0:0): FS size: 498253824 bytes (475 MiB, 1962 LEBs), journal size 9404416 bytes (8 MiB, 38 LEBs)
+UBIFS (ubi0:0): reserved for root: 0 bytes (0 KiB)
+UBIFS (ubi0:0): media format: w4/r0 (latest is w4/r0), UUID D094325A-A0E6-490A-8A23-FAC662B80F50, small LPT model
+VFS: Mounted root (ubifs filesystem) on device 0:13.
+devtmpfs: mounted
+Freeing unused kernel memory: 192K (c0686000 - c06b6000)
+INIT: version 2.88 booting
+Starting udev
+udev: Not using udev cache because of changes detected in the following files:
+udev:     /proc/version /proc/cmdline /proc/devices
+udev:     lib/udev/rules.d/* etc/udev/rules.d/*
+udev: The udev cache will be regenerated. To identify the detected changes,
+udev: compare the cached sysconf at   /etc/udev/cache.data
+udev: against the current sysconf at  /dev/shm/udev.cache
+udevd[681]: starting version 182
+atmel_usba_udc 400000.gadget: MMIO registers at 0xfc02c000 mapped at e0b88000
+atmel_usba_udc 400000.gadget: FIFO at 0x00400000 mapped at e9200000
+ubi0 error: ubi_open_volume: cannot open device 0, volume 0, error -16
+g_serial gadget: Gadget Serial v2.4
+g_serial gadget: g_serial ready
+Populating dev cache
+INIT: Entering runlevel: 5
+Configuring network interfaces... udhcpc (v1.23.2) started
+Sending discover...
+Sending discover...
+Sending discover...
+No lease, forking to background
+done.
+Starting system message bus: dbus.
+Starting OpenBSD Secure Shell server: sshd
+done.
+Starting rpcbind daemon...done.
+starting statd: done
+Starting atd: OK
+exportfs: can't open /etc/exports for reading
+NFS daemon support not enabled in kernel
+Starting system log daemon...0
+Starting kernel log daemon...0
+Starting crond: OK
+
+Poky (Yocto Project Reference Distro) 2.0.1 sama5d4-xplained /dev/ttyS0
+
+sama5d4-xplained login: kll
+Password: 
+Login incorrect
+
+sama5d4-xplained login: 
+Login 
+Poky (Yocto Project Reference Distro) 2.0.1 sama5d4-xplained /dev/ttyS0
+
+sama5d4-xplained login: root
+root@sama5d4-xplained:~# cd
+root@sama5d4-xplained:~# ls
+root@sama5d4-xplained:~# ls
+root@sama5d4-xplained:~# cd /
+root@sama5d4-xplained:/# ls
+bin  boot  dev  etc  home  lib  media  mnt  proc  run  sbin  sys  tmp  usr  var
+root@sama5d4-xplained:/# cd dev
+root@sama5d4-xplained:/dev# ls
+block             mtab       mtdblock8           tty12  tty37  tty61
+bus               mtd0       network_latency     tty13  tty38  tty62
+char              mtd0ro     network_throughput  tty14  tty39  tty63
+console           mtd1       null                tty15  tty4   tty7
+cpu_dma_latency   mtd1ro     ptmx                tty16  tty40  tty8
+fd                mtd2       pts                 tty17  tty41  tty9
+full              mtd2ro     ptyp0               tty18  tty42  ttyGS0
+hwrng             mtd3       ptyp1               tty19  tty43  ttyS0
+i2c-0             mtd3ro     ptyp2               tty2   tty44  ttyS1
+iio:device0       mtd4       ptyp3               tty20  tty45  ttyp0
+initctl           mtd4ro     ram0                tty21  tty46  ttyp1
+input             mtd5       ram1                tty22  tty47  ttyp2
+kmem              mtd5ro     ram2                tty23  tty48  ttyp3
+kmsg              mtd6       ram3                tty24  tty49  ubi0
+log               mtd6ro     random              tty25  tty5   ubi0_0
+loop-control      mtd7       rtc                 tty26  tty50  ubi_ctrl
+loop0             mtd7ro     rtc0                tty27  tty51  urandom
+loop1             mtd8       shm                 tty28  tty52  vcs
+loop2             mtd8ro     snd                 tty29  tty53  vcs1
+loop3             mtdblock0  stderr              tty3   tty54  vcsa
+loop4             mtdblock1  stdin               tty30  tty55  vcsa1
+loop5             mtdblock2  stdout              tty31  tty56  watchdog
+loop6             mtdblock3  tty                 tty32  tty57  watchdog0
+loop7             mtdblock4  tty0                tty33  tty58  xconsole
+mem               mtdblock5  tty1                tty34  tty59  zero
+memalloc          mtdblock6  tty10               tty35  tty6
+memory_bandwidth  mtdblock7  tty11               tty36  tty60
+root@sama5d4-xplained:/dev# cat /proc/devices
+Character devices:
+  1 mem
+  2 pty
+  3 ttyp
+  4 /dev/vc/0
+  4 tty
+  4 ttyS
+  5 /dev/tty
+  5 /dev/console
+  5 /dev/ptmx
+  7 vcs
+ 10 misc
+ 13 input
+ 29 fb
+ 81 video4linux
+ 89 i2c
+ 90 mtd
+116 alsa
+128 ptm
+136 pts
+166 ttyACM
+180 usb
+188 ttyUSB
+189 usb_device
+226 drm
+248 ttyGS
+249 ubi0
+250 memalloc
+251 iio
+252 watchdog
+253 media
+254 rtc
+
+Block devices:
+  1 ramdisk
+259 blkext
+  7 loop
+  8 sd
+ 31 mtdblock
+ 65 sd
+ 66 sd
+ 67 sd
+ 68 sd
+ 69 sd
+ 70 sd
+ 71 sd
+128 sd
+129 sd
+130 sd
+131 sd
+132 sd
+133 sd
+134 sd
+135 sd
+179 mmc
+root@sama5d4-xplained:/dev# 
+root@sama5d4-xplained:~# cat /proc/cpuinfo
+processor       : 0
+model name      : ARMv7 Processor rev 1 (v7l)
+BogoMIPS        : 398.13
+Features        : half thumb fastmult vfp edsp neon vfpv3 tls vfpv4 vfpd32 
+CPU implementer : 0x41
+CPU architecture: 7
+CPU variant     : 0x0
+CPU part        : 0xc05
+CPU revision    : 1
+
+Hardware        : Atmel SAMA5
+Revision        : 0000
+Serial          : 0000000000000000
+root@sama5d4-xplained:~# ps
+  PID TTY          TIME CMD
+  968 ttyS0    00:00:00 sh
+  990 ttyS0    00:00:00 ps
+root@sama5d4-xplained:~# ps ax
+  PID TTY      STAT   TIME COMMAND
+    1 ?        Ss     0:01 init [5]
+    2 ?        S      0:00 [kthreadd]
+    3 ?        S      0:00 [ksoftirqd/0]
+    4 ?        S      0:00 [kworker/0:0]
+    5 ?        S<     0:00 [kworker/0:0H]
+    6 ?        S      0:00 [kworker/u2:0]
+    7 ?        S<     0:00 [khelper]
+    8 ?        S      0:00 [kdevtmpfs]
+    9 ?        S      0:00 [kworker/u2:1]
+  110 ?        S<     0:00 [writeback]
+  215 ?        S<     0:00 [crypto]
+  217 ?        S<     0:00 [bioset]
+  219 ?        S<     0:00 [kblockd]
+  294 ?        S<     0:00 [cfg80211]
+  295 ?        R      0:00 [kworker/0:1]
+  376 ?        S<     0:00 [rpciod]
+  379 ?        S      0:00 [kswapd0]
+  389 ?        S      0:00 [fsnotify_mark]
+  390 ?        S<     0:00 [nfsiod]
+  446 ?        S<     0:00 [kworker/u3:0]
+  447 ?        S<     0:00 [kloopd]
+  510 ?        S      0:00 [spi32766]
+  513 ?        S      0:00 [spi32765]
+  637 ?        S<     0:00 [deferwq]
+  642 ?        S      0:00 [ubi_bgt0d]
+  651 ?        S      0:00 [ubifs_bgt0_0]
+  681 ?        Ss     0:00 /lib/udev/udevd -d
+  697 ?        S      0:00 [irq/207-atmel_u]
+  739 ?        S      0:00 /lib/udev/udevd -d
+  740 ?        S      0:00 /lib/udev/udevd -d
+  907 ?        Ss     0:00 udhcpc -R -b -p /var/run/udhcpc.eth0.pid -i eth0
+  914 ?        Ss     0:00 /usr/bin/dbus-daemon --system
+  923 ?        Ss     0:00 /usr/sbin/sshd
+  933 ?        Ss     0:00 /usr/sbin/rpcbind
+  940 ?        Ss     0:00 /usr/sbin/rpc.statd
+  945 ?        S      0:00 /usr/sbin/atd -f
+  957 ?        Ss     0:00 /sbin/syslogd
+  959 ?        Ss     0:00 /sbin/klogd
+  962 ?        Ss     0:00 /usr/sbin/crond
+  968 ttyS0    Ss     0:00 -sh
+  991 ttyS0    R+     0:00 ps ax
+root@sama5d4-xplained:~# cat /sys/kernel/debug/clk/clk_summary
+   clock                         enable_cnt  prepare_cnt        rate   accuracy   phase
+----------------------------------------------------------------------------------------
+  slow_rc_osc                              0            0       32768  250000000 0  
+  main_rc_osc                              0            0    12000000  100000000 0  
+  clock                                    0            0    12000000          0 0  
+  adc_op_clk                               1            1     1000000          0 0  
+  main_xtal                                1            1    12000000          0 0  
+     main_osc                              1            1    12000000          0 0  
+        mainck                             2            2    12000000          0 0  
+           utmick                          2            2   480000000          0 0  
+              usbck                        1            1    48000000          0 0  
+                 udpck                     0            0    48000000          0 0  
+                 uhpck                     1            1    48000000          0 0  
+           pllack                          1            1  1200000000          0 0  
+              plladivck                    1            1   600000000          0 0  
+                 smdclk                    0            0   600000000          0 0  
+                    smdck                  0            0   600000000          0 0  
+                 masterck                  5            5   200000000          0 0  
+                    isi_clk                0            0   200000000          0 0  
+                    lcdc_clk               0            0   200000000          0 0  
+                    dma1_clk               1            1   200000000          0 0  
+                    vdec_clk               0            0   200000000          0 0  
+                    matrix0_clk            0            0   200000000          0 0  
+                    mpddr_clk              1            1   200000000          0 0  
+                    aesb_clk               0            0   200000000          0 0  
+                    cpkcc_clk              0            0   200000000          0 0  
+                    dma0_clk               1            1   200000000          0 0  
+                    lcdck                  0            0   200000000          0 0  
+                    ddrck                  1            1   200000000          0 0  
+                    h32mxck               11           11   100000000          0 0  
+                       catb_clk            0            0   100000000          0 0  
+                       twi3_clk            0            0   100000000          0 0  
+                       smd_clk             0            0   100000000          0 0  
+                       securam_clk           0            0   100000000          0 0  
+                       fuse_clk            0            0   100000000          0 0  
+                       macb1_clk           0            0   100000000          0 0  
+                       macb0_clk           2            2   100000000          0 0  
+                       trng_clk            0            0   100000000          0 0  
+                       ssc1_clk            0            0   100000000          0 0  
+                       ssc0_clk            0            0   100000000          0 0  
+                       udphs_clk           0            0   100000000          0 0  
+                       uhphs_clk           3            3   100000000          0 0  
+                       dbgu_clk            0            0   100000000          0 0  
+                       adc_clk             1            1   100000000          0 0  
+                       pwm_clk             0            0   100000000          0 0  
+                       tcb2_clk            0            0   100000000          0 0  
+                       tcb1_clk            0            0   100000000          0 0  
+                       tcb0_clk            2            2   100000000          0 0  
+                       spi2_clk            0            0   100000000          0 0  
+                       spi1_clk            0            0   100000000          0 0  
+                       spi0_clk            0            0   100000000          0 0  
+                       mci1_clk            0            0   100000000          0 0  
+                       mci0_clk            0            0   100000000          0 0  
+                       twi2_clk            0            0   100000000          0 0  
+                       twi1_clk            0            0   100000000          0 0  
+                       twi0_clk            0            0   100000000          0 0  
+                       usart4_clk           0            0   100000000          0 0  
+                       usart3_clk           1            1   100000000          0 0  
+                       usart2_clk           0            0   100000000          0 0  
+                       uart1_clk           0            0   100000000          0 0  
+                       uart0_clk           0            0   100000000          0 0  
+                       pioE_clk            1            1   100000000          0 0  
+                       pioC_clk            1            1   100000000          0 0  
+                       pioB_clk            1            1   100000000          0 0  
+                       pioA_clk            1            1   100000000          0 0  
+                       hsmc_clk            1            1   100000000          0 0  
+                       matrix1_clk           0            0   100000000          0 0  
+                       sha_clk             0            0   100000000          0 0  
+                       tdes_clk            0            0   100000000          0 0  
+                       aes_clk             0            0   100000000          0 0  
+                       icm_clk             0            0   100000000          0 0  
+                       usart1_clk           0            0   100000000          0 0  
+                       usart0_clk           0            0   100000000          0 0  
+                       pioD_clk            1            1   100000000          0 0  
+  slow_xtal                                1            1       32768          0 0  
+     slow_osc                              1            1       32768          0 0  
+        slowck                             1            1       32768          0 0  
+           prog0                           0            0       32768          0 0  
+              pck0                         0            0       32768          0 0  
+           prog1                           0            0       32768          0 0  
+              pck1                         0            0       32768          0 0  
+           prog2                           0            0       32768          0 0  
+              pck2                         0            0       32768          0 0  
+root@sama5d4-xplained:~# free
+              total        used        free      shared  buff/cache   available
+Mem:         512464        9160      490696         224       12608      491936
+Swap:             0           0           0
+root@sama5d4-xplained:~# cat /proc/meminfo 
+MemTotal:         512464 kB
+MemFree:          490332 kB
+MemAvailable:     491976 kB
+Buffers:               0 kB
+Cached:             8312 kB
+SwapCached:            0 kB
+Active:             9460 kB
+Inactive:           3252 kB
+Active(anon):       4492 kB
+Inactive(anon):      132 kB
+Active(file):       4968 kB
+Inactive(file):     3120 kB
+Unevictable:           0 kB
+Mlocked:               0 kB
+SwapTotal:             0 kB
+SwapFree:              0 kB
+Dirty:                 0 kB
+Writeback:             0 kB
+AnonPages:          4416 kB
+Mapped:             3140 kB
+Shmem:               224 kB
+Slab:               4700 kB
+SReclaimable:       1396 kB
+SUnreclaim:         3304 kB
+KernelStack:         328 kB
+PageTables:          244 kB
+NFS_Unstable:          0 kB
+Bounce:                0 kB
+WritebackTmp:          0 kB
+CommitLimit:      256232 kB
+Committed_AS:       8656 kB
+VmallocTotal:     499712 kB
+VmallocUsed:      268176 kB
+VmallocChunk:     212988 kB
+CmaTotal:          65536 kB
+CmaFree:           65248 kB
+root@sama5d4-xplained:~# df
+Filesystem     1K-blocks   Used Available Use% Mounted on
+ubi0:rootfs       456128 136496    319632  30% /
+devtmpfs          223368      0    223368   0% /dev
+tmpfs             256232    116    256116   1% /run
+tmpfs             256232    108    256124   1% /var/volatile
+root@sama5d4-xplained:~# df -h
+Filesystem      Size  Used Avail Use% Mounted on
+ubi0:rootfs     446M  134M  313M  30% /
+devtmpfs        219M     0  219M   0% /dev
+tmpfs           251M  116K  251M   1% /run
+tmpfs           251M  108K  251M   1% /var/volatile
+root@sama5d4-xplained:~# cat /proc/tty/driver/atmel_serial
+serinfo:1.0 driver revision:
+0: uart:ATMEL_SERIAL mmio:0xFC00C000 irq:35 tx:13038 rx:363 RTS|CTS|DTR|DSR|CD|RI
+1: uart:ATMEL_SERIAL mmio:0xFC010000 irq:36 tx:0 rx:0 CTS|DSR|CD|RI
+root@sama5d4-xplained:~# cat /proc/interrupts 		//linux虚拟中断信息
+            CPU0       
+ 16:          3  atmel-aic5   1 Level     pmc, at91_rtc
+ 17:          0       PMC  17 Level     main_rc_osc
+ 18:          0       PMC   0 Level     main_osc
+ 19:          0       PMC  16 Level     mainck
+ 20:          0       PMC   1 Level     clk-plla
+ 21:          0       PMC   6 Level     clk-utmi
+ 22:          0       PMC   3 Level     clk-master
+ 23:         11  atmel-aic5   3 Level     at91_tick
+ 24:          0  atmel-aic5  47 Level     atmel_usba_udc
+ 25:          1  atmel-aic5  46 Level     ehci_hcd:usb1, ohci_hcd:usb2
+ 27:      17958  atmel-aic5  22 Level     hsmc
+ 28:       8447  atmel-aic5  50 Level     at_xdmac
+ 29:          0  atmel-aic5   8 Level     at_xdmac
+ 30:          7  atmel-aic5  37 Level     f8010000.spi
+ 31:          0  atmel-aic5  32 Level     f8014000.i2c
+ 32:      74241  atmel-aic5  40 Level     tc_clkevt
+ 33:          0  atmel-aic5  54 Level     eth0
+ 34:          0  atmel-aic5  36 Level     fc000000.mmc
+ 35:      14162  atmel-aic5  30 Level     ttyS0
+ 37:          0  atmel-aic5  38 Level     fc018000.spi
+ 39:          0  atmel-aic5  44 Level     at91_adc
+ 40:          0  atmel-aic5  12 Level     atmel-aes
+ 41:          0  atmel-aic5  14 Level     atmel-tdes
+ 42:          0  atmel-aic5  15 Level     atmel-sha
+177:          1      GPIO   1 Level     phy_interrupt
+179:          1      GPIO   3 Edge      mmc-detect
+184:          1      GPIO   8 Edge      pb_user1
+207:          0      GPIO  31 Edge      atmel_usba_udc
+Err:          0
+root@sama5d4-xplained:~# cat /sys/kernel/debug/irq_domain_mapping   //linux虚拟中断与硬件中断关系	
+ name              mapped  linear-max  direct-max  devtree-node
+ GPIO                  32          32           0  /ahb/apb/pinctrl@fc06a000/gpio@fc06d000
+ GPIO                  32          32           0  /ahb/apb/pinctrl@fc06a000/gpio@fc068000
+ GPIO                  32          32           0  /ahb/apb/pinctrl@fc06a000/gpio@fc06c000
+ GPIO                  32          32           0  /ahb/apb/pinctrl@fc06a000/gpio@fc06b000
+ GPIO                  32          32           0  /ahb/apb/pinctrl@fc06a000/gpio@fc06a000
+ PMC                   32          32           0  /ahb/apb/pmc@f0018000
+ atmel-aic5            96          96           0  /ahb/apb/interrupt-controller@fc06e000
+irq    hwirq    chip name        chip data   active  type            domain
+   16  0x00001  atmel-aic5       0xd4005020     *    LINEAR          atmel-aic5
+   17  0x00011  PMC              0xd4007480     *    LINEAR          PMC
+   18  0x00000  PMC              0xd4007480     *    LINEAR          PMC
+   19  0x00010  PMC              0xd4007480     *    LINEAR          PMC
+   20  0x00001  PMC              0xd4007480     *    LINEAR          PMC
+   21  0x00006  PMC              0xd4007480     *    LINEAR          PMC
+   22  0x00003  PMC              0xd4007480     *    LINEAR          PMC
+   23  0x00003  atmel-aic5       0xd4005020     *    LINEAR          atmel-aic5
+   24  0x0002f  atmel-aic5       0xd4005108     *    LINEAR          atmel-aic5
+   25  0x0002e  atmel-aic5       0xd4005108     *    LINEAR          atmel-aic5
+   26  0x00043  atmel-aic5       0xd40051f0          LINEAR          atmel-aic5
+   27  0x00016  atmel-aic5       0xd4005020     *    LINEAR          atmel-aic5
+   28  0x00032  atmel-aic5       0xd4005108     *    LINEAR          atmel-aic5
+   29  0x00008  atmel-aic5       0xd4005020     *    LINEAR          atmel-aic5
+   30  0x00025  atmel-aic5       0xd4005108     *    LINEAR          atmel-aic5
+   31  0x00020  atmel-aic5       0xd4005108     *    LINEAR          atmel-aic5
+   32  0x00028  atmel-aic5       0xd4005108     *    LINEAR          atmel-aic5
+   33  0x00036  atmel-aic5       0xd4005108     *    LINEAR          atmel-aic5
+   34  0x00024  atmel-aic5       0xd4005108     *    LINEAR          atmel-aic5
+   35  0x0001e  atmel-aic5       0xd4005020     *    LINEAR          atmel-aic5
+   36  0x0001f  atmel-aic5       0xd4005020          LINEAR          atmel-aic5
+   37  0x00026  atmel-aic5       0xd4005108     *    LINEAR          atmel-aic5
+   38  0x00029  atmel-aic5       0xd4005108          LINEAR          atmel-aic5
+   39  0x0002c  atmel-aic5       0xd4005108     *    LINEAR          atmel-aic5
+   40  0x0000c  atmel-aic5       0xd4005020     *    LINEAR          atmel-aic5
+   41  0x0000e  atmel-aic5       0xd4005020     *    LINEAR          atmel-aic5
+   42  0x0000f  atmel-aic5       0xd4005020     *    LINEAR          atmel-aic5
+   43  0x00017  atmel-aic5       0xd4005020          LINEAR          atmel-aic5
+   44  0x00018  atmel-aic5       0xd4005020          LINEAR          atmel-aic5
+   45  0x00019  atmel-aic5       0xd4005020          LINEAR          atmel-aic5
+   46  0x00005  atmel-aic5       0xd4005020          LINEAR          atmel-aic5
+   47  0x0001a  atmel-aic5       0xd4005020          LINEAR          atmel-aic5
+   48  0x00000  GPIO             0xd4026d10          LINEAR          GPIO
+   49  0x00001  GPIO             0xd4026d10          LINEAR          GPIO
+   50  0x00002  GPIO             0xd4026d10          LINEAR          GPIO
+   51  0x00003  GPIO             0xd4026d10          LINEAR          GPIO
+   52  0x00004  GPIO             0xd4026d10          LINEAR          GPIO
+   53  0x00005  GPIO             0xd4026d10          LINEAR          GPIO
+   54  0x00006  GPIO             0xd4026d10          LINEAR          GPIO
+   55  0x00007  GPIO             0xd4026d10          LINEAR          GPIO
+   56  0x00008  GPIO             0xd4026d10          LINEAR          GPIO
+   57  0x00009  GPIO             0xd4026d10          LINEAR          GPIO
+   58  0x0000a  GPIO             0xd4026d10          LINEAR          GPIO
+   59  0x0000b  GPIO             0xd4026d10          LINEAR          GPIO
+   60  0x0000c  GPIO             0xd4026d10          LINEAR          GPIO
+   61  0x0000d  GPIO             0xd4026d10          LINEAR          GPIO
+   62  0x0000e  GPIO             0xd4026d10          LINEAR          GPIO
+   63  0x0000f  GPIO             0xd4026d10          LINEAR          GPIO
+   64  0x00010  GPIO             0xd4026d10          LINEAR          GPIO
+   65  0x00011  GPIO             0xd4026d10          LINEAR          GPIO
+   66  0x00012  GPIO             0xd4026d10          LINEAR          GPIO
+   67  0x00013  GPIO             0xd4026d10          LINEAR          GPIO
+   68  0x00014  GPIO             0xd4026d10          LINEAR          GPIO
+   69  0x00015  GPIO             0xd4026d10          LINEAR          GPIO
+   70  0x00016  GPIO             0xd4026d10          LINEAR          GPIO
+   71  0x00017  GPIO             0xd4026d10          LINEAR          GPIO
+   72  0x00018  GPIO             0xd4026d10          LINEAR          GPIO
+   73  0x00019  GPIO             0xd4026d10          LINEAR          GPIO
+   74  0x0001a  GPIO             0xd4026d10          LINEAR          GPIO
+   75  0x0001b  GPIO             0xd4026d10          LINEAR          GPIO
+   76  0x0001c  GPIO             0xd4026d10          LINEAR          GPIO
+   77  0x0001d  GPIO             0xd4026d10          LINEAR          GPIO
+   78  0x0001e  GPIO             0xd4026d10          LINEAR          GPIO
+   79  0x0001f  GPIO             0xd4026d10          LINEAR          GPIO
+   80  0x00000  GPIO             0xd4026c10          LINEAR          GPIO
+   81  0x00001  GPIO             0xd4026c10          LINEAR          GPIO
+   82  0x00002  GPIO             0xd4026c10          LINEAR          GPIO
+   83  0x00003  GPIO             0xd4026c10          LINEAR          GPIO
+   84  0x00004  GPIO             0xd4026c10          LINEAR          GPIO
+   85  0x00005  GPIO             0xd4026c10          LINEAR          GPIO
+   86  0x00006  GPIO             0xd4026c10          LINEAR          GPIO
+   87  0x00007  GPIO             0xd4026c10          LINEAR          GPIO
+   88  0x00008  GPIO             0xd4026c10          LINEAR          GPIO
+   89  0x00009  GPIO             0xd4026c10          LINEAR          GPIO
+   90  0x0000a  GPIO             0xd4026c10          LINEAR          GPIO
+   91  0x0000b  GPIO             0xd4026c10          LINEAR          GPIO
+   92  0x0000c  GPIO             0xd4026c10          LINEAR          GPIO
+   93  0x0000d  GPIO             0xd4026c10          LINEAR          GPIO
+   94  0x0000e  GPIO             0xd4026c10          LINEAR          GPIO
+   95  0x0000f  GPIO             0xd4026c10          LINEAR          GPIO
+   96  0x00010  GPIO             0xd4026c10          LINEAR          GPIO
+   97  0x00011  GPIO             0xd4026c10          LINEAR          GPIO
+   98  0x00012  GPIO             0xd4026c10          LINEAR          GPIO
+   99  0x00013  GPIO             0xd4026c10          LINEAR          GPIO
+  100  0x00014  GPIO             0xd4026c10          LINEAR          GPIO
+  101  0x00015  GPIO             0xd4026c10          LINEAR          GPIO
+  102  0x00016  GPIO             0xd4026c10          LINEAR          GPIO
+  103  0x00017  GPIO             0xd4026c10          LINEAR          GPIO
+  104  0x00018  GPIO             0xd4026c10          LINEAR          GPIO
+  105  0x00019  GPIO             0xd4026c10          LINEAR          GPIO
+  106  0x0001a  GPIO             0xd4026c10          LINEAR          GPIO
+  107  0x0001b  GPIO             0xd4026c10          LINEAR          GPIO
+  108  0x0001c  GPIO             0xd4026c10          LINEAR          GPIO
+  109  0x0001d  GPIO             0xd4026c10          LINEAR          GPIO
+  110  0x0001e  GPIO             0xd4026c10          LINEAR          GPIO
+  111  0x0001f  GPIO             0xd4026c10          LINEAR          GPIO
+  112  0x00000  GPIO             0xd4026b10          LINEAR          GPIO
+  113  0x00001  GPIO             0xd4026b10          LINEAR          GPIO
+  114  0x00002  GPIO             0xd4026b10          LINEAR          GPIO
+  115  0x00003  GPIO             0xd4026b10          LINEAR          GPIO
+  116  0x00004  GPIO             0xd4026b10          LINEAR          GPIO
+  117  0x00005  GPIO             0xd4026b10          LINEAR          GPIO
+  118  0x00006  GPIO             0xd4026b10          LINEAR          GPIO
+  119  0x00007  GPIO             0xd4026b10          LINEAR          GPIO
+  120  0x00008  GPIO             0xd4026b10          LINEAR          GPIO
+  121  0x00009  GPIO             0xd4026b10          LINEAR          GPIO
+  122  0x0000a  GPIO             0xd4026b10          LINEAR          GPIO
+  123  0x0000b  GPIO             0xd4026b10          LINEAR          GPIO
+  124  0x0000c  GPIO             0xd4026b10          LINEAR          GPIO
+  125  0x0000d  GPIO             0xd4026b10          LINEAR          GPIO
+  126  0x0000e  GPIO             0xd4026b10          LINEAR          GPIO
+  127  0x0000f  GPIO             0xd4026b10          LINEAR          GPIO
+  128  0x00010  GPIO             0xd4026b10          LINEAR          GPIO
+  129  0x00011  GPIO             0xd4026b10          LINEAR          GPIO
+  130  0x00012  GPIO             0xd4026b10          LINEAR          GPIO
+  131  0x00013  GPIO             0xd4026b10          LINEAR          GPIO
+  132  0x00014  GPIO             0xd4026b10          LINEAR          GPIO
+  133  0x00015  GPIO             0xd4026b10          LINEAR          GPIO
+  134  0x00016  GPIO             0xd4026b10          LINEAR          GPIO
+  135  0x00017  GPIO             0xd4026b10          LINEAR          GPIO
+  136  0x00018  GPIO             0xd4026b10          LINEAR          GPIO
+  137  0x00019  GPIO             0xd4026b10          LINEAR          GPIO
+  138  0x0001a  GPIO             0xd4026b10          LINEAR          GPIO
+  139  0x0001b  GPIO             0xd4026b10          LINEAR          GPIO
+  140  0x0001c  GPIO             0xd4026b10          LINEAR          GPIO
+  141  0x0001d  GPIO             0xd4026b10          LINEAR          GPIO
+  142  0x0001e  GPIO             0xd4026b10          LINEAR          GPIO
+  143  0x0001f  GPIO             0xd4026b10          LINEAR          GPIO
+  144  0x00000  GPIO             0xd4026a10          LINEAR          GPIO
+  145  0x00001  GPIO             0xd4026a10          LINEAR          GPIO
+  146  0x00002  GPIO             0xd4026a10          LINEAR          GPIO
+  147  0x00003  GPIO             0xd4026a10          LINEAR          GPIO
+  148  0x00004  GPIO             0xd4026a10          LINEAR          GPIO
+  149  0x00005  GPIO             0xd4026a10          LINEAR          GPIO
+  150  0x00006  GPIO             0xd4026a10          LINEAR          GPIO
+  151  0x00007  GPIO             0xd4026a10          LINEAR          GPIO
+  152  0x00008  GPIO             0xd4026a10          LINEAR          GPIO
+  153  0x00009  GPIO             0xd4026a10          LINEAR          GPIO
+  154  0x0000a  GPIO             0xd4026a10          LINEAR          GPIO
+  155  0x0000b  GPIO             0xd4026a10          LINEAR          GPIO
+  156  0x0000c  GPIO             0xd4026a10          LINEAR          GPIO
+  157  0x0000d  GPIO             0xd4026a10          LINEAR          GPIO
+  158  0x0000e  GPIO             0xd4026a10          LINEAR          GPIO
+  159  0x0000f  GPIO             0xd4026a10          LINEAR          GPIO
+  160  0x00010  GPIO             0xd4026a10          LINEAR          GPIO
+  161  0x00011  GPIO             0xd4026a10          LINEAR          GPIO
+  162  0x00012  GPIO             0xd4026a10          LINEAR          GPIO
+  163  0x00013  GPIO             0xd4026a10          LINEAR          GPIO
+  164  0x00014  GPIO             0xd4026a10          LINEAR          GPIO
+  165  0x00015  GPIO             0xd4026a10          LINEAR          GPIO
+  166  0x00016  GPIO             0xd4026a10          LINEAR          GPIO
+  167  0x00017  GPIO             0xd4026a10          LINEAR          GPIO
+  168  0x00018  GPIO             0xd4026a10          LINEAR          GPIO
+  169  0x00019  GPIO             0xd4026a10          LINEAR          GPIO
+  170  0x0001a  GPIO             0xd4026a10          LINEAR          GPIO
+  171  0x0001b  GPIO             0xd4026a10          LINEAR          GPIO
+  172  0x0001c  GPIO             0xd4026a10          LINEAR          GPIO
+  173  0x0001d  GPIO             0xd4026a10          LINEAR          GPIO
+  174  0x0001e  GPIO             0xd4026a10          LINEAR          GPIO
+  175  0x0001f  GPIO             0xd4026a10          LINEAR          GPIO
+  176  0x00000  GPIO             0xd4026910          LINEAR          GPIO
+  177  0x00001  GPIO             0xd4026910     *    LINEAR          GPIO
+  178  0x00002  GPIO             0xd4026910          LINEAR          GPIO
+  179  0x00003  GPIO             0xd4026910     *    LINEAR          GPIO
+  180  0x00004  GPIO             0xd4026910          LINEAR          GPIO
+  181  0x00005  GPIO             0xd4026910          LINEAR          GPIO
+  182  0x00006  GPIO             0xd4026910          LINEAR          GPIO
+  183  0x00007  GPIO             0xd4026910          LINEAR          GPIO
+  184  0x00008  GPIO             0xd4026910     *    LINEAR          GPIO
+  185  0x00009  GPIO             0xd4026910          LINEAR          GPIO
+  186  0x0000a  GPIO             0xd4026910          LINEAR          GPIO
+  187  0x0000b  GPIO             0xd4026910          LINEAR          GPIO
+  188  0x0000c  GPIO             0xd4026910          LINEAR          GPIO
+  189  0x0000d  GPIO             0xd4026910          LINEAR          GPIO
+  190  0x0000e  GPIO             0xd4026910          LINEAR          GPIO
+  191  0x0000f  GPIO             0xd4026910          LINEAR          GPIO
+  192  0x00010  GPIO             0xd4026910          LINEAR          GPIO
+  193  0x00011  GPIO             0xd4026910          LINEAR          GPIO
+  194  0x00012  GPIO             0xd4026910          LINEAR          GPIO
+  195  0x00013  GPIO             0xd4026910          LINEAR          GPIO
+  196  0x00014  GPIO             0xd4026910          LINEAR          GPIO
+  197  0x00015  GPIO             0xd4026910          LINEAR          GPIO
+  198  0x00016  GPIO             0xd4026910          LINEAR          GPIO
+  199  0x00017  GPIO             0xd4026910          LINEAR          GPIO
+  200  0x00018  GPIO             0xd4026910          LINEAR          GPIO
+  201  0x00019  GPIO             0xd4026910          LINEAR          GPIO
+  202  0x0001a  GPIO             0xd4026910          LINEAR          GPIO
+  203  0x0001b  GPIO             0xd4026910          LINEAR          GPIO
+  204  0x0001c  GPIO             0xd4026910          LINEAR          GPIO
+  205  0x0001d  GPIO             0xd4026910          LINEAR          GPIO
+  206  0x0001e  GPIO             0xd4026910          LINEAR          GPIO
+  207  0x0001f  GPIO             0xd4026910     *    LINEAR          GPIO
+root@sama5d4-xplained:~# lsmod
+Module                  Size  Used by
+usb_f_acm               4044  1
+u_serial                7582  1 usb_f_acm
+g_serial                2018  0
+libcomposite           34209  2 usb_f_acm,g_serial
+atmel_usba_udc         14735  0
+root@sama5d4-xplained:~# mount
+ubi0:rootfs on / type ubifs (rw,relatime)
+devtmpfs on /dev type devtmpfs (rw,relatime,size=223368k,nr_inodes=55842,mode=755)
+proc on /proc type proc (rw,relatime)
+sysfs on /sys type sysfs (rw,relatime)
+debugfs on /sys/kernel/debug type debugfs (rw,relatime)
+tmpfs on /run type tmpfs (rw,nosuid,nodev,mode=755)
+tmpfs on /var/volatile type tmpfs (rw,relatime)
+devpts on /dev/pts type devpts (rw,relatime,gid=5,mode=620)
+root@sama5d4-xplained:~# opkg
+opkg must have one sub-command argument
+usage: opkg [options...] sub-command [arguments...]
+where sub-command is one of:
+
+Package Manipulation:
+        update                          Update list of available packages
+        upgrade                         Upgrade installed packages
+        install <pkgs>                  Install package(s)
+        configure <pkgs>                Configure unpacked package(s)
+        remove <pkgs|glob>              Remove package(s)
+        clean                           Clean internal cache
+        flag <flag> <pkgs>              Flag package(s)
+         <flag>=hold|noprune|user|ok|installed|unpacked (one per invocation)
+
+Informational Commands:
+        list                            List available packages
+        list-installed                  List installed packages
+        list-upgradable                 List installed and upgradable packages
+        list-changed-conffiles          List user modified configuration files
+        files <pkg>                     List files belonging to <pkg>
+        search <file|glob>              List package providing <file>
+        info [pkg|glob]                 Display all info for <pkg>
+        status [pkg|glob]               Display all status for <pkg>
+        download <pkg>                  Download <pkg> to current directory
+        compare-versions <v1> <op> <v2>
+                                        compare versions using <= < > >= = << >>
+        print-architecture              List installable package architectures
+        depends [-A] [pkgname|glob]+
+        whatdepends [-A] [pkgname|glob]+
+        whatdependsrec [-A] [pkgname|glob]+
+        whatrecommends[-A] [pkgname|glob]+
+        whatsuggests[-A] [pkgname|glob]+
+        whatprovides [-A] [pkgname|glob]+
+        whatconflicts [-A] [pkgname|glob]+
+        whatreplaces [-A] [pkgname|glob]+
+
+Options:
+        -A                              Query all packages not just those installed
+        -V[<level>]                     Set verbosity level to <level>.
+        --verbosity[=<level>]           Verbosity levels:
+                                          0 errors only
+                                          1 normal messages (default)
+                                          2 informative messages
+                                          3 debug
+                                          4 debug level 2
+        -f <conf_file>                  Use <conf_file> as the opkg configuration file
+        --conf <conf_file>
+        -d <dest_name>                  Use <dest_name> as the the root directory for
+        --dest <dest_name>              package installation, removal, upgrading.
+                                        <dest_name> should be a defined dest name from
+                                        the configuration file, (but can also be a
+                                        directory name in a pinch).
+        -o <dir>                        Use <dir> as the root directory for
+        --offline-root <dir>            offline installation of packages.
+        --add-arch <arch>:<prio>        Register architecture with given priority
+        --add-dest <name>:<path>        Register destination with given path
+        --add-exclude <name>            Register package to be excluded from install
+        --prefer-arch-to-version        Use the architecture priority package rather
+                                        than the higher version one if more
+                                        than one candidate is found.
+        --combine                       Combine upgrade and install operations, this
+                                        may be needed to resolve dependency issues.
+
+Force Options:
+        --force-depends                 Install/remove despite failed dependencies
+        --force-maintainer              Overwrite preexisting config files
+        --force-reinstall               Reinstall package(s)
+        --force-overwrite               Overwrite files from other package(s)
+        --force-downgrade               Allow opkg to downgrade packages
+        --force-space                   Disable free space checks
+        --force-postinstall             Run postinstall scripts even in offline mode
+        --force-remove                  Remove package even if prerm script fails
+        --noaction                      No action -- test only
+        --download-only                 No action -- download only
+        --nodeps                        Do not follow dependencies
+        --no-install-recommends         Do not install any recommended packages
+        --force-removal-of-dependent-packages
+                                        Remove package and all dependencies
+        --autoremove                    Remove packages that were installed
+                                        automatically to satisfy dependencies
+        -t                              Specify tmp-dir.
+        --tmp-dir                       Specify tmp-dir.
+        --volatile-cache                Use volatile cache.
+                                        Volatile cache will be cleared on exit
+
+ glob could be something like 'pkgname*' '*file*' or similar
+ e.g. opkg info 'libstd*' or opkg search '*libop*' or opkg remove 'libncur*'
+root@sama5d4-xplained:~# opkg list_installed
+acl - 2.2.52-r0
+alsa-conf - 1.0.29-r0
+alsa-conf-base - 1.0.29-r0
+alsa-states - 0.2.0-r5
+alsa-utils - 1.0.29-r0
+alsa-utils-aconnect - 1.0.29-r0
+alsa-utils-alsactl - 1.0.29-r0
+alsa-utils-alsaloop - 1.0.29-r0
+alsa-utils-alsamixer - 1.0.29-r0
+alsa-utils-alsaucm - 1.0.29-r0
+alsa-utils-amixer - 1.0.29-r0
+alsa-utils-aplay - 1.0.29-r0
+alsa-utils-aseqdump - 1.0.29-r0
+alsa-utils-aseqnet - 1.0.29-r0
+alsa-utils-iecset - 1.0.29-r0
+alsa-utils-midi - 1.0.29-r0
+alsa-utils-speakertest - 1.0.29-r0
+at - 3.1.16-r0
+atmel-wireless-firmware - v14-r0
+attr - 2.4.47-r0
+base-files - 3.0.14-r89
+base-passwd - 3.5.29-r0
+bash - 4.3.30-r0
+bc - 1.06-r3
+bluez5 - 5.33-r0
+bridge-utils - 1.5-r0
+busybox - 1.23.2-r0
+busybox-hwclock - 1.23.2-r0
+busybox-syslog - 1.23.2-r0
+busybox-udhcpc - 1.23.2-r0
+byacc - 20150711-r0
+bzip2 - 1.0.6-r5
+ca-certificates - 20150426-r0
+canutils - 4.0.6-r0
+coreutils - 8.24-r0
+cpio - 2.11-r5
+cracklib - 2.9.5-r0
+cronie - 1.5.0-r0
+curl - 7.44.0-r0
+dbus-1 - 1.8.20-r0
+devmem2 - 1.0-r7
+diffutils - 3.3-r0
+dosfstools - 3.0.28-r0
+dtc - 1.4.1+git0+302fca9f4c-r0
+dtc-misc - 1.4.1+git0+302fca9f4c-r0
+e2fsprogs - 1.42.9-r0
+e2fsprogs-badblocks - 1.42.9-r0
+e2fsprogs-e2fsck - 1.42.9-r0
+e2fsprogs-mke2fs - 1.42.9-r0
+ed - 1.9-r0
+elfutils - 0.163-r0
+ethtool - 4.0-r0
+evtest - 1.32+0+b8343ec112-r0
+file - 5.24-r0
+findutils - 4.5.14-r0
+flex - 2.5.39-r0
+fuser - 22.21-r0
+gawk - 4.1.3-r0
+gdbserver - 7.9.1-r0
+glibc-binary-localedata-en-gb - 2.22-r0
+glibc-binary-localedata-en-us - 2.22-r0
+glibc-locale-en-gb - 2.22-r0
+grep - 2.21-r0
+gzip - 1.6-r0
+i2c-tools - 3.1.2-r0
+init-ifupdown - 1.0-r7
+initscripts - 1.0-r155
+initscripts-functions - 1.0-r155
+iperf - 2.0.5-r0
+iproute2 - 4.1.1-r0
+iptables - 1.4.21-r0
+iputils - s20121221-r0
+iputils-arping - s20121221-r0
+iputils-clockdiff - s20121221-r0
+iputils-ping - s20121221-r0
+iputils-ping6 - s20121221-r0
+iputils-tracepath - s20121221-r0
+iputils-tracepath6 - s20121221-r0
+iputils-traceroute6 - s20121221-r0
+iw - 4.1-r0
+kernel-4.1.0-linux4sam-5.3 - 4.1+git0+32d8f5fbee-r0
+kernel-module-af-alg - 4.1+git0+32d8f5fbee-r0
+kernel-module-algif-hash - 4.1+git0+32d8f5fbee-r0
+kernel-module-algif-rng - 4.1+git0+32d8f5fbee-r0
+kernel-module-algif-skcipher - 4.1+git0+32d8f5fbee-r0
+kernel-module-ar5523 - 4.1+git0+32d8f5fbee-r0
+kernel-module-ath - 4.1+git0+32d8f5fbee-r0
+kernel-module-ath6kl-core - 4.1+git0+32d8f5fbee-r0
+kernel-module-ath6kl-sdio - 4.1+git0+32d8f5fbee-r0
+kernel-module-atmel-usba-udc - 4.1+git0+32d8f5fbee-r0
+kernel-module-crc-ccitt - 4.1+git0+32d8f5fbee-r0
+kernel-module-crc-itu-t - 4.1+git0+32d8f5fbee-r0
+kernel-module-crc7 - 4.1+git0+32d8f5fbee-r0
+kernel-module-dmatest - 4.1+git0+32d8f5fbee-r0
+kernel-module-eeprom-93cx6 - 4.1+git0+32d8f5fbee-r0
+kernel-module-g-mass-storage - 4.1+git0+32d8f5fbee-r0
+kernel-module-g-serial - 4.1+git0+32d8f5fbee-r0
+kernel-module-gspca-main - 4.1+git0+32d8f5fbee-r0
+kernel-module-lib80211 - 4.1+git0+32d8f5fbee-r0
+kernel-module-libcomposite - 4.1+git0+32d8f5fbee-r0
+kernel-module-libertas - 4.1+git0+32d8f5fbee-r0
+kernel-module-libertas-sdio - 4.1+git0+32d8f5fbee-r0
+kernel-module-libertas-tf - 4.1+git0+32d8f5fbee-r0
+kernel-module-libertas-tf-usb - 4.1+git0+32d8f5fbee-r0
+kernel-module-mwifiex - 4.1+git0+32d8f5fbee-r0
+kernel-module-mwifiex-sdio - 4.1+git0+32d8f5fbee-r0
+kernel-module-mwifiex-usb - 4.1+git0+32d8f5fbee-r0
+kernel-module-ov2640 - 4.1+git0+32d8f5fbee-r0
+kernel-module-ov5642 - 4.1+git0+32d8f5fbee-r0
+kernel-module-ov6650 - 4.1+git0+32d8f5fbee-r0
+kernel-module-ov772x - 4.1+git0+32d8f5fbee-r0
+kernel-module-ov7740 - 4.1+git0+32d8f5fbee-r0
+kernel-module-ov9640 - 4.1+git0+32d8f5fbee-r0
+kernel-module-ov9740 - 4.1+git0+32d8f5fbee-r0
+kernel-module-pwc - 4.1+git0+32d8f5fbee-r0
+kernel-module-rsi-91x - 4.1+git0+32d8f5fbee-r0
+kernel-module-rsi-sdio - 4.1+git0+32d8f5fbee-r0
+kernel-module-rsi-usb - 4.1+git0+32d8f5fbee-r0
+kernel-module-rt2500usb - 4.1+git0+32d8f5fbee-r0
+kernel-module-rt2800lib - 4.1+git0+32d8f5fbee-r0
+kernel-module-rt2800usb - 4.1+git0+32d8f5fbee-r0
+kernel-module-rt2x00lib - 4.1+git0+32d8f5fbee-r0
+kernel-module-rt2x00usb - 4.1+git0+32d8f5fbee-r0
+kernel-module-rt73usb - 4.1+git0+32d8f5fbee-r0
+kernel-module-rtl-usb - 4.1+git0+32d8f5fbee-r0
+kernel-module-rtl8187 - 4.1+git0+32d8f5fbee-r0
+kernel-module-rtl8192c-common - 4.1+git0+32d8f5fbee-r0
+kernel-module-rtl8192cu - 4.1+git0+32d8f5fbee-r0
+kernel-module-rtlwifi - 4.1+git0+32d8f5fbee-r0
+kernel-module-spidev - 4.1+git0+32d8f5fbee-r0
+kernel-module-u-serial - 4.1+git0+32d8f5fbee-r0
+kernel-module-usb-f-acm - 4.1+git0+32d8f5fbee-r0
+kernel-module-usb-f-mass-storage - 4.1+git0+32d8f5fbee-r0
+kernel-module-usb-f-obex - 4.1+git0+32d8f5fbee-r0
+kernel-module-usb-f-serial - 4.1+git0+32d8f5fbee-r0
+kernel-module-usb8xxx - 4.1+git0+32d8f5fbee-r0
+kernel-module-uvcvideo - 4.1+git0+32d8f5fbee-r0
+kernel-module-videobuf2-vmalloc - 4.1+git0+32d8f5fbee-r0
+kernel-module-wilc1000 - 4.1+git0+32d8f5fbee-r0
+kernel-module-wilc1000-sdio - 4.1+git0+32d8f5fbee-r0
+kernel-module-wl1251 - 4.1+git0+32d8f5fbee-r0
+kernel-module-wl12xx - 4.1+git0+32d8f5fbee-r0
+kernel-module-wl18xx - 4.1+git0+32d8f5fbee-r0
+kernel-module-wlcore - 4.1+git0+32d8f5fbee-r0
+kernel-module-wlcore-sdio - 4.1+git0+32d8f5fbee-r0
+kernel-module-wlcore-spi - 4.1+git0+32d8f5fbee-r0
+kernel-module-zd1201 - 4.1+git0+32d8f5fbee-r0
+kernel-module-zd1211rw - 4.1+git0+32d8f5fbee-r0
+kernel-modules - 4.1+git0+32d8f5fbee-r0
+killall - 22.21-r0
+kmod - 21+git0+114ec87c85-r0
+less - 479-r0
+libacl1 - 2.2.52-r0
+libarchive13 - 3.1.2-r0
+libasound-module-bluez - 5.33-r0
+libasound2 - 1.0.29-r0
+libattr1 - 2.4.47-r0
+libblkid1 - 2.26.2-r0
+libbz2-0 - 1.0.6-r5
+libc6 - 2.22-r0
+libc6-thread-db - 2.22-r0
+libcap2 - 2.24-r0
+libcom-err2 - 1.42.9-r0
+libcrypto1.0.0 - 1.0.2d-r0
+libcurl4 - 7.44.0-r0
+libdbus-1-3 - 1.8.20-r0
+libdbus-glib-1-2 - 0.104-r0
+libdrm-tests - 2.4.62-r0
+libdrm2 - 2.4.62-r0
+libdw1 - 0.163-r0
+libe2p2 - 1.42.9-r0
+libelf1 - 0.163-r0
+libevent - 2.0.22-r0
+libexpat1 - 2.1.0-r0
+libext2fs2 - 1.42.9-r0
+libfdisk1 - 2.26.2-r0
+libffi6 - 3.2.1-r0
+libformw5 - 5.9-r15.1
+libgcc1 - 5.2.0-r0
+libgcrypt - 1.6.3-r1
+libgdbm-compat4 - 1.11-r0
+libgdbm4 - 1.11-r0
+libglib-2.0-0 - 1:2.44.1-r0
+libglib-2.0-locale-en-gb - 1:2.44.1-r0
+libgmp10 - 6.0.0-r0
+libgnutls-openssl27 - 3.3.17.1-r0
+libgnutls28 - 3.3.17.1-r0
+libgpg-error0 - 1.19-r0
+libkmod2 - 21+git0+114ec87c85-r0
+libkms1 - 2.4.62-r0
+libltdl7 - 2.4.6-r0
+libmenuw5 - 5.9-r15.1
+libmount1 - 2.26.2-r0
+libncurses5 - 5.9-r15.1
+libncursesw5 - 5.9-r15.1
+libnfsidmap0 - 0.25-r0
+libnl-3-200 - 1:3.2.25-r1
+libnl-3-cli - 1:3.2.25-r1
+libnl-3-genl - 1:3.2.25-r1
+libnl-nf-3-200 - 1:3.2.25-r1
+libnl-route-3-200 - 1:3.2.25-r1
+libopkg1 - 1:0.3.0-r0
+libpanelw5 - 5.9-r15.1
+libpci3 - 3.3.1-r0
+libpcre1 - 8.38-r0
+libperl5 - 5.22.0-r0
+libpopt0 - 1.16-r3
+libpython2.7-1.0 - 2.7.9-r1
+libreadline6 - 6.3-r0
+libsamplerate0 - 0.1.8-r1
+libsmartcols1 - 2.26.2-r0
+libsndfile1 - 1.0.25-r2
+libsocketcan2 - 0.0.9-r0
+libsqlite3-0 - 3:3.8.10.2-r0
+libss2 - 1.42.9-r0
+libssl1.0.0 - 1.0.2d-r0
+libstdc++6 - 5.2.0-r0
+libsysfs2 - 2.1.0-r5
+libtinfo5 - 5.9-r15.1
+libtirpc1 - 0.2.5-r0
+libudev0 - 182-r9
+libusb-1.0-0 - 1.0.19-r0
+libuuid1 - 2.26.2-r0
+libwrap0 - 7.6-r10
+libxml2 - 2.9.2-r0
+libz1 - 1.2.8-r0
+linux-firmware - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-ar3k - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-ar9170 - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-ath6k - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-ath9k - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-atheros-license - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-bcm4329 - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-bcm4330 - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-bcm4334 - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-bcm4354 - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-broadcom-license - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-iwlwifi-135-6 - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-iwlwifi-3160-7 - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-iwlwifi-3160-8 - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-iwlwifi-3160-9 - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-iwlwifi-6000-4 - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-iwlwifi-6000g2a-5 - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-iwlwifi-6000g2a-6 - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-iwlwifi-6000g2b-5 - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-iwlwifi-6000g2b-6 - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-iwlwifi-6050-4 - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-iwlwifi-6050-5 - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-iwlwifi-7260-7 - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-iwlwifi-7260-8 - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-iwlwifi-7260-9 - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-iwlwifi-7265-8 - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-iwlwifi-7265-9 - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-iwlwifi-license - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-license - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-marvell-license - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-radeon - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-radeon-license - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-ralink - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-ralink-license - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-rtl-license - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-rtl8192ce - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-rtl8192cu - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-rtl8192su - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-sd8686 - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-sd8787 - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-sd8797 - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-ti-connectivity-license - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-vt6656 - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-vt6656-license - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-wl12xx - 1:0.0+git0+75cc3ef8ba-r0
+linux-firmware-wl18xx - 1:0.0+git0+75cc3ef8ba-r0
+lmbench - 3.0-a9-r2
+locale-base-en-gb - 2.22-r0
+locale-base-en-us - 2.22-r0
+logrotate - 3.9.1-r0
+lrzsz - 0.12.20-r6
+m4 - 1.4.17-r0
+make - 4.1-r0
+makedevs - 1.0.1-r0
+mc - 4.8.14-r0
+mc-fish - 4.8.14-r0
+mc-helpers - 4.8.14-r0
+mc-helpers-perl - 4.8.14-r0
+mc-helpers-python - 4.8.14-r0
+mc-locale-en-gb - 4.8.14-r0
+mktemp - 1.7-r3
+modutils-initscripts - 1.0-r7
+mpg123 - 1.21.0-r0
+mtd-utils - 1.5.1+git0+9f107132a6-r0
+nbench-byte - 2.2.3-r0
+ncurses - 5.9-r15.1
+ncurses-terminfo - 5.9-r15.1
+ncurses-terminfo-base - 5.9-r15.1
+net-tools - 1.60-26-r0
+netbase - 1:5.3-r0
+nettle - 3.1.1-r0
+nfs-utils - 1.3.1-r0
+nfs-utils-client - 1.3.1-r0
+openssh - 7.1p2-r0
+openssh-keygen - 7.1p2-r0
+openssh-scp - 7.1p2-r0
+openssh-ssh - 7.1p2-r0
+openssh-sshd - 7.1p2-r0
+openssl - 1.0.2d-r0
+openssl-conf - 1.0.2d-r0
+opkg - 1:0.3.0-r0
+opkg-arch-config - 1.0-r1
+packagegroup-base-bluetooth - 1.0-r83
+packagegroup-base-usbgadget - 1.0-r83
+packagegroup-base-usbhost - 1.0-r83
+packagegroup-base-wifi - 1.0-r83
+packagegroup-core-boot - 1.0-r17
+packagegroup-core-full-cmdline - 1.0-r6
+packagegroup-core-full-cmdline-dev-utils - 1.0-r6
+packagegroup-core-full-cmdline-extended - 1.0-r6
+packagegroup-core-full-cmdline-initscripts - 1.0-r6
+packagegroup-core-full-cmdline-libs - 1.0-r6
+packagegroup-core-full-cmdline-multiuser - 1.0-r6
+packagegroup-core-full-cmdline-sys-services - 1.0-r6
+packagegroup-core-full-cmdline-utils - 1.0-r6
+packagegroup-core-ssh-openssh - 1.0-r1
+patch - 2.7.5-r0
+pax - 3.4-r2
+pciutils - 3.3.1-r0
+pciutils-ids - 3.3.1-r0
+perl - 5.22.0-r0
+procps - 3.3.10-r0
+psmisc - 22.21-r0
+pstree - 22.21-r0
+python-2to3 - 2.7.9-r1
+python-argparse - 2.7.9-r1
+python-audio - 2.7.9-r1
+python-bsddb - 2.7.9-r1
+python-codecs - 2.7.9-r1
+python-compile - 2.7.9-r1
+python-compiler - 2.7.9-r1
+python-compression - 2.7.9-r1
+python-contextlib - 2.7.9-r1
+python-core - 2.7.9-r1
+python-crypt - 2.7.9-r1
+python-ctypes - 2.7.9-r1
+python-curses - 2.7.9-r1
+python-datetime - 2.7.9-r1
+python-db - 2.7.9-r1
+python-dbus - 1.2.0-r0
+python-debugger - 2.7.9-r1
+python-difflib - 2.7.9-r1
+python-distutils - 2.7.9-r1
+python-doctest - 2.7.9-r1
+python-elementtree - 2.7.9-r1
+python-email - 2.7.9-r1
+python-fcntl - 2.7.9-r1
+python-gdbm - 2.7.9-r1
+python-hotshot - 2.7.9-r1
+python-html - 2.7.9-r1
+python-idle - 2.7.9-r1
+python-image - 2.7.9-r1
+python-importlib - 2.7.9-r1
+python-io - 2.7.9-r1
+python-json - 2.7.9-r1
+python-lang - 2.7.9-r1
+python-logging - 2.7.9-r1
+python-mailbox - 2.7.9-r1
+python-math - 2.7.9-r1
+python-mime - 2.7.9-r1
+python-misc - 2.7.9-r1
+python-mmap - 2.7.9-r1
+python-modules - 2.7.9-r1
+python-multiprocessing - 2.7.9-r1
+python-netclient - 2.7.9-r1
+python-netserver - 2.7.9-r1
+python-numbers - 2.7.9-r1
+python-pickle - 2.7.9-r1
+python-pip - 7.1.0-r0
+python-pkgutil - 2.7.9-r1
+python-pprint - 2.7.9-r1
+python-profile - 2.7.9-r1
+python-pycurl - 7.19.5.1-r0
+python-pydoc - 2.7.9-r1
+python-pyserial - 2.7-r0
+python-re - 2.7.9-r1
+python-readline - 2.7.9-r1
+python-resource - 2.7.9-r1
+python-robotparser - 2.7.9-r1
+python-setuptools - 18.2-r0
+python-shell - 2.7.9-r1
+python-smbus - 3.1.1-r0
+python-smtpd - 2.7.9-r1
+python-sqlite3 - 2.7.9-r1
+python-sqlite3-tests - 2.7.9-r1
+python-stringold - 2.7.9-r1
+python-subprocess - 2.7.9-r1
+python-syslog - 2.7.9-r1
+python-terminal - 2.7.9-r1
+python-tests - 2.7.9-r1
+python-textutils - 2.7.9-r1
+python-threading - 2.7.9-r1
+python-tkinter - 2.7.9-r1
+python-unittest - 2.7.9-r1
+python-unixadmin - 2.7.9-r1
+python-xml - 2.7.9-r1
+python-xmlrpc - 2.7.9-r1
+python-zlib - 2.7.9-r1
+rpcbind - 0.2.3-r0
+run-postinsts - 1.0-r9
+sed - 4.2.2-r0
+setserial - 2.17-r3
+shadow - 4.2.1-r0
+shadow-base - 4.2.1-r0
+shadow-securetty - 4.2.1-r3
+sudo - 1.8.14p3-r0
+sysfsutils - 2.1.0-r5
+sysklogd - 1.5.1-r0
+sysvinit - 2.88dsf-r14
+sysvinit-inittab - 2.88dsf-r10
+sysvinit-pidof - 2.88dsf-r14
+tar - 1.28-r0
+tcp-wrappers - 7.6-r10
+time - 1.7-r2
+tzdata - 2016c-r0
+udev - 182-r9
+udev-cache - 182-r9
+update-alternatives-opkg - 0.1.8+git0+53274f0875-r0
+update-rc.d - 0.7-r5
+usbutils - 007-r0
+usbutils-ids - 007-r0
+util-linux - 2.26.2-r0
+util-linux-cfdisk - 2.26.2-r0
+util-linux-fdisk - 2.26.2-r0
+util-linux-losetup - 2.26.2-r0
+util-linux-mkfs - 2.26.2-r0
+util-linux-mount - 2.26.2-r0
+util-linux-readprofile - 2.26.2-r0
+util-linux-sfdisk - 2.26.2-r0
+util-linux-sulogin - 2.26.2-r0
+util-linux-swaponoff - 2.26.2-r0
+util-linux-umount - 2.26.2-r0
+wget - 1.16.3-r0
+wget-locale-en-gb - 1.16.3-r0
+wireless-tools - 1:30.pre9-r0
+wpa-supplicant - 2.4-r0
+wpa-supplicant-cli - 2.4-r0
+wpa-supplicant-passphrase - 2.4-r0
+root@sama5d4-xplained:~# opkg list_installed | grep python	//只显示安装了的python模块
+libpython2.7-1.0 - 2.7.9-r1
+mc-helpers-python - 4.8.14-r0
+python-2to3 - 2.7.9-r1
+python-argparse - 2.7.9-r1
+python-audio - 2.7.9-r1
+python-bsddb - 2.7.9-r1
+python-codecs - 2.7.9-r1
+python-compile - 2.7.9-r1
+python-compiler - 2.7.9-r1
+python-compression - 2.7.9-r1
+python-contextlib - 2.7.9-r1
+python-core - 2.7.9-r1
+python-crypt - 2.7.9-r1
+python-ctypes - 2.7.9-r1
+python-curses - 2.7.9-r1
+python-datetime - 2.7.9-r1
+python-db - 2.7.9-r1
+python-dbus - 1.2.0-r0
+python-debugger - 2.7.9-r1
+python-difflib - 2.7.9-r1
+python-distutils - 2.7.9-r1
+python-doctest - 2.7.9-r1
+python-elementtree - 2.7.9-r1
+python-email - 2.7.9-r1
+python-fcntl - 2.7.9-r1
+python-gdbm - 2.7.9-r1
+python-hotshot - 2.7.9-r1
+python-html - 2.7.9-r1
+python-idle - 2.7.9-r1
+python-image - 2.7.9-r1
+python-importlib - 2.7.9-r1
+python-io - 2.7.9-r1
+python-json - 2.7.9-r1
+python-lang - 2.7.9-r1
+python-logging - 2.7.9-r1
+python-mailbox - 2.7.9-r1
+python-math - 2.7.9-r1
+python-mime - 2.7.9-r1
+python-misc - 2.7.9-r1
+python-mmap - 2.7.9-r1
+python-modules - 2.7.9-r1
+python-multiprocessing - 2.7.9-r1
+python-netclient - 2.7.9-r1
+python-netserver - 2.7.9-r1
+python-numbers - 2.7.9-r1
+python-pickle - 2.7.9-r1
+python-pip - 7.1.0-r0
+python-pkgutil - 2.7.9-r1
+python-pprint - 2.7.9-r1
+python-profile - 2.7.9-r1
+python-pycurl - 7.19.5.1-r0
+python-pydoc - 2.7.9-r1
+python-pyserial - 2.7-r0
+python-re - 2.7.9-r1
+python-readline - 2.7.9-r1
+python-resource - 2.7.9-r1
+python-robotparser - 2.7.9-r1
+python-setuptools - 18.2-r0
+python-shell - 2.7.9-r1
+python-smbus - 3.1.1-r0
+python-smtpd - 2.7.9-r1
+python-sqlite3 - 2.7.9-r1
+python-sqlite3-tests - 2.7.9-r1
+python-stringold - 2.7.9-r1
+python-subprocess - 2.7.9-r1
+python-syslog - 2.7.9-r1
+python-terminal - 2.7.9-r1
+python-tests - 2.7.9-r1
+python-textutils - 2.7.9-r1
+python-threading - 2.7.9-r1
+python-tkinter - 2.7.9-r1
+python-unittest - 2.7.9-r1
+python-unixadmin - 2.7.9-r1
+python-xml - 2.7.9-r1
+python-xmlrpc - 2.7.9-r1
+python-zlib - 2.7.9-r1
+
+//以下与设备树相关
+root@sama5d4-xplained:~# ls /proc/device-tree   
+#address-cells  chosen      fixedregulator@0  leds    sram@00210000
+#size-cells     clocks      fixedregulator@1  memory
+ahb             compatible  gpio_keys         model
+aliases         cpus        interrupt-parent  name
+root@sama5d4-xplained:~# hexdump -C /proc/device-tree/compatible
+00000000  61 74 6d 65 6c 2c 73 61  6d 61 35 64 34 2d 78 70  |atmel,sama5d4-xp|
+00000010  6c 61 69 6e 65 64 00 61  74 6d 65 6c 2c 73 61 6d  |lained.atmel,sam|
+00000020  61 35 64 34 00 61 74 6d  65 6c 2c 73 61 6d 61 35  |a5d4.atmel,sama5|
+00000030  00                                                |.|
+00000031
+root@sama5d4-xplained:~# ls /proc/device-tree/ahb/apb 
+#address-cells                 name              serial@fc069000
+#size-cells                    pinctrl@fc06a000  sfr@f8028000
+adc@fc034000                   pmc@f0018000      sha@fc050000
+aes@fc044000                   pwm@f800c000      shdwc@fc068610
+compatible                     ramc@f0010000     spi@f8010000
+dma-controller@f0004000        ranges            spi@fc018000
+dma-controller@f0014000        rstc@fc068600     spi@fc01c000
+ethernet@f8020000              rtc@fc0686b0      ssc@f8008000
+hlcdc@f0000000                 sckc@fc068650     ssc@fc014000
+i2c@f8014000                   serial@f8004000   tdes@fc04c000
+i2c@f8018000                   serial@f802c000   timer@f801c000
+i2c@f8024000                   serial@f8030000   timer@fc020000
+interrupt-controller@fc06e000  serial@fc004000   timer@fc068630
+isi@f0008000                   serial@fc008000   watchdog@fc068640
+mmc@f8000000                   serial@fc00c000
+mmc@fc000000                   serial@fc010000
+root@sama5d4-xplained:~# ls /proc/device-tree/ahb/apb/
+#address-cells                 name              serial@fc069000
+#size-cells                    pinctrl@fc06a000  sfr@f8028000
+adc@fc034000                   pmc@f0018000      sha@fc050000
+aes@fc044000                   pwm@f800c000      shdwc@fc068610
+compatible                     ramc@f0010000     spi@f8010000
+dma-controller@f0004000        ranges            spi@fc018000
+dma-controller@f0014000        rstc@fc068600     spi@fc01c000
+ethernet@f8020000              rtc@fc0686b0      ssc@f8008000
+hlcdc@f0000000                 sckc@fc068650     ssc@fc014000
+i2c@f8014000                   serial@f8004000   tdes@fc04c000
+i2c@f8018000                   serial@f802c000   timer@f801c000
+i2c@f8024000                   serial@f8030000   timer@fc020000
+interrupt-controller@fc06e000  serial@fc004000   timer@fc068630
+isi@f0008000                   serial@fc008000   watchdog@fc068640
+mmc@f8000000                   serial@fc00c000
+mmc@fc000000                   serial@fc010000
+root@sama5d4-xplained:~# ls /proc/device-tree/ahb/apb/spi@fc018000 
+#address-cells  clocks      dma-names   name           reg
+#size-cells     compatible  dmas        pinctrl-0      status
+clock-names     cs-gpios    interrupts  pinctrl-names
+root@sama5d4-xplained:~# cat /proc/device-tree/ahb/apb/spi@fc018000/status  
+okay
+root@sama5d4-xplained:~# cat /proc/device-tree/ahb/apb/spi@fc018000/clock-names
+spi_clk
+root@sama5d4-xplained:~# cat /proc/device-tree/ahb/apb/ethernet\@f8020000/compatible && echo
+atmel,sama5d4-gem
+
+root@sama5d4-xplained:~# i2cget -y 0 0x5c 0x9a
+0xfc
+root@sama5d4-xplained:~# i2cget -y 0 0x5c 0x9b
+0xc2
+root@sama5d4-xplained:~# i2cget -y 0 0x5c 0x9c
+0x3d
+root@sama5d4-xplained:~# i2cget -y 0 0x5c 0x9d
+0x0d
+root@sama5d4-xplained:~# i2cget -y 0 0x5c 0x9f
+0x6c
+root@sama5d4-xplained:~# i2cget -y 0 0x5c 0x9e
+0xd5
+
+root@sama5d4-xplained:~# macb f8020000.ethernet eth0: link up (100/Full)  //插入网线后
+root@sama5d4-xplained:~# ifconfig eth0
+eth0      Link encap:Ethernet  HWaddr fc:c2:3d:0d:d5:6c  
+          inet addr:192.168.105.154  Bcast:192.168.105.255  Mask:255.255.255.0
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:900 errors:0 dropped:15 overruns:0 frame:0
+          TX packets:2 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:64435 (62.9 KiB)  TX bytes:684 (684.0 B)
+          Interrupt:33 
+root@sama5d4-xplained:~# ping 192.168.11.127
+PING 192.168.11.127 (192.168.11.127) 56(84) bytes of data.
+
+^C
+--- 192.168.11.127 ping statistics ---
+64 packets transmitted, 0 received, 100% packet loss, time 63074ms
+
+
+root@sama5d4-xplained:~# lsusb
+Bus 002 Device 001: ID 1d6b:0001 Linux Foundation 1.1 root hub
+Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+//然后插入usb鼠标
+root@sama5d4-xplained:~# usb 2-3: new low-speed USB device number 2 using at91_ohci
+usb 2-3: New USB device found, idVendor=1c4f, idProduct=0065
+usb 2-3: New USB device strings: Mfr=1, Product=2, SerialNumber=0
+usb 2-3: Product: Usb Mouse
+usb 2-3: Manufacturer: SIGMACHIP
+input: SIGMACHIP Usb Mouse as /devices/soc0/ahb/500000.ohci/usb2/2-3/2-3:1.0/0003:1C4F:0065.0001/input/input1
+hid-generic 0003:1C4F:0065.0001: input: USB HID v1.10 Mouse [SIGMACHIP Usb Mouse] on usb-at91-3/input0
+usb 2-3: USB disconnect, device number 2
+usb 2-3: new low-speed USB device number 3 using at91_ohci
+usb 2-3: New USB device found, idVendor=1c4f, idProduct=0065
+usb 2-3: New USB device strings: Mfr=1, Product=2, SerialNumber=0
+usb 2-3: Product: Usb Mouse
+usb 2-3: Manufacturer: SIGMACHIP
+input: SIGMACHIP Usb Mouse as /devices/soc0/ahb/500000.ohci/usb2/2-3/2-3:1.0/0003:1C4F:0065.0002/input/input2
+hid-generic 0003:1C4F:0065.0002: input: USB HID v1.10 Mouse [SIGMACHIP Usb Mouse] on usb-at91-3/input0
+usb 2-3: USB disconnect, device number 3
+usb 2-3: new low-speed USB device number 4 using at91_ohci
+usb 2-3: New USB device found, idVendor=1c4f, idProduct=0065
+usb 2-3: New USB device strings: Mfr=1, Product=2, SerialNumber=0
+usb 2-3: Product: Usb Mouse
+usb 2-3: Manufacturer: SIGMACHIP
+input: SIGMACHIP Usb Mouse as /devices/soc0/ahb/500000.ohci/usb2/2-3/2-3:1.0/0003:1C4F:0065.0003/input/input3
+hid-generic 0003:1C4F:0065.0003: input: USB HID v1.10 Mouse [SIGMACHIP Usb Mouse] on usb-at91-3/input0
+usb 2-3: USB disconnect, device number 4
+usb 2-3: new low-speed USB device number 5 using at91_ohci
+usb 2-3: New USB device found, idVendor=1c4f, idProduct=0065
+usb 2-3: New USB device strings: Mfr=1, Product=2, SerialNumber=0
+usb 2-3: Product: Usb Mouse
+usb 2-3: Manufacturer: SIGMACHIP
+input: SIGMACHIP Usb Mouse as /devices/soc0/ahb/500000.ohci/usb2/2-3/2-3:1.0/0003:1C4F:0065.0004/input/input4
+hid-generic 0003:1C4F:0065.0004: input: USB HID v1.10 Mouse [SIGMACHIP Usb Mouse] on usb-at91-3/input0
+usb 2-3: USB disconnect, device number 5
+usb 2-3: new low-speed USB device number 6 using at91_ohci
+usb 2-3: New USB device found, idVendor=1c4f, idProduct=0065
+usb 2-3: New USB device strings: Mfr=1, Product=2, SerialNumber=0
+usb 2-3: Product: Usb Mouse
+usb 2-3: Manufacturer: SIGMACHIP
+input: SIGMACHIP Usb Mouse as /devices/soc0/ahb/500000.ohci/usb2/2-3/2-3:1.0/0003:1C4F:0065.0005/input/input5
+hid-generic 0003:1C4F:0065.0005: input: USB HID v1.10 Mouse [SIGMACHIP Usb Mouse] on usb-at91-3/input0
+usb 2-3: USB disconnect, device number 6
+usb 2-3: new low-speed USB device number 7 using at91_ohci
+usb 2-3: New USB device found, idVendor=1c4f, idProduct=0065
+usb 2-3: New USB device strings: Mfr=1, Product=2, SerialNumber=0
+usb 2-3: Product: Usb Mouse
+usb 2-3: Manufacturer: SIGMACHIP
+input: SIGMACHIP Usb Mouse as /devices/soc0/ahb/500000.ohci/usb2/2-3/2-3:1.0/0003:1C4F:0065.0006/input/input6
+hid-generic 0003:1C4F:0065.0006: input: USB HID v1.10 Mouse [SIGMACHIP Usb Mouse] on usb-at91-3/input0
+//拔掉鼠标
+usb 2-3: USB disconnect, device number 12
+//然后插入u盘
+root@sama5d4-xplained:~# usb 1-3: new high-speed USB device number 12 using atmel-ehci
+usb 1-3: New USB device found, idVendor=090c, idProduct=1000
+usb 1-3: New USB device strings: Mfr=1, Product=2, SerialNumber=0
+usb 1-3: Product: USB DISK
+usb 1-3: Manufacturer: SMI Corporation
+usb-storage 1-3:1.0: USB Mass Storage device detected
+scsi host0: usb-storage 1-3:1.0
+scsi 0:0:0:0: Direct-Access     SMI      USB DISK         1100 PQ: 0 ANSI: 0 CCS
+sd 0:0:0:0: [sda] 15974400 512-byte logical blocks: (8.17 GB/7.61 GiB)
+sd 0:0:0:0: [sda] Write Protect is off
+sd 0:0:0:0: [sda] No Caching mode page found
+sd 0:0:0:0: [sda] Assuming drive cache: write through
+ sda:
+sd 0:0:0:0: [sda] Attached SCSI removable disk
+//拔掉u盘
+root@sama5d4-xplained:~# usb 1-3: USB disconnect, device number 12
+
+//测试输入input输入设备
+root@sama5d4-xplained:~# evtest
+No device specified, trying to scan all of /dev/input/event*
+Available devices:
+/dev/input/event0:      gpio_keys
+Select the device event number [0-0]: 0
+Input driver version is 1.0.1
+Input device ID: bus 0x19 vendor 0x1 product 0x1 version 0x100
+Input device name: "gpio_keys"
+Supported events:
+  Event type 0 (EV_SYN)
+  Event type 1 (EV_KEY)
+    Event code 256 (BTN_0)
+Properties:
+Testing ... (interrupt to exit)		//按下 PB_USER 按键测试
+Event: time 1460810368.628370, type 1 (EV_KEY), code 256 (BTN_0), value 0
+Event: time 1460810368.628370, -------------- SYN_REPORT ------------
+Event: time 1460810368.808532, type 1 (EV_KEY), code 256 (BTN_0), value 1
+Event: time 1460810368.808532, -------------- SYN_REPORT ------------
+Event: time 1460810369.919605, type 1 (EV_KEY), code 256 (BTN_0), value 0
+Event: time 1460810369.919605, -------------- SYN_REPORT ------------
+Event: time 1460810370.059730, type 1 (EV_KEY), code 256 (BTN_0), value 1
+Event: time 1460810370.059730, -------------- SYN_REPORT ------------
+Event: time 1460810370.400063, type 1 (EV_KEY), code 256 (BTN_0), value 0
+Event: time 1460810370.400063, -------------- SYN_REPORT ------------
+Event: time 1460810370.520174, type 1 (EV_KEY), code 256 (BTN_0), value 1
+Event: time 1460810370.520174, -------------- SYN_REPORT ------------
+Event: time 1460810370.760410, type 1 (EV_KEY), code 256 (BTN_0), value 0
+Event: time 1460810370.760410, -------------- SYN_REPORT ------------
+Event: time 1460810370.890536, type 1 (EV_KEY), code 256 (BTN_0), value 1
+Event: time 1460810370.890536, -------------- SYN_REPORT ------------
+Event: time 1460810372.101705, type 1 (EV_KEY), code 256 (BTN_0), value 0
+Event: time 1460810372.101705, -------------- SYN_REPORT ------------
+Event: time 1460810372.241853, type 1 (EV_KEY), code 256 (BTN_0), value 1
+Event: time 1460810372.241853, -------------- SYN_REPORT ------------
+
+//直接读出硬件物理地址的数据值
+root@sama5d4-xplained:~# devmem2 0xfc069040
+/dev/mem opened.
+Memory mapped at address 0xb6fda000.
+Read at address  0xFC069040 (0xb6fda040): 0x8A5C07C0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

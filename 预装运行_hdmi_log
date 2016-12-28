@@ -1,0 +1,547 @@
+EEPROM: BoardName | [Revid] | VendorName
+HW Info: The total size isn't correct
+
+EEPROM: Using default information
+
+EEPROM: Board sn: 0x1012420 revision: 0x680820
+
+HDMI SiI9022: Enter D3 Cold mode
+NAND: ONFI flash detected
+NAND: Manufacturer ID: 0x2c Chip ID: 0x34
+NAND: Page Bytes: 0x1000, Spare Bytes: 0xe0
+NAND: ECC Correctability Bits: 0x8, ECC Sector Bytes: 0x200
+NAND: Disable On-Die ECC
+NAND: Initialize PMECC params, cap: 0x8, sector: 0x200
+NAND: Image: Copy 0x80000 bytes from 0x40000 to 0x26f00000
+NAND: Done to load image
+
+
+U-Boot 2016.03-linux4sam_5.3 (Apr 16 2016 - 13:13:27 +0200)
+
+CPU: SAMA5D44
+Crystal frequency:       12 MHz
+CPU clock        :      600 MHz
+Master clock     :      200 MHz
+I2C:   ready
+DRAM:  512 MiB
+NAND:  512 MiB
+MMC:   mci: 0
+*** Warning - bad CRC, using default environment
+
+In:    serial
+Out:   serial
+Err:   serial
+Net:   gmac0, usb_ether
+Error: usb_ether address not set.
+
+Hit any key to stop autoboot:  0 
+
+NAND read: device 0 offset 0x180000, size 0x80000
+ 524288 bytes read: OK
+
+NAND read: device 0 offset 0x200000, size 0x600000
+ 6291456 bytes read: OK
+Kernel image @ 0x22000000 [ 0x000000 - 0x36d258 ]
+## Flattened Device Tree blob at 21000000
+   Booting using the fdt blob at 0x21000000
+   Loading Device Tree to 3fb4d000, end 3fb581be ... OK
+
+Starting kernel ...
+
+Booting Linux on physical CPU 0x0
+Linux version 4.1.0-linux4sam_5.3 (infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR) (gcc version 4.7.3 20130328 (prerelease) (crosstool-NG linaro-1.13.1-4.7-2013.04-20130415 - Linaro GCC 2013.04) ) #11 Fri Dec 23 15:09:21 CST 2016
+CPU: ARMv7 Processor [410fc051] revision 1 (ARMv7), cr=10c53c7d
+CPU: PIPT / VIPT nonaliasing data cache, VIPT aliasing instruction cache
+Machine model: Atmel SAMA5D4 Xplained Sil9022
+cma: Reserved 64 MiB at 0x38000000
+Memory policy: Data cache writeback
+On node 0 totalpages: 131072
+free_area_init_node: node 0, pgdat c06ca87c, node_mem_map dfbda000
+  Normal zone: 1024 pages used for memmap
+  Normal zone: 0 pages reserved
+  Normal zone: 131072 pages, LIFO batch:31
+CPU: All CPU(s) started in SVC mode.
+pcpu-alloc: s0 r0 d32768 u32768 alloc=1*32768
+pcpu-alloc: [0] 0 
+Built 1 zonelists in Zone order, mobility grouping on.  Total pages: 130048
+Kernel command line: console=ttyS0,115200 earlyprintk mtdparts=atmel_nand:256k(bootstrap)ro,512k(uboot)ro,256K(env),256k(env_redundent),256k(spare),512k(dtb),6M(kernel)ro,-(rootfs) rootfstype=ubifs ubi.mtd=7 root=ubi0:rootfs
+PID hash table entries: 2048 (order: 1, 8192 bytes)
+Dentry cache hash table entries: 65536 (order: 6, 262144 bytes)
+Inode-cache hash table entries: 32768 (order: 5, 131072 bytes)
+Memory: 446816K/524288K available (4936K kernel code, 181K rwdata, 1604K rodata, 200K init, 164K bss, 11936K reserved, 65536K cma-reserved)
+Virtual kernel memory layout:
+    vector  : 0xffff0000 - 0xffff1000   (   4 kB)
+    fixmap  : 0xffc00000 - 0xfff00000   (3072 kB)
+    vmalloc : 0xe0800000 - 0xff000000   ( 488 MB)
+    lowmem  : 0xc0000000 - 0xe0000000   ( 512 MB)
+    modules : 0xbf000000 - 0xc0000000   (  16 MB)
+      .text : 0xc0008000 - 0xc066b214   (6541 kB)
+      .init : 0xc066c000 - 0xc069e000   ( 200 kB)
+      .data : 0xc069e000 - 0xc06cb6b8   ( 182 kB)
+       .bss : 0xc06cb6b8 - 0xc06f48c8   ( 165 kB)
+NR_IRQS:16 nr_irqs:16 16
+L2C-310 ID prefetch enabled, offset 2 lines
+L2C-310 dynamic clock gating enabled, standby mode enabled
+L2C-310 cache controller enabled, 8 ways, 128 kB
+L2C-310: CACHE_ID 0x410000c9, AUX_CTRL 0x36020000
+clocksource pit: mask: 0x7ffffff max_cycles: 0x7ffffff, max_idle_ns: 9556302164 ns
+sched_clock: 32 bits at 100 Hz, resolution 10000000ns, wraps every 21474836475000000ns
+Console: colour dummy device 80x30
+Calibrating delay loop... 398.13 BogoMIPS (lpj=1990656)
+pid_max: default: 32768 minimum: 301
+Mount-cache hash table entries: 1024 (order: 0, 4096 bytes)
+Mountpoint-cache hash table entries: 1024 (order: 0, 4096 bytes)
+CPU: Testing write buffer coherency: ok
+Setting up static identity map for 0x20008200 - 0x20008258
+devtmpfs: initialized
+VFP support v0.3: implementor 41 architecture 2 part 30 variant 5 rev 1
+clocksource jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 19112604462750000 ns
+pinctrl core: initialized pinctrl subsystem
+NET: Registered protocol family 16
+DMA: preallocated 256 KiB pool for atomic coherent allocations
+i2c-core: driver [dummy] registered
+cpuidle: using governor ladder
+cpuidle: using governor menu
+AT91: Detected SoC family: sama5d4
+AT91: Detected SoC: sama5d44, revision 0
+gpio-at91 fc06a000.gpio: at address e081a000
+gpio-at91 fc06b000.gpio: at address e081c000
+gpio-at91 fc06c000.gpio: at address e081e000
+gpio-at91 fc068000.gpio: at address e0832000
+gpio-at91 fc06d000.gpio: at address e0834000
+pinctrl-at91 ahb:apb:pinctrl@fc06a000: initialized AT91 pinctrl driver
+tcb_clksrc: tc0 at 12.000 MHz
+clocksource tcb_clksrc: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 152900835740 ns
+at_xdmac f0004000.dma-controller: 16 channels, mapped at 0xe083a000
+at_xdmac f0014000.dma-controller: 16 channels, mapped at 0xe083c000
+i2c-core: driver [act8945a] registered
+SCSI subsystem initialized
+usbcore: registered new interface driver usbfs
+usbcore: registered new interface driver hub
+usbcore: registered new device driver usb
+at91_i2c f8014000.i2c: using dma0chan0 (tx) and dma0chan1 (rx) for DMA transfers
+at91_i2c f8014000.i2c: cdiv 248 ckdiv 1
+i2c i2c-0: adapter [AT91] registered
+i2c i2c-0: of_i2c: walking child nodes
+i2c i2c-0: of_i2c: register /ahb/apb/i2c@f8014000/hdmi-encoder@39
+i2c 0-0039: uevent
+i2c i2c-0: client [sil9022] registered with bus id 0-0039
+at91_i2c f8014000.i2c: AT91 i2c bus driver (hw version: 0x502).
+media: Linux media interface: v0.10
+Linux video capture interface: v2.00
+Advanced Linux Sound Architecture Driver Initialized.
+Switched to clocksource tcb_clksrc
+NET: Registered protocol family 2
+TCP established hash table entries: 4096 (order: 2, 16384 bytes)
+TCP bind hash table entries: 4096 (order: 2, 16384 bytes)
+TCP: Hash tables configured (established 4096 bind 4096)
+UDP hash table entries: 256 (order: 0, 4096 bytes)
+UDP-Lite hash table entries: 256 (order: 0, 4096 bytes)
+NET: Registered protocol family 1
+RPC: Registered named UNIX socket transport module.
+RPC: Registered udp transport module.
+RPC: Registered tcp transport module.
+RPC: Registered tcp NFSv4.1 backchannel transport module.
+atmel-vdec 300000.vdec: VDEC controller at 0xe083e000, irq = 24, misc_minor = 63
+atmel-vdec 300000.vdec: Product ID: 0x6731 (revision 2.136.8)
+futex hash table entries: 256 (order: -1, 3072 bytes)
+io scheduler noop registered (default)
+i2c-core: driver [act8865] registered
+fc00c000.serial: ttyS0 at MMIO 0xfc00c000 (irq = 37, base_baud = 6250000) is a ATMEL_SERIAL
+console [ttyS0] enabled
+fc010000.serial: ttyS1 at MMIO 0xfc010000 (irq = 38, base_baud = 6250000) is a ATMEL_SERIAL
+[drm] Initialized drm 1.1.0 20060810
+sil902x 0-0039: probe
+i2c i2c-0: master_xfer[0] W, addr=0x39, len=2
+i2c i2c-0: at91_xfer: processing 1 messages:
+at91_i2c f8014000.i2c: transfer: write 2 bytes.
+at91_i2c f8014000.i2c: wrote 0xc7, to go 1
+at91_i2c f8014000.i2c: wrote 0x0, to go 0
+at91_i2c f8014000.i2c: transfer complete
+i2c i2c-0: master_xfer[0] W, addr=0x39, len=1
+i2c i2c-0: master_xfer[1] R, addr=0x39, len=4
+i2c i2c-0: at91_xfer: processing 2 messages:
+at91_i2c f8014000.i2c: transfer: read 4 bytes.
+at91_i2c f8014000.i2c: read 0xb0, to go 3
+at91_i2c f8014000.i2c: read 0x2, to go 2
+at91_i2c f8014000.i2c: read 0x3, to go 1
+at91_i2c f8014000.i2c: read 0x2, to go 0
+at91_i2c f8014000.i2c: transfer complete
+i2c i2c-0: master_xfer[0] W, addr=0x39, len=1
+i2c i2c-0: master_xfer[1] R, addr=0x39, len=1
+i2c i2c-0: at91_xfer: processing 2 messages:
+at91_i2c f8014000.i2c: transfer: read 1 bytes.
+at91_i2c f8014000.i2c: read 0xe, to go 0
+at91_i2c f8014000.i2c: transfer complete
+i2c i2c-0: master_xfer[0] W, addr=0x39, len=2
+i2c i2c-0: at91_xfer: processing 1 messages:
+at91_i2c f8014000.i2c: transfer: write 2 bytes.
+at91_i2c f8014000.i2c: wrote 0x3d, to go 1
+at91_i2c f8014000.i2c: wrote 0xe, to go 0
+at91_i2c f8014000.i2c: transfer complete
+i2c i2c-0: master_xfer[0] W, addr=0x39, len=2
+i2c i2c-0: at91_xfer: processing 1 messages:
+at91_i2c f8014000.i2c: transfer: write 2 bytes.
+at91_i2c f8014000.i2c: wrote 0x3c, to go 1
+at91_i2c f8014000.i2c: wrote 0x1, to go 0
+at91_i2c f8014000.i2c: transfer complete
+i2c-core: driver [sil902x] registered
+i2c i2c-0: master_xfer[0] W, addr=0x39, len=1
+i2c i2c-0: master_xfer[1] R, addr=0x39, len=1
+i2c i2c-0: at91_xfer: processing 2 messages:
+at91_i2c f8014000.i2c: transfer: read 1 bytes.
+at91_i2c f8014000.i2c: read 0xc, to go 0
+at91_i2c f8014000.i2c: transfer complete
+i2c i2c-0: master_xfer[0] W, addr=0x39, len=2
+i2c i2c-0: at91_xfer: processing 1 messages:
+at91_i2c f8014000.i2c: transfer: write 2 bytes.
+at91_i2c f8014000.i2c: wrote 0x3d, to go 1
+at91_i2c f8014000.i2c: wrote 0xc, to go 0
+at91_i2c f8014000.i2c: transfer complete
+brd: module loaded
+loop: module loaded
+i2c-core: driver [at24] registered
+atmel-hlcdc platform-driver registered !!
+atmel-hlcdc probe start !!
+ 
+atmel-hlcdc-dc probe start !!
+[drm] Supports vblank timestamp caching Rev 2 (21.10.2013).
+[drm] No driver support for vblank timestamp query.
+i2c i2c-0: master_xfer[0] W, addr=0x39, len=1
+i2c i2c-0: master_xfer[1] R, addr=0x39, len=1
+i2c i2c-0: at91_xfer: processing 2 messages:
+at91_i2c f8014000.i2c: transfer: read 1 bytes.
+at91_i2c f8014000.i2c: read 0xc, to go 0
+at91_i2c f8014000.i2c: transfer complete
+i2c i2c-0: master_xfer[0] W, addr=0x39, len=1
+i2c i2c-0: master_xfer[1] R, addr=0x39, len=1
+i2c i2c-0: at91_xfer: processing 2 messages:
+at91_i2c f8014000.i2c: transfer: read 1 bytes.
+at91_i2c f8014000.i2c: read 0x10, to go 0
+at91_i2c f8014000.i2c: transfer complete
+i2c i2c-0: master_xfer[0] W, addr=0x39, len=1
+i2c i2c-0: master_xfer[1] R, addr=0x39, len=1
+i2c i2c-0: at91_xfer: processing 2 messages:
+at91_i2c f8014000.i2c: transfer: read 1 bytes.
+at91_i2c f8014000.i2c: read 0xc, to go 0
+at91_i2c f8014000.i2c: transfer complete
+i2c i2c-0: master_xfer[0] W, addr=0x39, len=1
+i2c i2c-0: master_xfer[1] R, addr=0x39, len=1
+i2c i2c-0: at91_xfer: processing 2 messages:
+at91_i2c f8014000.i2c: transfer: read 1 bytes.
+at91_i2c f8014000.i2c: read 0x10, to go 0
+at91_i2c f8014000.i2c: transfer complete
+i2c i2c-0: master_xfer[0] W, addr=0x39, len=2
+i2c i2c-0: at91_xfer: processing 1 messages:
+at91_i2c f8014000.i2c: transfer: write 2 bytes.
+at91_i2c f8014000.i2c: wrote 0x1a, to go 1
+at91_i2c f8014000.i2c: wrote 0x14, to go 0
+at91_i2c f8014000.i2c: transfer complete
+i2c i2c-0: master_xfer[0] W, addr=0x39, len=1
+i2c i2c-0: master_xfer[1] R, addr=0x39, len=1
+i2c i2c-0: at91_xfer: processing 2 messages:
+at91_i2c f8014000.i2c: transfer: read 1 bytes.
+at91_i2c f8014000.i2c: read 0x16, to go 0
+at91_i2c f8014000.i2c: transfer complete
+i2c i2c-0: master_xfer[0] W, addr=0x39, len=2
+i2c i2c-0: at91_xfer: processing 1 messages:
+at91_i2c f8014000.i2c: transfer: write 2 bytes.
+at91_i2c f8014000.i2c: wrote 0x1a, to go 1
+at91_i2c f8014000.i2c: wrote 0x16, to go 0
+at91_i2c f8014000.i2c: transfer complete
+i2c i2c-0: master_xfer[0] W, addr=0x50, len=1
+i2c i2c-0: master_xfer[1] R, addr=0x50, len=1
+i2c i2c-0: at91_xfer: processing 2 messages:
+at91_i2c f8014000.i2c: transfer: read 1 bytes.
+at91_i2c f8014000.i2c: read 0x0, to go 0
+at91_i2c f8014000.i2c: transfer complete
+i2c i2c-0: master_xfer[0] W, addr=0x50, len=1
+i2c i2c-0: master_xfer[1] R, addr=0x50, len=128
+i2c i2c-0: at91_xfer: processing 2 messages:
+at91_i2c f8014000.i2c: transfer: read 128 bytes.
+at91_i2c f8014000.i2c: read 0x1, to go 1
+at91_i2c f8014000.i2c: read 0x5c, to go 0
+at91_i2c f8014000.i2c: transfer complete
+i2c i2c-0: master_xfer[0] W, addr=0x50, len=1
+i2c i2c-0: master_xfer[1] R, addr=0x50, len=128
+i2c i2c-0: at91_xfer: processing 2 messages:
+at91_i2c f8014000.i2c: transfer: read 128 bytes.
+i2c i2c-0: master_xfer[0] W, addr=0x39, len=1
+i2c i2c-0: master_xfer[1] R, addr=0x39, len=1
+at91_i2c f8014000.i2c: read 0x0, to go 1
+at91_i2c f8014000.i2c: read 0xd4, to go 0
+at91_i2c f8014000.i2c: transfer complete
+i2c i2c-0: at91_xfer: processing 2 messages:
+at91_i2c f8014000.i2c: transfer: read 1 bytes.
+at91_i2c f8014000.i2c: received nack
+i2c i2c-0: master_xfer[0] W, addr=0x39, len=2
+i2c i2c-0: at91_xfer: processing 1 messages:
+at91_i2c f8014000.i2c: transfer: write 2 bytes.
+at91_i2c f8014000.i2c: wrote 0x3d, to go 1
+at91_i2c f8014000.i2c: wrote 0x0, to go 0
+at91_i2c f8014000.i2c: transfer complete
+i2c i2c-0: master_xfer[0] W, addr=0x39, len=1
+i2c i2c-0: master_xfer[1] R, addr=0x39, len=1
+i2c i2c-0: at91_xfer: processing 2 messages:
+at91_i2c f8014000.i2c: transfer: read 1 bytes.
+at91_i2c f8014000.i2c: read 0xd, to go 0
+at91_i2c f8014000.i2c: transfer complete
+i2c i2c-0: master_xfer[0] W, addr=0x39, len=2
+i2c i2c-0: at91_xfer: processing 1 messages:
+at91_i2c f8014000.i2c: transfer: write 2 bytes.
+at91_i2c f8014000.i2c: wrote 0x3d, to go 1
+at91_i2c f8014000.i2c: wrote 0xd, to go 0
+at91_i2c f8014000.i2c: transfer complete
+i2c i2c-0: master_xfer[0] W, addr=0x39, len=1
+i2c i2c-0: master_xfer[1] R, addr=0x39, len=1
+i2c i2c-0: at91_xfer: processing 2 messages:
+at91_i2c f8014000.i2c: transfer: read 1 bytes.
+at91_i2c f8014000.i2c: read 0x10, to go 0
+at91_i2c f8014000.i2c: transfer complete
+i2c i2c-0: master_xfer[0] W, addr=0x39, len=1
+i2c i2c-0: master_xfer[1] R, addr=0x39, len=1
+i2c i2c-0: at91_xfer: processing 2 messages:
+at91_i2c f8014000.i2c: transfer: read 1 bytes.
+at91_i2c f8014000.i2c: read 0x10, to go 0
+at91_i2c f8014000.i2c: transfer complete
+i2c i2c-0: master_xfer[0] W, addr=0x39, len=1
+i2c i2c-0: master_xfer[1] R, addr=0x39, len=1
+i2c i2c-0: at91_xfer: processing 2 messages:
+at91_i2c f8014000.i2c: transfer: read 1 bytes.
+at91_i2c f8014000.i2c: read 0x10, to go 0
+at91_i2c f8014000.i2c: transfer complete
+i2c i2c-0: master_xfer[0] W, addr=0x39, len=1
+i2c i2c-0: master_xfer[1] R, addr=0x39, len=1
+i2c i2c-0: at91_xfer: processing 2 messages:
+at91_i2c f8014000.i2c: transfer: read 1 bytes.
+at91_i2c f8014000.i2c: read 0xc, to go 0
+at91_i2c f8014000.i2c: transfer complete
+i2c i2c-0: master_xfer[0] W, addr=0x39, len=1
+i2c i2c-0: master_xfer[1] R, addr=0x39, len=1
+i2c i2c-0: at91_xfer: processing 2 messages:
+at91_i2c f8014000.i2c: transfer: read 1 bytes.
+atmel-hlcdc-display-controller atmel-hlcdc-dc: fb0:  frame buffer device
+at91_i2c f8014000.i2c: read 0xc, to go 0
+atmel-hlcdc-display-controller atmel-hlcdc-dc: registered panic notifier
+at91_i2c f8014000.i2c: transfer complete
+i2c i2c-0: master_xfer[0] W, addr=0x39, len=2
+i2c i2c-0: at91_xfer: processing 1 messages:
+at91_i2c f8014000.i2c: transfer: write 2 bytes.
+at91_i2c f8014000.i2c: wrote 0x3d, to go 1
+at91_i2c f8014000.i2c: wrote 0xc, to go 0
+at91_i2c f8014000.i2c: transfer complete
+atmel-hlcdc-display-controller atmel-hlcdc-dc: DRM device successfully registered
+atmel_nand_nfc 90000000.nfc: NFC is probed.
+atmel_nand 80000000.nand: Cannot get PMECC lookup table offset, will build a lookup table in runtime.
+atmel_nand 80000000.nand: Use On Flash BBT
+atmel_nand 80000000.nand: Using dma0chan2 for DMA transfers.
+nand: device found, Manufacturer ID: 0x2c, Chip ID: 0xdc
+nand: Micron MT29F4G08ABAEAWP
+nand: 512 MiB, SLC, erase size: 256 KiB, page size: 4096, OOB size: 224
+atmel_nand 80000000.nand: minimum ECC: 8 bits in 512 bytes
+atmel_nand 80000000.nand: Initialize PMECC params, cap: 8, sector: 512
+atmel_nand 80000000.nand: Using NFC Sram read and write
+Bad block table found at page 131008, version 0x01
+Bad block table found at page 130944, version 0x01
+8 cmdlinepart partitions found on MTD device atmel_nand
+Creating 8 MTD partitions on "atmel_nand":
+0x000000000000-0x000000040000 : "bootstrap"
+0x000000040000-0x0000000c0000 : "uboot"
+0x0000000c0000-0x000000100000 : "env"
+0x000000100000-0x000000140000 : "env_redundent"
+0x000000140000-0x000000180000 : "spare"
+0x000000180000-0x000000200000 : "dtb"
+0x000000200000-0x000000800000 : "kernel"
+0x000000800000-0x000020000000 : "rootfs"
+atmel_spi f8010000.spi: version: 0x221
+atmel_spi f8010000.spi: Using dma0chan3 (tx) and dma0chan4 (rx) for DMA transfers
+atmel_spi f8010000.spi: Atmel SPI Controller at 0xf8010000 (irq 32)
+m25p80 spi32766.0: unrecognized JEDEC id bytes: 00,  0,  0
+atmel_spi fc018000.spi: version: 0x221
+atmel_spi fc018000.spi: Using dma0chan5 (tx) and dma0chan6 (rx) for DMA transfers
+atmel_spi fc018000.spi: Atmel SPI Controller at 0xfc018000 (irq 39)
+CAN device driver interface
+libphy: MACB_mii_bus: probed
+macb f8020000.ethernet eth0: Cadence GEM rev 0x00020120 at 0xf8020000 irq 35 (fc:c2:3d:0d:d5:6c)
+macb f8020000.ethernet eth0: attached PHY driver [Micrel KSZ8081 or KSZ8091] (mii_bus:phy_addr=f8020000.etherne:01, irq=180)
+ehci_hcd: USB 2.0 'Enhanced' Host Controller (EHCI) Driver
+ehci-atmel: EHCI Atmel driver
+atmel-ehci 600000.ehci: EHCI Host Controller
+atmel-ehci 600000.ehci: new USB bus registered, assigned bus number 1
+atmel-ehci 600000.ehci: irq 26, io mem 0x00600000
+atmel-ehci 600000.ehci: USB 2.0 started, EHCI 1.00
+usb usb1: New USB device found, idVendor=1d6b, idProduct=0002
+usb usb1: New USB device strings: Mfr=3, Product=2, SerialNumber=1
+usb usb1: Product: EHCI Host Controller
+usb usb1: Manufacturer: Linux 4.1.0-linux4sam_5.3 ehci_hcd
+usb usb1: SerialNumber: 600000.ehci
+hub 1-0:1.0: USB hub found
+hub 1-0:1.0: 3 ports detected
+ohci_hcd: USB 1.1 'Open' Host Controller (OHCI) Driver
+ohci-atmel: OHCI Atmel driver
+at91_ohci 500000.ohci: USB Host Controller
+at91_ohci 500000.ohci: new USB bus registered, assigned bus number 2
+at91_ohci 500000.ohci: irq 26, io mem 0x00500000
+usb usb2: New USB device found, idVendor=1d6b, idProduct=0001
+usb usb2: New USB device strings: Mfr=3, Product=2, SerialNumber=1
+usb usb2: Product: USB Host Controller
+usb usb2: Manufacturer: Linux 4.1.0-linux4sam_5.3 ohci_hcd
+usb usb2: SerialNumber: at91
+hub 2-0:1.0: USB hub found
+hub 2-0:1.0: 3 ports detected
+usbcore: registered new interface driver cdc_acm
+cdc_acm: USB Abstract Control Model driver for USB modems and ISDN adapters
+usbcore: registered new interface driver usb-storage
+usbcore: registered new interface driver usbserial
+usbcore: registered new interface driver usbserial_generic
+usbserial: USB Serial support registered for generic
+usbcore: registered new interface driver ftdi_sio
+usbserial: USB Serial support registered for FTDI USB Serial Device
+usbcore: registered new interface driver pl2303
+usbserial: USB Serial support registered for pl2303
+i2c-core: driver [qt1070] registered
+i2c-core: driver [atmel_mxt_ts] registered
+rtc rtc0: alarm rollover not handled
+rtc rtc0: invalid alarm value: 1900-1-1 0:0:0
+at91_rtc fc0686b0.rtc: rtc core: registered fc0686b0.rtc as rtc0
+at91_rtc fc0686b0.rtc: AT91 Real Time Clock driver.
+i2c /dev entries driver
+i2c-dev: adapter [AT91] registered as minor 0
+AT91: Starting after user reset
+sama5d4_wdt fc068640.watchdog: failed to get IRQ from DT
+sama5d4_wdt fc068640.watchdog: initialized (timeout = 16 sec, nowayout = 0)
+sdhci: Secure Digital Host Controller Interface driver
+sdhci: Copyright(c) Pierre Ossman
+atmel_mci fc000000.mmc: version: 0x600
+atmel_mci fc000000.mmc: using dma0chan7 for DMA transfers
+VDD MCI1: supplied by VCC 3V3
+atmel_mci fc000000.mmc: Atmel MCI controller at 0xfc000000 irq 36, 1 slots
+sdhci-pltfm: SDHCI platform and OF driver helper
+ledtrig-cpu: registered to indicate activity on CPUs
+atmel_aes fc044000.aes: version: 0x201
+atmel_aes fc044000.aes: Atmel AES - Using dma1chan0, dma1chan1 for DMA transfers
+atmel_sha fc050000.sha: version: 0x420
+atmel_sha fc050000.sha: using dma1chan2 for DMA transfers
+atmel_sha fc050000.sha: Atmel SHA1/SHA256/SHA224/SHA384/SHA512
+atmel_tdes fc04c000.tdes: version: 0x702
+atmel_tdes fc04c000.tdes: using dma1chan3, dma1chan4 for DMA transfers
+atmel_tdes fc04c000.tdes: Atmel DES/TDES
+usbcore: registered new interface driver usbhid
+usbhid: USB HID core driver
+iio iio:device0: Resolution used: 10 bits
+iio iio:device0: ADC Touch screen is disabled.
+i2c-core: driver [wm8904] registered
+NET: Registered protocol family 17
+can: controller area network core (rev 20120528 abi 9)
+NET: Registered protocol family 29
+can: raw protocol (rev 20120528)
+can: broadcast manager protocol (rev 20120528 t)
+can: netlink gateway (rev 20130117) max_hops=1
+ubi0: attaching mtd7
+random: nonblocking pool is initialized
+ubi0: scanning is finished
+ubi0: attached mtd7 (name "rootfs", size 504 MiB)
+ubi0: PEB size: 262144 bytes (256 KiB), LEB size: 253952 bytes
+ubi0: min./max. I/O unit sizes: 4096/4096, sub-page size 4096
+ubi0: VID header offset: 4096 (aligned 4096), data offset: 8192
+ubi0: good PEBs: 2012, bad PEBs: 4, corrupted PEBs: 0
+ubi0: user volume: 1, internal volumes: 1, max. volumes count: 128
+ubi0: max/mean erase counter: 2/0, WL threshold: 4096, image sequence number: 400630375
+ubi0: available PEBs: 0, total reserved PEBs: 2012, PEBs reserved for bad PEB handling: 36
+ubi0: background thread "ubi_bgt0d" started, PID 657
+input: gpio_keys as /devices/soc0/gpio_keys/input/input0
+at91_rtc fc0686b0.rtc: setting system clock to 2016-04-16 11:24:21 UTC (1460805861)
+VDD MCI1: disabling
+ALSA device list:
+  No soundcards found.
+UBIFS (ubi0:0): recovery needed
+UBIFS (ubi0:0): recovery deferred
+UBIFS (ubi0:0): UBIFS: mounted UBI device 0, volume 0, name "rootfs", R/O mode
+UBIFS (ubi0:0): LEB size: 253952 bytes (248 KiB), min./max. I/O unit sizes: 4096 bytes/4096 bytes
+UBIFS (ubi0:0): FS size: 498253824 bytes (475 MiB, 1962 LEBs), journal size 9404416 bytes (8 MiB, 38 LEBs)
+UBIFS (ubi0:0): reserved for root: 0 bytes (0 KiB)
+UBIFS (ubi0:0): media format: w4/r0 (latest is w4/r0), UUID D094325A-A0E6-490A-8A23-FAC662B80F50, small LPT model
+VFS: Mounted root (ubifs filesystem) readonly on device 0:14.
+devtmpfs: mounted
+Freeing unused kernel memory: 200K (c066c000 - c069e000)
+INIT: version 2.88 booting
+Starting udev
+udev: Not using udev cache because of changes detected in the following files:
+udev:     /proc/version /proc/cmdline /proc/devices
+udev:     lib/udev/rules.d/* etc/udev/rules.d/*
+udev: The udev cache will be regenerated. To identify the detected changes,
+udev: compare the cached sysconf at   /etc/udev/cache.data
+udev: against the current sysconf at  /dev/shm/udev.cache
+udevd[694]: starting version 182
+sil902x 0-0039: uevent
+atmel_usba_udc 400000.gadget: MMIO registers at 0xfc02c000 mapped at e09d0000
+atmel_usba_udc 400000.gadget: FIFO at 0x00400000 mapped at e9200000
+sil902x 0-0039: uevent
+sil902x 0-0039: uevent
+sil902x 0-0039: uevent
+ubi0 error: ubi_open_volume: cannot open device 0, volume 0, error -16
+g_serial gadget: Gadget Serial v2.4
+g_serial gadget: g_serial ready
+UBIFS (ubi0:0): completing deferred recovery
+UBIFS (ubi0:0): background thread "ubifs_bgt0_0" started, PID 753
+UBIFS (ubi0:0): deferred recovery completed
+Populating dev cache
+INIT: Entering runlevel: 5
+Configuring network interfaces... udhcpc (v1.23.2) started
+Sending discover...
+Sending discover...
+Sending discover...
+No lease, forking to background
+done.
+Starting system message bus: dbus.
+Starting OpenBSD Secure Shell server: sshd
+done.
+Starting rpcbind daemon...done.
+starting statd: done
+Starting atd: OK
+exportfs: can't open /etc/exports for reading
+NFS daemon support not enabled in kernel
+Starting system log daemon...0
+Starting kernel log daemon...0
+Starting crond: OK
+
+Poky (Yocto Project Reference Distro) 2.0.1 sama5d4-xplained /dev/ttyS0
+
+sama5d4-xplained login: root
+root@sama5d4-xplained:~# i2c i2c-0: master_xfer[0] W, addr=0x39, len=1
+i2c i2c-0: master_xfer[1] R, addr=0x39, len=1
+i2c i2c-0: at91_xfer: processing 2 messages:
+at91_i2c f8014000.i2c: transfer: read 1 bytes.
+at91_i2c f8014000.i2c: read 0xa9, to go 0
+at91_i2c f8014000.i2c: transfer complete
+i2c i2c-0: master_xfer[0] W, addr=0x39, len=2
+i2c i2c-0: at91_xfer: processing 1 messages:
+at91_i2c f8014000.i2c: transfer: write 2 bytes.
+at91_i2c f8014000.i2c: wrote 0x3d, to go 1
+at91_i2c f8014000.i2c: wrote 0xa9, to go 0
+at91_i2c f8014000.i2c: transfer complete
+i2c i2c-0: master_xfer[0] W, addr=0x39, len=1
+i2c i2c-0: master_xfer[1] R, addr=0x39, len=1
+i2c i2c-0: at91_xfer: processing 2 messages:
+at91_i2c f8014000.i2c: transfer: read 1 bytes.
+at91_i2c f8014000.i2c: read 0x8, to go 0
+at91_i2c f8014000.i2c: transfer complete
+i2c i2c-0: master_xfer[0] W, addr=0x39, len=1
+i2c i2c-0: master_xfer[1] R, addr=0x39, len=1
+i2c i2c-0: at91_xfer: processing 2 messages:
+at91_i2c f8014000.i2c: transfer: read 1 bytes.
+at91_i2c f8014000.i2c: read 0x8, to go 0
+at91_i2c f8014000.i2c: transfer complete
+i2c i2c-0: master_xfer[0] W, addr=0x39, len=1
+i2c i2c-0: master_xfer[1] R, addr=0x39, len=1
+i2c i2c-0: at91_xfer: processing 2 messages:
+at91_i2c f8014000.i2c: transfer: read 1 bytes.
+at91_i2c f8014000.i2c: read 0x8, to go 0
+at91_i2c f8014000.i2c: transfer complete
+i2c i2c-0: master_xfer[0] W, addr=0x39, len=2
+i2c i2c-0: at91_xfer: processing 1 messages:
+at91_i2c f8014000.i2c: transfer: write 2 bytes.
+at91_i2c f8014000.i2c: wrote 0x3d, to go 1
+at91_i2c f8014000.i2c: wrote 0x8, to go 0
+at91_i2c f8014000.i2c: transfer complete
+

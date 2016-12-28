@@ -1,0 +1,354 @@
+20161205
+环境建立：
+IAR7.3
+gedit
+secureCRT
+dukto
+usbdriver：AtmelStudioUSB-7.0.31.exe
+debug_configuration:115200bps, 8 bits of data, no parity, 1 stop bit
+去掉boot_dis与EDBG_dis,usb接EDBG_USB,运行预装linux
+extract itsama5_softpack_ewarm_2.1.zip and to C:\！！because of long path may pose problems.
+
+20161206
+VMware 有点问题，新建虚拟机，配置完后先不要马上启动虚拟机，先重新设置把bug导致添加的cd/dvd删掉
+装好Ubuntu，装VMwaretools（自行百度）
+SAMA5D4 Chip ID Register is located at physical address 0xFC069040 and Chip ID Extension
+Register at 0xFC069044. With information given below
+	chipid：0x8a5c07cx
+	SAMA5D41 Ext ID: 0x1
+	SAMA5D42 Ext ID: 0x2
+	SAMA5D43 Ext ID: 0x3
+	SAMA5D44 Ext ID: 0x4
+	Boundary JTAG ID:0x05b3903f
+	Debug Port JTAG IDCODE :0x4ba00477
+	Debug Port Serial Wire IDCODE :0x2ba01477
+安装SAM_BA：
+	解压到program files
+	改环境变量：
+	原来变量：
+C:\Program Files\NVIDIA Corporation\PhysX\Common;C:\Program Files\Intel\iCLS Client\;%SystemRoot%\system32;%SystemRoot%;%SystemRoot%\System32\Wbem;%SYSTEMROOT%\System32\WindowsPowerShell\v1.0\;C:\Program Files\Intel\Intel(R) Management Engine Components\DAL;C:\Program Files\Intel\Intel(R) Management Engine Components\IPT;C:\Program Files\Intel\OpenCL SDK\2.0\bin\x86
+	修改后：
+C:\Program Files\NVIDIA Corporation\PhysX\Common;C:\Program Files\Intel\iCLS Client\;%SystemRoot%\system32;%SystemRoot%;%SystemRoot%\System32\Wbem;%SYSTEMROOT%\System32\WindowsPowerShell\v1.0\;C:\Program Files\Intel\Intel(R) Management Engine Components\DAL;C:\Program Files\Intel\Intel(R) Management Engine Components\IPT;C:\Program Files\Intel\OpenCL SDK\2.0\bin\x86;C:\Program Files\sam-ba_3.1.2
+	安装 A5-USB-A 驱动：
+	插入usb->
+	设备管理器未知设备->
+	选择驱动所在地址C:\Program Files\sam-ba_3.1.2\driver->
+	...(注意到驱动加载，很多时候只是加载.cat和.inf文件而不是执行exe安装)
+
+20161207
+烧录测试：
+	EDBG_USB:单纯调试串口信息输出输入作用！！！
+		实际是连接到一块用于调试SAMA5D4的AVR单片机芯片
+		即通电时单片机一直工作，按reset按钮因为不是reset单片机芯片，所以不会断开EDBG的串口连接
+	A5-USB-A：sam-ba烧录专用口，
+		实际是连接到SAMA5D4的芯片上
+	所以使用sam-ba烧录时也需要连接打开EDBG_USB看串口信息
+	sam-ba-3 win32 暂时只支持CMD 没有交互UI版，使用命令烧录
+烧写文件：（官方demo) linux4sam-poky-sama5d4_xplained-5.3.zip（NANDFlash版本）
+	解压到：C:\linux4sam-poky-sama5d4_xplained-5.3
+	（注意，官网上下载的出问题（缺env）,所以使用许工提供的旧版本！！）
+	（官网下载的标记为changed，如果不烧录env，或者烧录错误env，则加载rootfs时会出错！！！）
+
+烧录步骤：
+	套上 BOOT_DIS 帽,转到SAMS5D4芯片固化程序的位置
+	插上 A5-USB-A 供电，usb成功连接为AT91 USB to Serial Converter （COMx）
+	取出 BOOT_DIS 帽,转到 NANDFlash 位置
+	检查连接：
+	sam-ba -p usb -b sama5d4-xplained -a lowlevel //然后会检测连接到usb串口的连接情况
+	擦除nandflash：
+	sam-ba -p usb -b sama5d4-xplained -a nandflash -c erase
+	烧写 bootloader_1：
+	sam-ba -p usb -b sama5d4-xplained -a nandflash -c writeboot:at91bootstrap-sama5d4_xplained.bin
+	烧写 bootloader_2：
+	sam-ba -p usb -b sama5d4-xplained -a nandflash -c write:u-boot-sama5d4-xplained.bin:0x40000
+	烧写 env (包含commandline/bootargs)：
+	sam-ba -p usb -b sama5d4-xplained -a nandflash -c write:u-boot-env-sama5d4-xplained.bin:0xC0000
+	烧写 device tree block 表：
+	sam-ba -p usb -b sama5d4-xplained -a nandflash -c write:at91-sama5d4_xplained.dtb:0x180000
+	烧写 kernel：
+	sam-ba -p usb -b sama5d4-xplained -a nandflash -c write:zImage-sama5d4-xplained.bin:0x200000
+	烧写 rootfs：
+	sam-ba -p usb -b sama5d4-xplained -a nandflash -c write:atmel-xplained-demo-image-sama5d4-xplained.ubi:0x800000
+
+	ATMEL镜像组合烧写命令：
+sam-ba -p usb -b sama5d4-xplained -a nandflash -c erase -c writeboot:at91bootstrap-sama5d4_xplained.bin -c write:u-boot-sama5d4-xplained.bin:0x40000 -c write:u-boot-env-sama5d4-xplained.bin:0xC0000 -c write:at91-sama5d4_xplained.dtb:0x180000 -c write:zImage-sama5d4-xplained.bin:0x200000 -c write:atmel-xplained-demo-image-sama5d4-xplained.ubi:0x800000
+
+开发板接到linux 操作：
+	见自己pc
+
+20161208
+安装arm-linux-4.7编译器：
+	安装后，使用arm-gcc，提示找不到文件：sudo apt-get install lsb-core
+	使用arm-gcc，提示，找不到libstdc++.so.6: sudo apt-get install lib32stdc++6
+尝试编译kernel:(linux-at91-linux-4.1-at91.zip)
+	(make distclean 删除编译生成的所有文件)
+	make ARCH=arm sama5_defconfig
+	error:
+	缺少 drivers/media/rc/Kconfig
+	由于虚拟机关系,解压没有到位而丢失,重新解压这个文件
+	
+	make ARCH=arm menuconfig	//只选 sama5d4 的板子
+	error:
+	缺少 scripts/kconfig/lxdialog/dialog.h:38:20: fatal error: curses.h 没有那个文件和目录
+	解决:apt-get install libncurses5-dev
+
+	make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j2	//顺利
+
+	烧录测试:linux4sam-poky-sama5d4_xplained-5.3.zip（NANDFlash版本）
+	替换demo里的 zImage-sama5d4-xplained.bin 烧录,未通过
+	运行阻塞在starting linux...
+	怀疑要用uImage镜像!!!而非zImage镜像,奇怪是atmeldemo上的kernel名为zImage
+	可以做出连个镜像,在通过winhex对比头信息!!!
+
+	make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- uImage LOADADDR=0x2000000 -j2
+	error:
+	mkimage command not found – U-Boot images will not be built
+	sudo apt-get install u-boot-tools
+
+	烧录运行显示 wrong arm linux zImage 
+	wxMEdit 比较过三者的头!!! 发现atmeldemo上的kernel确实是真正的zImage,
+	一般uboot运行的内核镜像是uImage,但这里直接运行了zImage!!而我编译出来的zImage不管用!!
+	原因是,使用uImage时,使用bootm命令,而atmeluboot使用bootz命令,所以对应运行的是zImage
+	按官网,重新生成dtb
+	make ARC=arm dtbs
+	并没有生成log,因为dtb已经在之前编译时生成了,而且是最新的,所以不会在生一遍
+	烧录许工给的 linux-at91-master.zip,后烧录时也是同样情况
+	许工给的代码和我官方下载的英爱是同一个的	
+	最后手段是对比参数:
+	怀疑机器号不匹配,但机器号不对不会堵在这而是会显示出来,
+	1.  确保内核配置正确的串口驱动
+	2. boot和kerel 配置一致的MACH_TYPE，即板子ID
+	3. 如果不行的话打开earlyprintk看看吧 (开了也没用)
+	对比参数的方法都不行!!
+	认识到由于kernel使用传统tag或者dtb,两者其一传递内核启动前接到的外在数据,
+	所以,尝试把demo的uboot-env去掉(本认为env对应传统tag对于使用dtb方式可有可无,但是否需要还在后面深入讨论),
+	最后竟然可以运行自编译zImage,最终发现是uboot执行命令的问题!!
+	由于重新编译的内核zImage 和 dtb 的大小都与旧版的不一样!!!!
+	而demo的env里有uboot命令!!,读取镜像命令对应的镜像大小是官方demo的大小,而不是自己生成文件的大小,
+	所以不能启动kernel,堵塞在 starting kernel....
+	原demo uboot-env文件bootcamd:(读取文件大小仅限于源demo文件大小)
+	nand read 0x21000000 0x00180000 0x00007d0f;nand read 0x22000000 0x00200000 0x003636a0;bootz 0x22000000 - 0x21000000
+	去掉demoenv时,uboot使用自身默认env,使用默认uboot命令,可以读出任意大小的dtb 和kernel,没有漏读数据,
+	所以就可以启动自编译的kernel了!!!!
+	注意,进入
+	通用:(读取分区大小,这样可以运行任何编译的文件)
+	nand read 0x21000000 0x180000 0x80000;nand read 0x22000000 0x200000 0x600000;bootz 0x22000000 - 0x21000000
+	 
+
+编译烧录uboot测试:
+	atmel官网渠道下载了的uboot (面向linux4sam_5.5 )
+	编译:
+	make ARCH=arm sama5d4_xplained_nandflash_defconfig
+	make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf -j2
+	生成u-boot.bin (我们只使用u-boot.bin)
+	烧录测试:linux4sam-poky-sama5d4_xplained-5.3.zip（NANDFlash版本）
+	替换掉demo里的 u-boot-sama5d4-xplained.bin 烧录,通过
+	
+	uboot 执行了三条命令!(三条命令存于env) 
+	bootcmd=
+	nand read 0x21000000 0x00180000 0x00007D0F	//拷贝dtb
+	nand read 0x22000000 0x00200000 0x003636A0; 	//拷贝kernel
+	bootz 0x22000000	//执行kernel
+	显然,kernel只能选择tag(传统commandline)或者dtb的参数方式!!
+
+20161209
+经测试,自编译的 uboot, dtb, kernel, 都能正常工作.只要uboot加载命令正确
+sam-ba命令深入:
+	erase:
+	erase是block擦除命令,擦除开始地址是每个block的首地址,擦除的单位是0x40000,即擦除内容大小是0x40000的倍数
+	sam-ba 面向的是芯片的 nandflash 独立物理地址,而芯片全局物理地址,隐射着所有rom,和ram,和各种模块寄存器的物理地址
+	nandflash 独立物理地址 不计入芯片全局物理地址的映射里
+	所以,-c erase 指erase all 指nandflash 独立物理地址上所有内容,
+	sam-ba -p usb -b sama5d4-xplained -a nandflash -c erase:0x200000:0x600000	//擦除从地址0x200000始0x600000个字节的空间
+uboot深入:
+	uboot启动时,会从env分区读入env信息到内存,然后展示给用户看的env是内存里的env
+	板子reset键并未知道是否给外接内存芯片断电,所以,未知内存的变化情况
+	但是,知道,uboot启动时,会从把env 保存到nandflash的本来的env分区外,还备份到env_redundant分区,所以要彻底删除env内容,要擦除两个分区
+	下次启动,当uboot不能从两个分区获取env信息,就会使用自带默认信息
+经测试,linux使用新型tag传输数据, 新型tag除了bootargs,(传统的cammandline数据)外,还包含了dtb数据
+	当内核启动,检测tag,发现只有dtb,没有bootargs时,会使用自身默认的bootargs
+	bootargs指启动项内容,dtb指设备信息内容,两者不冲突!!
+编译内核命令:
+	make distclean		//清除所有生成文件
+测试 early_printk 
+	menuconfig: kernel hacking -> kernel low-level debugging function -> kernel low-level debugging om sama5d4
+				   -> Early printk
+	目的是学习使用更底层调试,
+	实验现象是:头出现了uncompressing linux... Done, booting the kernel
+了解开发板的地址架构:
+xplained Ultra 指定 kernel:仅仅是nandflash物理地址架构划分MTD分区
+Creating 8 MTD partitions on "atmel_nand":
+0x000000000000-0x000000040000 : "bootstrap"	256kb
+0x000000040000-0x0000000c0000 : "uboot"		512kb
+0x0000000c0000-0x000000100000 : "env"		256kb
+0x000000100000-0x000000140000 : "env_redundant"		256kb
+0x000000140000-0x000000180000 : "spare"		256kb
+0x000000180000-0x000000200000 : "dtb"		512kb
+0x000000200000-0x000000800000 : "kernel"	6mb
+0x000000800000-0x000020000000 : "rootfs"	从地址 8mb 以后的		 
+sama5d44芯片全局物理地址架构
+0-0x20000	128kb ROM
+0x100000-0x104000	16kb NFC SDRAM 
+
+
+
+
+
+
+
+
+
+
+
+从预装运行log:提取重要信息!!
+Kernel commandline: console=ttyS0,115200 mtdparts=atmel_nand:256k(bootstrap)ro,512k(uboot)ro,256k(env),256k(env_redundant),256k(spare),512k(dtb),6M(kernel)ro,-(rootfs) rootfstype=ubifs ubi.mtd=7 root=ubi0:rootfs rw video=
+
+
+Linux version 4.1.0-linux4sam_5.3 (ldesroches@ibiza) (gcc version 5.2.0 (GCC) ) #1 Sat Apr 16 13:14:33 CEST 2016
+
+
+
+
+
+
+
+
+
+
+暂时：
+erase + zImage
+sam-ba -p usb -b sama5d4-xplained -a nandflash -c erase -c writeboot:at91bootstrap-sama5d4_xplained.bin -c write:u-boot-sama5d4-xplained.bin:0x40000 -c write:u-boot-env-sama5d4-xplained.bin:0xC0000 -c write:at91-sama5d4_xplained.dtb:0x180000 -c write:zImage:0x200000
+
+
+atmel“zImage” + erase
+sam-ba -p usb -b sama5d4-xplained -a nandflash -c erase -c writeboot:at91bootstrap-sama5d4_xplained.bin -c write:u-boot-sama5d4-xplained.bin:0x40000 -c write:u-boot-env-sama5d4-xplained.bin:0xC0000 -c write:at91-sama5d4_xplained.dtb:0x180000 -c write:zImage-sama5d4-xplained.bin:0x200000
+
+
+
+atmel“zImage” + erase + ubi
+sam-ba -p usb -b sama5d4-xplained -a nandflash -c erase -c writeboot:at91bootstrap-sama5d4_xplained.bin -c write:u-boot-sama5d4-xplained.bin:0x40000 -c write:u-boot-env-sama5d4-xplained.bin:0xC0000 -c write:at91-sama5d4_xplained.dtb:0x180000 -c write:zImage-sama5d4-xplained.bin:0x200000 -c write:atmel-xplained-demo-image-sama5d4-xplained.ubi:0x800000
+
+
+
+
+atmel“zImage” + erase - env
+sam-ba -p usb -b sama5d4-xplained -a nandflash -c erase -c writeboot:at91bootstrap-sama5d4_xplained.bin -c write:u-boot-sama5d4-xplained.bin:0x40000 -c write:at91-sama5d4_xplained.dtb:0x180000 -c write:zImage-sama5d4-xplained.bin:0x200000
+
+
+
+
+zImage
+sam-ba -p usb -b sama5d4-xplained -a nandflash -c writeboot:at91bootstrap-sama5d4_xplained.bin -c write:u-boot-sama5d4-xplained.bin:0x40000 -c write:u-boot-env-sama5d4-xplained.bin:0xC0000 -c write:at91-sama5d4_xplained.dtb:0x180000 -c write:zImage:0x200000
+
+
+
+zImage + erase
+sam-ba -p usb -b sama5d4-xplained -a nandflash -c erase -c writeboot:at91bootstrap-sama5d4_xplained.bin -c write:u-boot-sama5d4-xplained.bin:0x40000 -c write:u-boot-env-sama5d4-xplained.bin:0xC0000 -c write:at91-sama5d4_xplained.dtb:0x180000 -c write:zImage:0x200000
+
+
+
+uImage 方法1
+sam-ba -p usb -b sama5d4-xplained -a nandflash -c writeboot:at91bootstrap-sama5d4_xplained.bin -c write:u-boot-sama5d4-xplained.bin:0x40000 -c write:u-boot-env-sama5d4-xplained.bin:0xC0000 -c write:at91-sama5d4_xplained.dtb:0x180000 -c write:uImage:0x200000
+
+uImage 方法2 （失败。只允许页烧写，0x1FFFC0不是page头地址）
+sam-ba -p usb -b sama5d4-xplained -a nandflash -c writeboot:at91bootstrap-sama5d4_xplained.bin -c write:u-boot-sama5d4-xplained.bin:0x40000 -c write:u-boot-env-sama5d4-xplained.bin:0xC0000 -c write:at91-sama5d4_xplained.dtb:0x180000 -c write:uImage:0x1FFFC0
+
+
+erase all
+sam-ba -p usb -b sama5d4-xplained -a nandflash -c erase
+
+erase 从0x200000开始  共擦除0x600000 个字节数据！！！！ （注意是擦除大小是页空间整数倍）
+sam-ba -p usb -b sama5d4-xplained -a nandflash -c erase:0x200000:0x600000
+
+
+commandLine：
+
+bootargs=console=ttyS0,115200 mtdparts=atmel_nand:256k(bootstrap)ro,512k(uboot)ro,256k(env),256k(env_redundant),256k(spare),512k(dtb),6M(kernel)ro,-(rootfs) rootfstype=ubifs ubi.mtd=7 root=ubi0:rootfs rw video=
+
+
+
+测试自编译uboot
+sam-ba -p usb -b sama5d4-xplained -a nandflash -c erase -c writeboot:at91bootstrap-sama5d4_xplained.bin -c write:u-boot.bin:0x40000 -c write:u-boot-env-sama5d4-xplained.bin:0xC0000 -c write:at91-sama5d4_xplained.dtb:0x180000 -c write:zImage-sama5d4-xplained.bin:0x200000
+
+
+
+
+
+
+uboot 执行命令：（读取的dtb数据过小）
+nand read 0x21000000 0x00180000 0x00007d0f;nand read 0x22000000 0x00200000 0x003636a0;bootz 0x22000000 - 0x21000000
+
+注意，bootz 0x22000000 这样子是不成功的！！！！会显示没有传输 atag或dtb数据
+
+
+nand read 0x21000000 0x00180000 0x80000;nand read 0x22000000 0x00200000 0x003636a0;bootz 0x22000000 - 0x21000000
+
+
+
+setenv bootargs console=ttyS0,115200 earlyprintk mtdparts=atmel_nand:256k(bootstrap)ro,512k(uboot)ro,256k(env),256k(env_redundant),256k(spare),512k(dtb),6M(kernel)ro,-(rootfs) rootfstype=ubifs ubi.mtd=7 root=ubi0:rootfs
+
+
+
+
+
+
+
+=> printenv
+baudrate=115200
+bootargs=console=ttyS0,115200 mtdparts=atmel_nand:256k(bootstrap)ro,512k(uboot)ro,256k(env),256k(env_redundant),256k(spare),512k(dtb),6M(kernel)ro,-(rootfs) rootfstype=ubifs ubi.mtd=7 root=ubi0:rootfs rw
+bootcmd=nand read 0x21000000 0x00180000 0x00007D0F; nand read 0x22000000 0x00200000 0x003636A0; bootz 0x22000000 - 0x21000000
+bootdelay=1
+ethact=gmac0
+ethaddr=fc:c2:3d:0d:d5:6c
+stderr=serial
+stdin=serial
+stdout=serial
+
+
+
+
+=> printenv
+arch=arm
+baudrate=115200
+board=sama5d4_xplained
+board_name=sama5d4_xplained
+bootargs=console=ttyS0,115200 earlyprintk mtdparts=atmel_nand:256k(bootstrap)ro,512k(uboot)ro,256K(env),256k(env_redundent),256k(spare),512k(dtb),6M(kernel)ro,-(rootfs) rootfstype=ubifs ubi.mtd=7 root=ubi0:rootfs
+bootcmd=nand read 0x21000000 0x180000 0x80000;nand read 0x22000000 0x200000 0x600000;bootz 0x22000000 - 0x21000000
+bootdelay=3
+	cpu=armv7
+ethact=gmac0
+ethaddr=fc:c2:3d:0d:d5:6c
+soc=at91
+stderr=serial
+stdin=serial
+stdout=serial
+vendor=atmel
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
