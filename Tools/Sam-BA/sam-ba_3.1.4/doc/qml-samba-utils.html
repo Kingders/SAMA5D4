@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<!-- Utils.qml -->
+  <title>Utils QML Type | SAM-BA 3.1</title>
+  <link rel="stylesheet" type="text/css" href="style/style.css" />
+</head>
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+<td class="postheader" valign="center"> <a href="index.html">Home</a> &middot; </td></tr></table><div class="sidebar">
+<div class="toc">
+<h3><a name="toc">Contents</a></h3>
+<ul>
+<li class="level1"><a href="#methods">Methods</a></li>
+<li class="level1"><a href="#details">Detailed Description</a></li>
+</ul>
+</div>
+<div class="sidebar-content" id="sidebar-content"></div></div>
+<h1 class="title">Utils QML Type</h1>
+<span class="subtitle"></span>
+<!-- $$$Utils-brief -->
+<p>The Utils type is a singleton that contains misc. utility functions. <a href="#details">More...</a></p>
+<!-- @@@Utils -->
+<div class="table"><table class="alignedsummary">
+<tr><td class="memItemLeft rightAlign topAlign"> Import Statement:</td><td class="memItemRight bottomAlign"> import SAMBA 3.1</td></tr></table></div><ul>
+<li><a href="qml-samba-utils-members.html">List of all members, including inherited members</a></li>
+</ul>
+<a name="methods"></a>
+<h2 id="methods">Methods</h2>
+<ul>
+<li class="fn">ByteArray <b><b><a href="qml-samba-utils.html#createByteArray-method">createByteArray</a></b></b>(int <i> length</i>)</li>
+<li class="fn">string <b><b><a href="qml-samba-utils.html#hex-method">hex</a></b></b>(number <i> value</i>, number <i> digits</i>)</li>
+<li class="fn">void <b><b><a href="qml-samba-utils.html#msleep-method">msleep</a></b></b>(int <i> msecs</i>)</li>
+<li class="fn">string <b><b><a href="qml-samba-utils.html#parseInteger-method">parseInteger</a></b></b>(string <i> text</i>)</li>
+<li class="fn">ByteArray <b><b><a href="qml-samba-utils.html#readFile-method">readFile</a></b></b>(string <i> fileName</i>)</li>
+<li class="fn">ByteArray <b><b><a href="qml-samba-utils.html#readUrl-method">readUrl</a></b></b>(string <i> fileUrl</i>)</li>
+<li class="fn">void <b><b><a href="qml-samba-utils.html#sleep-method">sleep</a></b></b>(int <i> secs</i>)</li>
+<li class="fn">void <b><b><a href="qml-samba-utils.html#usleep-method">usleep</a></b></b>(int <i> usecs</i>)</li>
+<li class="fn">bool <b><b><a href="qml-samba-utils.html#writeFile-method">writeFile</a></b></b>(string <i> fileName</i>, ByteArray <i> data</i>)</li>
+</ul>
+<!-- $$$Utils-description -->
+<a name="details"></a>
+<h2 id="details">Detailed Description</h2>
+</p>
+<!-- @@@Utils -->
+<h2>Method Documentation</h2>
+<!-- $$$createByteArray -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="createByteArray-method"><td class="tblQmlFuncNode"><p><a name="createByteArray-method"></a><span class="type"><a href="qml-samba-bytearray.html">ByteArray</a></span> <span class="name">createByteArray</span>(<span class="type">int</span><i> length</i>)</p></td></tr></table></div></div><div class="qmldoc"><p>Create a new empty <a href="qml-samba-bytearray.html">ByteArray</a> of size <i>length</i> bytes.</p>
+<p>Returns the newly created <a href="qml-samba-bytearray.html">ByteArray</a>.</p>
+</div></div><!-- @@@createByteArray -->
+<br/>
+<!-- $$$hex -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="hex-method"><td class="tblQmlFuncNode"><p><a name="hex-method"></a><span class="type">string</span> <span class="name">hex</span>(<span class="type">number</span><i> value</i>, <span class="type">number</span><i> digits</i>)</p></td></tr></table></div></div><div class="qmldoc"><p>Convert <i>value</i> to a hexadecimal string with <i>digits</i>.</p>
+<p>Returns the hexadecimal string</p>
+</div></div><!-- @@@hex -->
+<br/>
+<!-- $$$msleep -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="msleep-method"><td class="tblQmlFuncNode"><p><a name="msleep-method"></a><span class="type">void</span> <span class="name">msleep</span>(<span class="type">int</span><i> msecs</i>)</p></td></tr></table></div></div><div class="qmldoc"><p>Pause the current thread for <i>msecs</i> milliseconds.</p>
+</div></div><!-- @@@msleep -->
+<br/>
+<!-- $$$parseInteger -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="parseInteger-method"><td class="tblQmlFuncNode"><p><a name="parseInteger-method"></a><span class="type">string</span> <span class="name">parseInteger</span>(<span class="type">string</span><i> text</i>)</p></td></tr></table></div></div><div class="qmldoc"><p>Convert <i>decimal</i> or hexadecimal string to a number.</p>
+<p>Returns the parsed number, or Number.NaN if the string could not be parsed.</p>
+</div></div><!-- @@@parseInteger -->
+<br/>
+<!-- $$$readFile -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="readFile-method"><td class="tblQmlFuncNode"><p><a name="readFile-method"></a><span class="type"><a href="qml-samba-bytearray.html">ByteArray</a></span> <span class="name">readFile</span>(<span class="type">string</span><i> fileName</i>)</p></td></tr></table></div></div><div class="qmldoc"><p>Read the contents of file <i>fileName</i> into a new <a href="qml-samba-bytearray.html">ByteArray</a>.</p>
+<p>Returns the newly created <a href="qml-samba-bytearray.html">ByteArray</a>, or <code>undefined</code> if an error occurred.</p>
+</div></div><!-- @@@readFile -->
+<br/>
+<!-- $$$readUrl -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="readUrl-method"><td class="tblQmlFuncNode"><p><a name="readUrl-method"></a><span class="type"><a href="qml-samba-bytearray.html">ByteArray</a></span> <span class="name">readUrl</span>(<span class="type">string</span><i> fileUrl</i>)</p></td></tr></table></div></div><div class="qmldoc"><p>Read the contents of URL <i>fileUrl</i> into a new <a href="qml-samba-bytearray.html">ByteArray</a>.</p>
+<p>Returns the newly created <a href="qml-samba-bytearray.html">ByteArray</a>, or <code>undefined</code> if an error occurred.</p>
+</div></div><!-- @@@readUrl -->
+<br/>
+<!-- $$$sleep -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="sleep-method"><td class="tblQmlFuncNode"><p><a name="sleep-method"></a><span class="type">void</span> <span class="name">sleep</span>(<span class="type">int</span><i> secs</i>)</p></td></tr></table></div></div><div class="qmldoc"><p>Pause the current thread for <i>secs</i> seconds.</p>
+</div></div><!-- @@@sleep -->
+<br/>
+<!-- $$$usleep -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="usleep-method"><td class="tblQmlFuncNode"><p><a name="usleep-method"></a><span class="type">void</span> <span class="name">usleep</span>(<span class="type">int</span><i> usecs</i>)</p></td></tr></table></div></div><div class="qmldoc"><p>Pause the current thread for <i>usecs</i> microseconds.</p>
+</div></div><!-- @@@usleep -->
+<br/>
+<!-- $$$writeFile -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="writeFile-method"><td class="tblQmlFuncNode"><p><a name="writeFile-method"></a><span class="type">bool</span> <span class="name">writeFile</span>(<span class="type">string</span><i> fileName</i>, <span class="type"><a href="qml-samba-bytearray.html">ByteArray</a></span><i> data</i>)</p></td></tr></table></div></div><div class="qmldoc"><p>Write the byte array <i>data</i> into file <i>fileName</i>.</p>
+<p>Returns true on success, false otherwise.</p>
+</div></div><!-- @@@writeFile -->
+<br/>
+<p /><address><hr /><div align="center">
+<table width="100%" cellspacing="0" border="0"><tr class="address">
+<td width="60%" align="left">Copyright &copy; 2015-2016 Atmel Corporation</td>
+<td width="40%" align="right"><div align="right">SAM-BA QML API Documentation</div></td>
+</tr></table></div></address></body>
+</html>

@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<!-- type_bytearray.qdoc -->
+  <title>ByteArray QML Type | SAM-BA 3.1</title>
+  <link rel="stylesheet" type="text/css" href="style/style.css" />
+</head>
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+<td class="postheader" valign="center"> <a href="index.html">Home</a> &middot; </td></tr></table><div class="sidebar">
+<div class="toc">
+<h3><a name="toc">Contents</a></h3>
+<ul>
+<li class="level1"><a href="#properties">Properties</a></li>
+<li class="level1"><a href="#methods">Methods</a></li>
+<li class="level1"><a href="#details">Detailed Description</a></li>
+</ul>
+</div>
+<div class="sidebar-content" id="sidebar-content"></div></div>
+<h1 class="title">ByteArray QML Type</h1>
+<span class="subtitle"></span>
+<!-- $$$ByteArray-brief -->
+<p>The <a href="qml-samba-bytearray.html">ByteArray</a> type represents a variable-length byte array. <a href="#details">More...</a></p>
+<!-- @@@ByteArray -->
+<div class="table"><table class="alignedsummary">
+<tr><td class="memItemLeft rightAlign topAlign"> Import Statement:</td><td class="memItemRight bottomAlign"> import SAMBA 3.1</td></tr></table></div><ul>
+<li><a href="qml-samba-bytearray-members.html">List of all members, including inherited members</a></li>
+</ul>
+<a name="properties"></a>
+<h2 id="properties">Properties</h2>
+<ul>
+<li class="fn"><b><b><a href="qml-samba-bytearray.html#length-prop">length</a></b></b> : int</li>
+</ul>
+<a name="methods"></a>
+<h2 id="methods">Methods</h2>
+<ul>
+<li class="fn">void <b><b><a href="qml-samba-bytearray.html#append-method">append</a></b></b>(ByteArray <i> other</i>)</li>
+<li class="fn">int <b><b><a href="qml-samba-bytearray.html#at-method">at</a></b></b>(int <i> idx</i>)</li>
+<li class="fn">var <b><b><a href="qml-samba-bytearray.html#compare-method">compare</a></b></b>(ByteArray <i> other</i>)</li>
+<li class="fn">ByteArray <b><b><a href="qml-samba-bytearray.html#mid-method">mid</a></b></b>(int <i> index</i>, int <i> len</i>)</li>
+<li class="fn">void <b><b><a href="qml-samba-bytearray.html#pad-method">pad</a></b></b>(int <i> count</i>, int <i> value</i>)</li>
+<li class="fn">void <b><b><a href="qml-samba-bytearray.html#prepend-method">prepend</a></b></b>(ByteArray <i> other</i>)</li>
+<li class="fn">bool <b><b><a href="qml-samba-bytearray.html#readFile-method">readFile</a></b></b>(string <i> fileName</i>)</li>
+<li class="fn">bool <b><b><a href="qml-samba-bytearray.html#readUrl-method">readUrl</a></b></b>(string <i> fileUrl</i>)</li>
+<li class="fn">bool <b><b><a href="qml-samba-bytearray.html#writeFile-method">writeFile</a></b></b>(string <i> fileName</i>)</li>
+</ul>
+<!-- $$$ByteArray-description -->
+<a name="details"></a>
+<h2 id="details">Detailed Description</h2>
+</p>
+<!-- @@@ByteArray -->
+<h2>Property Documentation</h2>
+<!-- $$$length -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="length-prop"><td class="tblQmlPropNode"><p><a name="length-prop"></a><span class="name">length</span> : <span class="type">int</span></p></td></tr></table></div></div><div class="qmldoc"><p>the byte array length</p>
+</div></div><!-- @@@length -->
+<br/>
+<h2>Method Documentation</h2>
+<!-- $$$append -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="append-method"><td class="tblQmlFuncNode"><p><a name="append-method"></a><span class="type">void</span> <span class="name">append</span>(<span class="type"><a href="qml-samba-bytearray.html">ByteArray</a></span><i> other</i>)</p></td></tr></table></div></div><div class="qmldoc"><p>Appends the content of byte array <i>other</i> to the current data.</p>
+</div></div><!-- @@@append -->
+<br/>
+<!-- $$$at -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="at-method"><td class="tblQmlFuncNode"><p><a name="at-method"></a><span class="type">int</span> <span class="name">at</span>(<span class="type">int</span><i> idx</i>)</p></td></tr></table></div></div><div class="qmldoc"><p>Returns the byte at index <i>idx</i>.</p>
+</div></div><!-- @@@at -->
+<br/>
+<!-- $$$compare -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="compare-method"><td class="tblQmlFuncNode"><p><a name="compare-method"></a><span class="type">var</span> <span class="name">compare</span>(<span class="type"><a href="qml-samba-bytearray.html">ByteArray</a></span><i> other</i>)</p></td></tr></table></div></div><div class="qmldoc"><p>Compare the content of byte array <i>other</i> to the current data.</p>
+<p>Returns the offset of the first difference, or no value (undefined) if no difference was found.</p>
+</div></div><!-- @@@compare -->
+<br/>
+<!-- $$$mid -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="mid-method"><td class="tblQmlFuncNode"><p><a name="mid-method"></a><span class="type"><a href="qml-samba-bytearray.html">ByteArray</a></span> <span class="name">mid</span>(<span class="type">int</span><i> index</i>, <span class="type">int</span><i> len</i>)</p></td></tr></table></div></div><div class="qmldoc"><p>Returns a byte array containing <i>len</i> bytes from index <i>index</i>.</p>
+</div></div><!-- @@@mid -->
+<br/>
+<!-- $$$pad -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="pad-method"><td class="tblQmlFuncNode"><p><a name="pad-method"></a><span class="type">void</span> <span class="name">pad</span>(<span class="type">int</span><i> count</i>, <span class="type">int</span><i> value</i>)</p></td></tr></table></div></div><div class="qmldoc"><p>Pad the current data up to <i>count</i> bytes.</p>
+<p>Added bytes are initialized with <i>value</i>. If the array was longer that <i>count</i> bytes, it will be truncated.</p>
+</div></div><!-- @@@pad -->
+<br/>
+<!-- $$$prepend -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="prepend-method"><td class="tblQmlFuncNode"><p><a name="prepend-method"></a><span class="type">void</span> <span class="name">prepend</span>(<span class="type"><a href="qml-samba-bytearray.html">ByteArray</a></span><i> other</i>)</p></td></tr></table></div></div><div class="qmldoc"><p>Prepend the content of byte array <i>other</i> in front of the current data.</p>
+</div></div><!-- @@@prepend -->
+<br/>
+<!-- $$$readFile -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="readFile-method"><td class="tblQmlFuncNode"><p><a name="readFile-method"></a><span class="type">bool</span> <span class="name">readFile</span>(<span class="type">string</span><i> fileName</i>)</p></td></tr></table></div></div><div class="qmldoc"><p>Read the contents of file named <i>fileName</i> into the byte array.</p>
+<p>Returns true on success, false otherwise</p>
+</div></div><!-- @@@readFile -->
+<br/>
+<!-- $$$readUrl -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="readUrl-method"><td class="tblQmlFuncNode"><p><a name="readUrl-method"></a><span class="type">bool</span> <span class="name">readUrl</span>(<span class="type">string</span><i> fileUrl</i>)</p></td></tr></table></div></div><div class="qmldoc"><p>Read the contents pointed to by URL <i>fileUrl</i> into the byte array.</p>
+<p>Returns true on success, false otherwise</p>
+</div></div><!-- @@@readUrl -->
+<br/>
+<!-- $$$writeFile -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="writeFile-method"><td class="tblQmlFuncNode"><p><a name="writeFile-method"></a><span class="type">bool</span> <span class="name">writeFile</span>(<span class="type">string</span><i> fileName</i>)</p></td></tr></table></div></div><div class="qmldoc"><p>Write the contents of the byte array into the file <i>fileName</i>.</p>
+<p>Returns true on success, false otherwise</p>
+</div></div><!-- @@@writeFile -->
+<br/>
+<p /><address><hr /><div align="center">
+<table width="100%" cellspacing="0" border="0"><tr class="address">
+<td width="60%" align="left">Copyright &copy; 2015-2016 Atmel Corporation</td>
+<td width="40%" align="right"><div align="right">SAM-BA QML API Documentation</div></td>
+</tr></table></div></address></body>
+</html>

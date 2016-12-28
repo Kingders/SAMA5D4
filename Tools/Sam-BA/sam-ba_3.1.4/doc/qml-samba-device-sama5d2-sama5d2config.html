@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<!-- SAMA5D2Config.qml -->
+  <title>SAMA5D2Config QML Type | SAM-BA 3.1</title>
+  <link rel="stylesheet" type="text/css" href="style/style.css" />
+</head>
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+<td class="postheader" valign="center"> <a href="index.html">Home</a> &middot; </td></tr></table><div class="sidebar">
+<div class="toc">
+<h3><a name="toc">Contents</a></h3>
+<ul>
+<li class="level1"><a href="#properties">Properties</a></li>
+<li class="level1"><a href="#details">Detailed Description</a></li>
+<li class="level2"><a href="#spi-configuration">SPI Configuration</a></li>
+<li class="level2"><a href="#quadspi-configuration">QuadSPI Configuration</a></li>
+<li class="level2"><a href="#nand-configuration">NAND Configuration</a></li>
+<li class="level2"><a href="#sdmmc-configuration">SDMMC Configuration</a></li>
+</ul>
+</div>
+<div class="sidebar-content" id="sidebar-content"></div></div>
+<h1 class="title">SAMA5D2Config QML Type</h1>
+<span class="subtitle"></span>
+<!-- $$$SAMA5D2Config-brief -->
+<p>Contains configuration values for a SAMA5D2 device. <a href="#details">More...</a></p>
+<!-- @@@SAMA5D2Config -->
+<div class="table"><table class="alignedsummary">
+<tr><td class="memItemLeft rightAlign topAlign"> Import Statement:</td><td class="memItemRight bottomAlign"> import SAMBA.Device.SAMA5D2 3.1</td></tr></table></div><ul>
+<li><a href="qml-samba-device-sama5d2-sama5d2config-members.html">List of all members, including inherited members</a></li>
+</ul>
+<a name="properties"></a>
+<h2 id="properties">Properties</h2>
+<ul>
+<li class="fn"><b><b><a href="qml-samba-device-sama5d2-sama5d2config.html#nandBusWidth-prop">nandBusWidth</a></b></b> : var</li>
+<li class="fn"><b><b><a href="qml-samba-device-sama5d2-sama5d2config.html#nandHeader-prop">nandHeader</a></b></b> : var</li>
+<li class="fn"><b><b><a href="qml-samba-device-sama5d2-sama5d2config.html#nandIoset-prop">nandIoset</a></b></b> : var</li>
+<li class="fn"><b><b><a href="qml-samba-device-sama5d2-sama5d2config.html#qspiFreq-prop">qspiFreq</a></b></b> : var</li>
+<li class="fn"><b><b><a href="qml-samba-device-sama5d2-sama5d2config.html#qspiInstance-prop">qspiInstance</a></b></b> : var</li>
+<li class="fn"><b><b><a href="qml-samba-device-sama5d2-sama5d2config.html#qspiIoset-prop">qspiIoset</a></b></b> : var</li>
+<li class="fn"><b><b><a href="qml-samba-device-sama5d2-sama5d2config.html#sdmmcBusWidth-prop">sdmmcBusWidth</a></b></b> : var</li>
+<li class="fn"><b><b><a href="qml-samba-device-sama5d2-sama5d2config.html#sdmmcInstance-prop">sdmmcInstance</a></b></b> : var</li>
+<li class="fn"><b><b><a href="qml-samba-device-sama5d2-sama5d2config.html#sdmmcPartition-prop">sdmmcPartition</a></b></b> : var</li>
+<li class="fn"><b><b><a href="qml-samba-device-sama5d2-sama5d2config.html#sdmmcVoltages-prop">sdmmcVoltages</a></b></b> : var</li>
+<li class="fn"><b><b><a href="qml-samba-device-sama5d2-sama5d2config.html#spiChipSelect-prop">spiChipSelect</a></b></b> : var</li>
+<li class="fn"><b><b><a href="qml-samba-device-sama5d2-sama5d2config.html#spiFreq-prop">spiFreq</a></b></b> : var</li>
+<li class="fn"><b><b><a href="qml-samba-device-sama5d2-sama5d2config.html#spiInstance-prop">spiInstance</a></b></b> : var</li>
+<li class="fn"><b><b><a href="qml-samba-device-sama5d2-sama5d2config.html#spiIoset-prop">spiIoset</a></b></b> : var</li>
+</ul>
+<!-- $$$SAMA5D2Config-description -->
+<a name="details"></a>
+<h2 id="details">Detailed Description</h2>
+</p>
+<p>By default, no configuration values are set.</p>
+<a name="spi-configuration"></a>
+<h2 id="spi-configuration">SPI Configuration</h2>
+<p>The following SPI configurations are supported:</p>
+<div class="table"><table class="generic">
+ <thead><tr class="qt-style"><th >Instance</th><th >Peripheral</th><th >I/O Set</th><th >Chip Selects</th></tr></thead>
+<tr valign="top" class="odd"><td >0</td><td >SPI0</td><td >1, 2</td><td >0, 1, 2, 3</td></tr>
+<tr valign="top" class="even"><td >1</td><td >SPI1</td><td >1, 2</td><td >0, 1, 2, 3</td></tr>
+<tr valign="top" class="odd"><td >1</td><td >SPI1</td><td >3</td><td >0, 1, 2</td></tr>
+<tr valign="top" class="even"><td >2</td><td >FLEXCOM0</td><td >1</td><td >0, 1</td></tr>
+<tr valign="top" class="odd"><td >3</td><td >FLEXCOM1</td><td >1</td><td >0, 1</td></tr>
+<tr valign="top" class="even"><td >4</td><td >FLEXCOM2</td><td >1, 2</td><td >0, 1</td></tr>
+<tr valign="top" class="odd"><td >5</td><td >FLEXCOM3</td><td >1, 2, 3</td><td >0, 1</td></tr>
+<tr valign="top" class="even"><td >6</td><td >FLEXCOM4</td><td >1, 2, 3</td><td >0, 1</td></tr>
+</table></div>
+<a name="quadspi-configuration"></a>
+<h2 id="quadspi-configuration">QuadSPI Configuration</h2>
+<p>The following QuadSPI configurations are supported:</p>
+<div class="table"><table class="generic">
+ <thead><tr class="qt-style"><th >Instance</th><th >Peripheral</th><th >I/O Set</th></tr></thead>
+<tr valign="top" class="odd"><td >0</td><td >QSPI0</td><td >1, 2, 3</td></tr>
+<tr valign="top" class="even"><td >1</td><td >QSPI1</td><td >1, 2, 3</td></tr>
+</table></div>
+<a name="nand-configuration"></a>
+<h2 id="nand-configuration">NAND Configuration</h2>
+<p>The following NAND configurations are supported:</p>
+<div class="table"><table class="generic">
+ <thead><tr class="qt-style"><th >I/O Set</th><th >Bus Width</th></tr></thead>
+<tr valign="top" class="odd"><td >1, 2</td><td >8-bit, 16-bit</td></tr>
+</table></div>
+<a name="sdmmc-configuration"></a>
+<h2 id="sdmmc-configuration">SDMMC Configuration</h2>
+<p>The following SDMMC configurations are supported:</p>
+<div class="table"><table class="generic">
+ <thead><tr class="qt-style"><th >Instance</th><th >Peripheral</th><th >Bus Width</th></tr></thead>
+<tr valign="top" class="odd"><td >0</td><td >SDMMC0</td><td >1-bit, 4-bit, 8-bit</td></tr>
+<tr valign="top" class="even"><td >1</td><td >SDMMC1</td><td >1-bit, 4-bit</td></tr>
+</table></div>
+<!-- @@@SAMA5D2Config -->
+<h2>Property Documentation</h2>
+<!-- $$$nandBusWidth -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="nandBusWidth-prop"><td class="tblQmlPropNode"><p><a name="nandBusWidth-prop"></a><span class="name">nandBusWidth</span> : <span class="type">var</span></p></td></tr></table></div></div><div class="qmldoc"><p>NAND Bus Width, in bits (8/16)</p>
+</div></div><!-- @@@nandBusWidth -->
+<br/>
+<!-- $$$nandHeader -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="nandHeader-prop"><td class="tblQmlPropNode"><p><a name="nandHeader-prop"></a><span class="name">nandHeader</span> : <span class="type">var</span></p></td></tr></table></div></div><div class="qmldoc"><p>NAND Header</p>
+</div></div><!-- @@@nandHeader -->
+<br/>
+<!-- $$$nandIoset -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="nandIoset-prop"><td class="tblQmlPropNode"><p><a name="nandIoset-prop"></a><span class="name">nandIoset</span> : <span class="type">var</span></p></td></tr></table></div></div><div class="qmldoc"><p>NAND I/O set</p>
+</div></div><!-- @@@nandIoset -->
+<br/>
+<!-- $$$qspiFreq -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="qspiFreq-prop"><td class="tblQmlPropNode"><p><a name="qspiFreq-prop"></a><span class="name">qspiFreq</span> : <span class="type">var</span></p></td></tr></table></div></div><div class="qmldoc"><p>QuadSPI frequency, in MHz</p>
+</div></div><!-- @@@qspiFreq -->
+<br/>
+<!-- $$$qspiInstance -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="qspiInstance-prop"><td class="tblQmlPropNode"><p><a name="qspiInstance-prop"></a><span class="name">qspiInstance</span> : <span class="type">var</span></p></td></tr></table></div></div><div class="qmldoc"><p>QuadSPI peripheral instance</p>
+</div></div><!-- @@@qspiInstance -->
+<br/>
+<!-- $$$qspiIoset -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="qspiIoset-prop"><td class="tblQmlPropNode"><p><a name="qspiIoset-prop"></a><span class="name">qspiIoset</span> : <span class="type">var</span></p></td></tr></table></div></div><div class="qmldoc"><p>QuadSPI I/O set</p>
+</div></div><!-- @@@qspiIoset -->
+<br/>
+<!-- $$$sdmmcBusWidth -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="sdmmcBusWidth-prop"><td class="tblQmlPropNode"><p><a name="sdmmcBusWidth-prop"></a><span class="name">sdmmcBusWidth</span> : <span class="type">var</span></p></td></tr></table></div></div><div class="qmldoc"><p>SD/MMC bus width (0=automatic, 1=1-bit, 4=4-bit, 8=8-bit)</p>
+</div></div><!-- @@@sdmmcBusWidth -->
+<br/>
+<!-- $$$sdmmcInstance -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="sdmmcInstance-prop"><td class="tblQmlPropNode"><p><a name="sdmmcInstance-prop"></a><span class="name">sdmmcInstance</span> : <span class="type">var</span></p></td></tr></table></div></div><div class="qmldoc"><p>SD/MMC peripheral instance</p>
+</div></div><!-- @@@sdmmcInstance -->
+<br/>
+<!-- $$$sdmmcPartition -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="sdmmcPartition-prop"><td class="tblQmlPropNode"><p><a name="sdmmcPartition-prop"></a><span class="name">sdmmcPartition</span> : <span class="type">var</span></p></td></tr></table></div></div><div class="qmldoc"><p>SD/MMC partition (0=default, x&gt;0=boot partition x)</p>
+</div></div><!-- @@@sdmmcPartition -->
+<br/>
+<!-- $$$sdmmcVoltages -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="sdmmcVoltages-prop"><td class="tblQmlPropNode"><p><a name="sdmmcVoltages-prop"></a><span class="name">sdmmcVoltages</span> : <span class="type">var</span></p></td></tr></table></div></div><div class="qmldoc"><p>SD/MMC voltage support (bitfield: 1=1.8V, 2=3.0V, 3=3.3V)</p>
+</div></div><!-- @@@sdmmcVoltages -->
+<br/>
+<!-- $$$spiChipSelect -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="spiChipSelect-prop"><td class="tblQmlPropNode"><p><a name="spiChipSelect-prop"></a><span class="name">spiChipSelect</span> : <span class="type">var</span></p></td></tr></table></div></div><div class="qmldoc"><p>SPI Chip Select</p>
+</div></div><!-- @@@spiChipSelect -->
+<br/>
+<!-- $$$spiFreq -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="spiFreq-prop"><td class="tblQmlPropNode"><p><a name="spiFreq-prop"></a><span class="name">spiFreq</span> : <span class="type">var</span></p></td></tr></table></div></div><div class="qmldoc"><p>SPI frequency, in MHz</p>
+</div></div><!-- @@@spiFreq -->
+<br/>
+<!-- $$$spiInstance -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="spiInstance-prop"><td class="tblQmlPropNode"><p><a name="spiInstance-prop"></a><span class="name">spiInstance</span> : <span class="type">var</span></p></td></tr></table></div></div><div class="qmldoc"><p>SPI peripheral instance</p>
+</div></div><!-- @@@spiInstance -->
+<br/>
+<!-- $$$spiIoset -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="spiIoset-prop"><td class="tblQmlPropNode"><p><a name="spiIoset-prop"></a><span class="name">spiIoset</span> : <span class="type">var</span></p></td></tr></table></div></div><div class="qmldoc"><p>SPI I/O set</p>
+</div></div><!-- @@@spiIoset -->
+<br/>
+<p /><address><hr /><div align="center">
+<table width="100%" cellspacing="0" border="0"><tr class="address">
+<td width="60%" align="left">Copyright &copy; 2015-2016 Atmel Corporation</td>
+<td width="40%" align="right"><div align="right">SAM-BA QML API Documentation</div></td>
+</tr></table></div></address></body>
+</html>

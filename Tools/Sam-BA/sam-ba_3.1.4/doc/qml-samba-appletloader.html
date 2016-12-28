@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<!-- AppletLoader.qml -->
+  <title>AppletLoader QML Type | SAM-BA 3.1</title>
+  <link rel="stylesheet" type="text/css" href="style/style.css" />
+</head>
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+<td class="postheader" valign="center"> <a href="index.html">Home</a> &middot; </td></tr></table><div class="sidebar">
+<div class="toc">
+<h3><a name="toc">Contents</a></h3>
+<ul>
+<li class="level1"><a href="#properties">Properties</a></li>
+<li class="level1"><a href="#signals">Signals</a></li>
+<li class="level1"><a href="#methods">Methods</a></li>
+<li class="level1"><a href="#details">Detailed Description</a></li>
+</ul>
+</div>
+<div class="sidebar-content" id="sidebar-content"></div></div>
+<h1 class="title">AppletLoader QML Type</h1>
+<span class="subtitle"></span>
+<!-- $$$AppletLoader-brief -->
+<p>Generic loader/command execution for SAM-BA Applets. <a href="#details">More...</a></p>
+<!-- @@@AppletLoader -->
+<div class="table"><table class="alignedsummary">
+<tr><td class="memItemLeft rightAlign topAlign"> Import Statement:</td><td class="memItemRight bottomAlign"> import SAMBA 3.1</td></tr></table></div><ul>
+<li><a href="qml-samba-appletloader-members.html">List of all members, including inherited members</a></li>
+</ul>
+<a name="properties"></a>
+<h2 id="properties">Properties</h2>
+<ul>
+<li class="fn"><b><b><a href="qml-samba-appletloader.html#autoconnect-prop">autoconnect</a></b></b> : bool</li>
+<li class="fn"><b><b><a href="qml-samba-appletloader.html#connection-prop">connection</a></b></b> : Connection</li>
+<li class="fn"><b><b><a href="qml-samba-appletloader.html#device-prop">device</a></b></b> : Device</li>
+</ul>
+<a name="signals"></a>
+<h2 id="signals">Signals</h2>
+<ul>
+<li class="fn"><b><b><a href="qml-samba-appletloader.html#connectionClosed-signal">connectionClosed</a></b></b>()</li>
+<li class="fn"><b><b><a href="qml-samba-appletloader.html#connectionFailed-signal">connectionFailed</a></b></b>(string <i> message</i>)</li>
+<li class="fn"><b><b><a href="qml-samba-appletloader.html#connectionOpened-signal">connectionOpened</a></b></b>()</li>
+</ul>
+<a name="methods"></a>
+<h2 id="methods">Methods</h2>
+<ul>
+<li class="fn">void <b><b><a href="qml-samba-appletloader.html#appletClearGpnvm-method">appletClearGpnvm</a></b></b>(int <i> index</i>)</li>
+<li class="fn">void <b><b><a href="qml-samba-appletloader.html#appletErase-method">appletErase</a></b></b>(int <i> offset</i>, int <i> size</i>)</li>
+<li class="fn">void <b><b><a href="qml-samba-appletloader.html#appletFullErase-method">appletFullErase</a></b></b>()</li>
+<li class="fn">void <b><b><a href="qml-samba-appletloader.html#appletInitialize-method">appletInitialize</a></b></b>(string <i> appletName</i>)</li>
+<li class="fn">void <b><b><a href="qml-samba-appletloader.html#appletRead-method">appletRead</a></b></b>(int <i> offset</i>, int <i> size</i>, string <i> fileName</i>)</li>
+<li class="fn">int <b><b><a href="qml-samba-appletloader.html#appletReadBootCfg-method">appletReadBootCfg</a></b></b>(int <i> index</i>)</li>
+<li class="fn">void <b><b><a href="qml-samba-appletloader.html#appletSetGpnvm-method">appletSetGpnvm</a></b></b>(int <i> index</i>)</li>
+<li class="fn">void <b><b><a href="qml-samba-appletloader.html#appletVerify-method">appletVerify</a></b></b>(int <i> offset</i>, string <i> fileName</i>, bool <i> bootFile</i>)</li>
+<li class="fn">void <b><b><a href="qml-samba-appletloader.html#appletWrite-method">appletWrite</a></b></b>(int <i> offset</i>, string <i> fileName</i>, bool <i> bootFile</i>)</li>
+<li class="fn">void <b><b><a href="qml-samba-appletloader.html#appletWriteBootCfg-method">appletWriteBootCfg</a></b></b>(int <i> index</i>, int <i> value</i>)</li>
+<li class="fn">void <b><b><a href="qml-samba-appletloader.html#appletWriteVerify-method">appletWriteVerify</a></b></b>(int <i> offset</i>, string <i> fileName</i>, bool <i> bootFile</i>)</li>
+</ul>
+<!-- $$$AppletLoader-description -->
+<a name="details"></a>
+<h2 id="details">Detailed Description</h2>
+</p>
+<p>The <a href="qml-samba-appletloader.html">AppletLoader</a> QML type is provided to facilitate the use of <a href="qml-samba-applet.html">SAM-BA Applets</a>.</p>
+<p>It combines a <a href="qml-samba-connection.html">Connection</a> and a <a href="qml-samba-device.html">Device</a> and provides several functions to call the most common applet commands:</p>
+<ul>
+<li>Initialize</li>
+<li>Read</li>
+<li>Write</li>
+<li>Verify</li>
+<li>Full Erase</li>
+<li>Partial Erase</li>
+<li>Set/Clear GPNVM</li>
+</ul>
+<p>Here is an example script using the <a href="qml-samba-appletloader.html">AppletLoader</a> to flash a file on the SPI flash of a SAMA5D2:</p>
+<pre class="qml">import SAMBA 3.1
+import SAMBA.Connection.Serial 3.1
+import SAMBA.Device.SAMA5D2 3.1
+
+<span class="type"><a href="qml-samba-appletloader.html">AppletLoader</a></span> {
+        <span class="name">connection</span>: <span class="name">SerialConnection</span> { }
+
+        <span class="name">device</span>: <span class="name">SAMA5D2</span> { }
+
+        <span class="name">onConnectionOpened</span>: {
+                <span class="name">appletInitialize</span>(<span class="string">&quot;serialflash&quot;</span>)
+                <span class="name">appletErase</span>(<span class="number">0</span>, <span class="number">1024</span> <span class="operator">*</span> <span class="number">1024</span>)
+                <span class="name">appletWriteVerify</span>(<span class="number">0</span>, <span class="string">&quot;program.bin&quot;</span>, <span class="number">true</span>)
+        }
+}</pre>
+<p>The <a href="qml-samba-appletloader.html">AppletLoader</a> is created with a <a href="qml-samba-connection-serial-serialconnection.html">SerialConnection</a> and a SAMA5D2 device using their default parameters.</p>
+<p>JavaScript code is connected to the <code>ConnectionOpened</code> signal in order to:</p>
+<ul>
+<li>Load and initialize the &quot;serialflash&quot; applet</li>
+<li>Erase 1MB at offset 0</li>
+<li>Write the contents of file &quot;program.bin&quot; at offset 0 and read it back to verify that it was flashed correctly. The third argument (&quot;true&quot;) indicates that the file must be processed to be bootable.</li>
+</ul>
+<p>To ease the development of flashing scripts, all functions in <a href="qml-samba-appletloader.html">AppletLoader</a> throw a JavaScript <code>Error</code> on failure. This will effectively stop the script on error without having to handle error checking.</p>
+<!-- @@@AppletLoader -->
+<h2>Property Documentation</h2>
+<!-- $$$autoconnect -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="autoconnect-prop"><td class="tblQmlPropNode"><p><a name="autoconnect-prop"></a><span class="name">autoconnect</span> : <span class="type">bool</span></p></td></tr></table></div></div><div class="qmldoc"><p>Whether the connection should be automatically established on component completion.</p>
+</div></div><!-- @@@autoconnect -->
+<br/>
+<!-- $$$connection -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="connection-prop"><td class="tblQmlPropNode"><p><a name="connection-prop"></a><span class="name">connection</span> : <span class="type"><a href="qml-samba-connection.html">Connection</a></span></p></td></tr></table></div></div><div class="qmldoc"><p>Connection used to communicate with applets.</p>
+</div></div><!-- @@@connection -->
+<br/>
+<!-- $$$device -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="device-prop"><td class="tblQmlPropNode"><p><a name="device-prop"></a><span class="name">device</span> : <span class="type"><a href="qml-samba-device.html">Device</a></span></p></td></tr></table></div></div><div class="qmldoc"><p>Device whose applets will be used.</p>
+</div></div><!-- @@@device -->
+<br/>
+<h2>Signal Documentation</h2>
+<!-- $$$connectionClosed -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="connectionClosed-signal"><td class="tblQmlFuncNode"><p><a name="connectionClosed-signal"></a><span class="name">connectionClosed</span>()</p></td></tr></table></div></div><div class="qmldoc"><p>Raised when the connection was closed.</p>
+</div></div><!-- @@@connectionClosed -->
+<br/>
+<!-- $$$connectionFailed -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="connectionFailed-signal"><td class="tblQmlFuncNode"><p><a name="connectionFailed-signal"></a><span class="name">connectionFailed</span>(<span class="type">string</span><i> message</i>)</p></td></tr></table></div></div><div class="qmldoc"><p>Raised when the connection fails to open.<br />
+ Failure reason is contained in <i>message</i> signal parameter.</p>
+</div></div><!-- @@@connectionFailed -->
+<br/>
+<!-- $$$connectionOpened -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="connectionOpened-signal"><td class="tblQmlFuncNode"><p><a name="connectionOpened-signal"></a><span class="name">connectionOpened</span>()</p></td></tr></table></div></div><div class="qmldoc"><p>Raised when the connection has been opened</p>
+</div></div><!-- @@@connectionOpened -->
+<br/>
+<h2>Method Documentation</h2>
+<!-- $$$appletClearGpnvm -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="appletClearGpnvm-method"><td class="tblQmlFuncNode"><p><a name="appletClearGpnvm-method"></a><span class="type">void</span> <span class="name">appletClearGpnvm</span>(<span class="type">int</span><i> index</i>)</p></td></tr></table></div></div><div class="qmldoc"><p>Clears GPNVM.</p>
+<p>Clears GPNVM at index <i>index</i> using the applet 'GPNVM' command.</p>
+<p>Throws an <i>Error</i> if the applet has no GPNVM command or if an error occured during clearing GPNVM</p>
+</div></div><!-- @@@appletClearGpnvm -->
+<br/>
+<!-- $$$appletErase -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="appletErase-method"><td class="tblQmlFuncNode"><p><a name="appletErase-method"></a><span class="type">void</span> <span class="name">appletErase</span>(<span class="type">int</span><i> offset</i>, <span class="type">int</span><i> size</i>)</p></td></tr></table></div></div><div class="qmldoc"><p>Erases a block of memory.</p>
+<p>Erases <i>size</i> bytes at offset <i>offset</i> using the applet 'block erase' command.</p>
+<p>Throws an <i>Error</i> if the applet has no block erase command or if an error occured during erasing</p>
+</div></div><!-- @@@appletErase -->
+<br/>
+<!-- $$$appletFullErase -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="appletFullErase-method"><td class="tblQmlFuncNode"><p><a name="appletFullErase-method"></a><span class="type">void</span> <span class="name">appletFullErase</span>()</p></td></tr></table></div></div><div class="qmldoc"><p>Fully Erase the Device</p>
+<p>Completely erase the device using the applet 'full erase' command or several applet 'page erase' commands.</p>
+<p>Throws an <i>Error</i> if the applet has no Full Erase command or if an error occured during erase</p>
+</div></div><!-- @@@appletFullErase -->
+<br/>
+<!-- $$$appletInitialize -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="appletInitialize-method"><td class="tblQmlFuncNode"><p><a name="appletInitialize-method"></a><span class="type">void</span> <span class="name">appletInitialize</span>(<span class="type">string</span><i> appletName</i>)</p></td></tr></table></div></div><div class="qmldoc"><p>Loads and initializes the <i>appletName</i> applet.</p>
+<p>Throws an <i>Error</i> if the applet is not found or could not be loaded/initialized.</p>
+</div></div><!-- @@@appletInitialize -->
+<br/>
+<!-- $$$appletRead -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="appletRead-method"><td class="tblQmlFuncNode"><p><a name="appletRead-method"></a><span class="type">void</span> <span class="name">appletRead</span>(<span class="type">int</span><i> offset</i>, <span class="type">int</span><i> size</i>, <span class="type">string</span><i> fileName</i>)</p></td></tr></table></div></div><div class="qmldoc"><p>Read data from the device into a file.</p>
+<p>Reads <i>size</i> bytes at offset <i>offset</i> using the applet 'read' command and writes the data to a file named <i>fileName</i>.</p>
+<p>Throws an <i>Error</i> if the applet has no read command or if an error occured during reading</p>
+</div></div><!-- @@@appletRead -->
+<br/>
+<!-- $$$appletReadBootCfg -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="appletReadBootCfg-method"><td class="tblQmlFuncNode"><p><a name="appletReadBootCfg-method"></a><span class="type">int</span> <span class="name">appletReadBootCfg</span>(<span class="type">int</span><i> index</i>)</p></td></tr></table></div></div><div class="qmldoc"><p>Read the boot configuration</p>
+<p>Read and returns the boot configuration at index <i>index</i> using the applet 'Read Boot Config' command.</p>
+<p>Throws an <i>Error</i> if the applet has no 'Read Boot Config' command or if an error occured during calling the applet command</p>
+</div></div><!-- @@@appletReadBootCfg -->
+<br/>
+<!-- $$$appletSetGpnvm -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="appletSetGpnvm-method"><td class="tblQmlFuncNode"><p><a name="appletSetGpnvm-method"></a><span class="type">void</span> <span class="name">appletSetGpnvm</span>(<span class="type">int</span><i> index</i>)</p></td></tr></table></div></div><div class="qmldoc"><p>Sets GPNVM.</p>
+<p>Sets GPNVM at index <i>index</i> using the applet 'GPNVM' command.</p>
+<p>Throws an <i>Error</i> if the applet has no GPNVM command or if an error occured during setting GPNVM</p>
+</div></div><!-- @@@appletSetGpnvm -->
+<br/>
+<!-- $$$appletVerify -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="appletVerify-method"><td class="tblQmlFuncNode"><p><a name="appletVerify-method"></a><span class="type">void</span> <span class="name">appletVerify</span>(<span class="type">int</span><i> offset</i>, <span class="type">string</span><i> fileName</i>, <span class="type">bool</span><i> bootFile</i>)</p></td></tr></table></div></div><div class="qmldoc"><p>Compares data between a file and the device memory.</p>
+<p>Reads the contents of the file named <i>fileName</i> and compares it with memory at offset <i>offset</i> using the applet 'read' command.</p>
+<p>If <i>bootFile</i> is <code>true</code>, the file size will be written at offset 20 into the data before writing. This is required when the code is to be loaded by the ROM code.</p>
+<p>Throws an <i>Error</i> if the applet has no read command, if an error occured during reading or if the verification failed.</p>
+</div></div><!-- @@@appletVerify -->
+<br/>
+<!-- $$$appletWrite -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="appletWrite-method"><td class="tblQmlFuncNode"><p><a name="appletWrite-method"></a><span class="type">void</span> <span class="name">appletWrite</span>(<span class="type">int</span><i> offset</i>, <span class="type">string</span><i> fileName</i>, <span class="type">bool</span><i> bootFile</i>)</p></td></tr></table></div></div><div class="qmldoc"><p>Writes data from a file to the device.</p>
+<p>Reads the contents of the file named <i>fileName</i> and writes it at offset <i>offset</i> using the applet 'write' command.</p>
+<p>If <i>bootFile</i> is <code>true</code>, the file size will be written at offset 20 into the data before writing. This is required when the code is to be loaded by the ROM code.</p>
+<p>Throws an <i>Error</i> if the applet has no write command or if an error occured during writing</p>
+</div></div><!-- @@@appletWrite -->
+<br/>
+<!-- $$$appletWriteBootCfg -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="appletWriteBootCfg-method"><td class="tblQmlFuncNode"><p><a name="appletWriteBootCfg-method"></a><span class="type">void</span> <span class="name">appletWriteBootCfg</span>(<span class="type">int</span><i> index</i>, <span class="type">int</span><i> value</i>)</p></td></tr></table></div></div><div class="qmldoc"><p>Write the boot configuration</p>
+<p>Write the boot configuration <i>value</i> at index <i>index</i> using the applet 'Write Boot Config' command.</p>
+<p>Throws an <i>Error</i> if the applet has no 'Write Boot Config' command or if an error occured during calling the applet command</p>
+</div></div><!-- @@@appletWriteBootCfg -->
+<br/>
+<!-- $$$appletWriteVerify -->
+<div class="qmlitem"><div class="qmlproto"><div class="table"><table class="qmlname"><tr valign="top" class="odd" id="appletWriteVerify-method"><td class="tblQmlFuncNode"><p><a name="appletWriteVerify-method"></a><span class="type">void</span> <span class="name">appletWriteVerify</span>(<span class="type">int</span><i> offset</i>, <span class="type">string</span><i> fileName</i>, <span class="type">bool</span><i> bootFile</i>)</p></td></tr></table></div></div><div class="qmldoc"><p>Writes/Compares data from a file to the device memory.</p>
+<p>Reads the contents of the file named <i>fileName</i> and writes it at offset <i>offset</i> using the applet 'write' command. The data is then read back using the applet 'read' command and compared it with the expected data.</p>
+<p>If <i>bootFile</i> is <code>true</code>, the file size will be written at offset 20 into the data before writing. This is required when the code is to be loaded by the ROM code.</p>
+<p>Throws an <i>Error</i> if the applet has no read and write commands or if an error occured during reading, writing or verifying.</p>
+</div></div><!-- @@@appletWriteVerify -->
+<br/>
+<p /><address><hr /><div align="center">
+<table width="100%" cellspacing="0" border="0"><tr class="address">
+<td width="60%" align="left">Copyright &copy; 2015-2016 Atmel Corporation</td>
+<td width="40%" align="right"><div align="right">SAM-BA QML API Documentation</div></td>
+</tr></table></div></address></body>
+</html>
