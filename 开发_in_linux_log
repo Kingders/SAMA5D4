@@ -863,13 +863,470 @@ find命令:
 昨日打开了framebuffer console 后信号针有输出,意味着应该能够看到bootup_logo
 	昨日编译的zImage配上官方hdmi.dtb 接入大电视,过看到图片和图标,
 	今天的lcd转接板也能正常工作!!!但偏暗!!! 开发板供电不足够? 开发板backlight 电路有问题?
-网上下载显示bmp软件的用户程序,成功编译,输出信号!!
+网上下载显示bmp软件的用户程序,成功编译,输出信号!! 没有显示企鹅logo???
+此外 lcd 过一段时间会自动熄灭,但是插入 鼠标键盘触发后,又重新显示!!
+在 uboot 的默认 bootargs 里添加 console=tty0, 重刷uboot 有部分开机启动信息在lcd屏上输出!!!
+依然没有显示 bootup logo !!!
+屏幕 算作 成功显示!! 下一步,启动触摸模块!!!!
+芯片adc知识,使用四线touchscreen模式!!
+	ADC AD0/XP PC27 X1
+	ADC AD1/XM PC28 X1
+	ADC AD2/YP PC29 X1
+	ADC AD3/YM PC30 X1  
+初学 linux clock 子系统:
+	系统启动过程中，什么时候开始有tick？
+		多核系统，BSP首先启动，在其初始化过程中会调用time_init，这里会启动clocksource的初始化过程。
+		这时候，周期性的tick就会开始了。在某个阶段，其他的processor会启动，然后会注册其自己的local timer，
+		这样，各个cpu上的tick就都启动了。 
+	所谓per cpu就是说每个cpu都会维护属于一个自己的对象。例如，对于tick device，每个CPU都会维护自己的tick device
 
 
+
+
+
+
+
+
+
+
+
+
+
+20161229
+启动adc-touchscreen
+	有两个文件:at91_adc.c,和atmel-sama5d2_adc.c
+	at91_adc.c针对通用芯片, atmel-sama5d2_adc.c只针对sama5d2这一款芯片
+	sama5d4 使用 at91_adc.c
+按dts指导txt修改dts,貌似成功初始化了触摸屏,但是:
+	使用测试程序时,貌似 阻塞在读函数
+	点击触摸屏什么也没发生!!!
+	发现,触摸屏只对应逻辑设备文件是 /dev/input/touchscreen0
+		因为打开 touchscreen0 时会调用: atmel_ts_open()
+	发现重点:struct at91_adc_caps->has_tsmr //only at91sam9x5,sama5d3 有 TSMR reg 
+		看datasheet: sama5d4 有!!!  
+	还有一个关于pen的问题!!!未解决
+恶补 input 设备 iio 设备 !!! 
+	cat /dev/input/event1 | hexdump   //测试input设备命令  例如鼠标, 滑动就能有数据!!
+	怀疑 input 逻辑设备文件 与 iio逻辑设备文件根本是两回事 read_raw 只给iio设备逻辑文件使用,而不是给input文件的
+	看datasheet tsmr是touchscreen mode register 
+		TSMOD四模式:非触摸屏模式,4线模式,4线带笔触压力模式,5线模式!!
+		TSAV转换值获取4式: 1次转换取值, 2次转换取平均值,4次转换取平均值,8次转换取平均值
+	Trigger Period: 前后两次转换间的最小间隔时间,一定要大于转换工作所用的时间!!
+	Threshold: (比较用的)临界值,阀值.
+	• EOCx: End of Conversion Interrupt Mask x
+	• XRDY: Touchscreen Measure XPOS Ready Interrupt Mask
+	• YRDY: Touchscreen Measure YPOS Ready Interrupt Mask
+	ADC_LCDR: 存储最新一次得到的转换值及对应的通道
+		adc-dma:的做法:(估计)测量得到一堆数据,然后这堆数据存到一个DMA-buffer,用户从ADC_LCDR寄存器入口取出这些数据
+		每取出一个,buffer里就丢弃一个
+	简单说sama5d4,可直接硬件把4adc电压值 转换成一个x坐标和y坐标值!!
 	
 
 
 
+
+20161230
+先做一个小 input 驱动来
+	设置外部中断 即设置gpio针 
+	drivers/pinctrl/pinctrl-at91.c
+	设置个gpio针!!
+		根据dts pinctrl@ compatable 得知 使用 at91sam9x5_ops 设置!!!
+	设置函数还不能随便调用,要通过设置dts来设备io口
+第一步:做一个linux 模块,测试挂入系统功能,注意makefile编写,详见 /home/kingders/SAMA5D4/sources/driver_test/button
+	测试命令:	tftp -gl button.ko 192.168.1.100
+			insmod button.ko	//加载
+			rmmod butto		//卸载
+	成功!
+第二步,修改pe8gpio脚, 上升下降沿触发中断!!
+	readl_relaxed(reg)		//直接读取硬件寄存器reg地址内容!!
+	writel_relaxed(value, reg);	//把内容value,写入硬件寄存器地址!!
+	官方说明这样配置中断gpio的irq!!(可是已经没有这个函数了,玩野!!)	
+	at91_set_gpio_input()then maybe enable its glitch filter
+	request_irq()
+	pioE的中断号是 26 !!
+	似乎中断好是错的!!! linux里26不对应pioe 
+	kernel里
+		23对应 at91_tick
+		26对应 aic5_set???
+		52对应 ???		
+		25对应 ehci_hcd:usb1
+		41对应 aic5_set_type??
+		44 refer atmel-sha
+		明显,request 绑定irq也是有自己的一套规则的 起码中断号与芯片的硬件中断号不一致
+		要恶补linux 的中断设置!!包括芯片和kernel的内容!!
+回望adctouchscreen驱动
+	初步认为,input设备是不提供read接口的,使用自身独有的read接口!!
+		之所以read阻塞,极有可能是驱动逻辑设备文件里还没有数据!!adc转换中断没有真正开了!!
+	读出注册中断处理程序request的前一刻 用到的 st->irq 号 居然是41!! 不是44!!
+		乱改request里的 st->irq 号 为51 居然成功注册,启动且意外执行了中断处理程序
+		dts的adc interrupt 号怎么改,最终 st->irq 还是41
+		dts的adc interrupt 注释掉有提示irq初始化出去错!!
+ubuntu使用sourceinsight:
+	wine /home/kingders/smart210/tools/source_insight/SourceInsight/Insight3.exe 
+
+
+
+
+
+
+
+
+20170103
+geditor打不开文件时:(取消编码检测)
+	gsettings set org.gnome.gedit.preferences.encodings auto-detected "['UTF-8', 'CURRENT', 'ISO-8859-15', 'UTF-16']"
+重新解决中断问题!!
+	request 使用IRQF_SHARED 后成功注册,但按键没有反应!!!
+	怀疑是硬件中断号与linuxh中断号的转换问题!!
+	查看中断是否产生,命令 
+	# cat /proc/interrupts
+		linux中断号  触发次数`类型??		??	触发		中断名字 
+		186:         48      GPIO		8	Edge     	pb_user1	//原生加入的!!
+		 26:          0      atmel-aic5		67 	Level     	button1		//自己刷入的!!1
+		 41:          0	     atmel-aic5  	59 	Level     	at91_adc	//触摸对应的中断模块!!
+	发现了 原来按键中断已经加入!!!
+	按键后,源码自己触发次数成双增加,及上升下降沿都触发
+	更改自己按键模块设置关闭pe8的寄存器操作,原生加入的中断将不再工作,证明自己操作寄存器的操作没有出错!!
+	还有,发现触摸屏对应的adc中断模块未曾触发过!!
+下一步分析原生按键的初始化过程:
+	原来 event1 对应的是 pe8 的用户按键!!!
+	cat /dev/input/event1 | hexdump	
+	一些重点drivers/input/keyboard/gpio_keys.c	
+		gpio_keys_resume() //虽然有向input/event1文件report数据,但不是中断处理函数!!
+		注册了的中断处理bottom_half程序(在workqueue里的)是 gpio_keys_gpio_work_func()
+	从gpio_keys_probe剖析一个platform_device/driver从dts_node里取出dts数据初始化驱动的过程!!
+		对应dts_node:
+		gpio_keys {
+			compatible = "gpio-keys";
+	
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_key_gpio>;
+	
+			pb_user1 {
+				label = "pb_user1";	//关于 gpio_keys_button -> const char *desc;
+				gpios = <&pioE 8 GPIO_ACTIVE_HIGH>;
+				linux,code = <0x100>;	//关于 input event code (KEY_*, SW_*
+				gpio-key,wakeup;
+			};
+		};
+		重要的数据结构:
+		struct gpio_keys_button {
+			/* Configuration parameters */
+			unsigned int code;	/* input event code (KEY_*, SW_*) */
+			int gpio;		/* -1 if this key does not support gpio */
+			int active_low;
+			const char *desc;	
+			unsigned int type;	/* input event type (EV_KEY, EV_SW, EV_ABS) */
+			int wakeup;		/* configure the button as a wake-up source */
+			int debounce_interval;	/* 去抖延时 */
+			bool can_disable;
+			int value;		/* axis value for EV_ABS */
+			unsigned int irq;	/* Irq number in case of interrupt keys */
+		};
+		先分配一个空间存储平台设备数据
+		pdata = gpio_keys_get_devtree_pdata(dev);	//从dts取出platdate
+			dev->of_node 指的就是gpio_keys 这个node
+			nbuttons = of_get_child_count(node);	//得到子node的数目,这里就只有 pb_user1 这个按键
+			子节点的内容终要变成规范的设备数据
+			//分配数据空间给平台设备数据 
+			pdata = kzalloc(sizeof(*pdata) + nbuttons * (sizeof (*struct gpio_keys_button)),GFP_KERNEL);
+			pdata->buttons = (struct gpio_keys_button *)(pdata + 1);//按键数据在平台设备数据里的开始地址
+			pdata->nbuttons = nbuttons;	//按键数目
+			for_each_child_of_node(node, pp)//for循环的宏定义,比那是遍历直接点
+				of_find_property(pp, "gpios", NULL)	//找到字节点 gpios 这个 property 
+				重点!!!!!!是of_get_gpio_flags:
+					struct device_node *np = pp, int index = 0, enum of_gpio_flags *flags = &flags
+					const char *propname = "gpios"
+					gpio = of_get_gpio_flags(pp, 0, &flags);
+					->of_get_named_gpio_flags(pp, "gpios", 0, &flags);	//只是分析了dts里,按钮子节点的内容
+						->ret = of_parse_phandle_with_args(np, propname, "#gpio-cells", index, &gg_data.gpiospec);
+							const struct device_node *np = np, const char *list_name = "gpios":
+							const char *cells_name = "#gpio-cells", int index = 0:
+							struct of_phandle_args *out_args = &gg_data.gpiospec:
+							应该是給 gg_data.gpiospec 初始化内容
+						...	// 越来越混乱!!!
+					//寻找对应芯片的的gpio模块,并转换成对应的linux设备数据内容 重点!!
+					->gpiochip_find(&gg_data, of_gpiochip_find_and_xlate);
+					找到了drivers/gpio/gpiolib.c 专们是at91的gpio模块
+
+				...
+		再分配一个空间存储平台设备驱动的数据空间
+		然后把平台设备数据 和 input逻辑设备接口数据 的地址 挂入驱动数据里!!
+		ddata = kzalloc(sizeof(struct gpio_keys_drvdata) + pdata->nbuttons * sizeof(struct gpio_button_data), GFP_KERNEL);
+		ddata->pdata = pdata;
+		ddata->input = input;	
+		...
+		然后重点之一,设置key: error = gpio_keys_setup_key(pdev, input, bdata, button);
+		来到注册中断操作这个阶段,
+		中断号的获取是通过探测得到:(重要 这里得到的中毒昂好是186)
+			irq = gpio_to_irq(button->gpio);
+		问题:知道linux_pE8的irq是186,但是,我自己编写时,直接写入186却有反应,
+		而原声的,不通过gpio_to_irq,而是直接给予186,却通过!!,怀疑在gpio_to_irq之前存在一个中断号186生成和绑定过程,不能直接使用,
+		而这个生成绑定过程不在 gpio_to_irq 里!!
+		后面分析有发现 硬件中断号,与linux中断号已经绑定好,所以并不需要初始化时绑定,
+		也就的说,可以直接使用对应中断号!!!呢么没有反应,应该是硬件初始化的问题!!
+		果然 pull_up不能设置!!!设置pull_up还先清除设备可能设置了的pull_down
+		完整代码见:
+			/home/kingders/SAMA5D4/sources/driver_test/input_device/button :button.c
+
+
+
+
+
+
+
+20170104
+给button,c 套入input框架 注册成一个input设备!!!
+	注意到,设置 keybit 不能乱来, 
+		暂时只能设置为 BTN_0 设置其他会出错?例如,设KEY_1模块init阶段就执行了input设备的ops的open函数
+		(但不科学啊,因为 KEY_1 也是默认值之一 )
+		关于 keybit 的设定,可以查看: include/dt-bindings/input/input.h 或者 include/uapi/linux/input.h
+	但是, 中断input_report_key函数似乎没有正常地把数据内容递交额 event1 设备逻辑文件!!
+	cat /proc/bus/input/devices	//查看input设备属性数据
+	按键 input驱动 基本完成,但是input_report 失败!!!
+	最后手段,改input子系统源码 加入pr_debug!!
+
+
+
+
+
+
+
+
+
+
+20170105
+恶补input子系统知识:
+	input 设备 是一个抽象出来的共性设备,可以看作是一个接口!!, 每一个输入类硬件设备初始化注册到linux时,
+		都会另外注册一个虚拟的input设备,作为标准的接口与用户程序及其他驱动交互
+	首先,kernel启动时会 注册 一个 input子系统 的主设备,为未来实际的input设备建立做好准备
+	一些硬件设备驱动初始化时,注册到 input子系统 的次设备,实际就是建立了一个属于自己的 event字符设备, 
+从一个按键驱动来分析!!! 	//详见 /home/kingders/SAMA5D4/sources/driver_test/input_device/button : inputdev0.c
+	module_init初始化一个按键驱动的首先就是:	input_allocate_device 分配一个 struct input_dev 数据,得到这个数据的指针 *X
+	然后初始话这个数据:
+		X->name = "button"; 	//input子设备的名字
+		X->phys = "william/PE8_button";		//物理途径???
+		X->id.bustype = BUS_HOST;		//总线类型??
+		X->dev.init_name = "input_key"; 	// /sys/devices/virtual/input/目录里这个设备的属性文件名
+		X->keycodemax = KEY_NUM; 		//按键数目
+	
+		//自定义input,不要设置版本信息!!!
+		//X->id.vendor = 0x0001;  
+		//X->id.product = 0x0002;  
+		//X->id.version = 0x0100; 
+	
+		// event事件类型 为 按键类型(EV_KEY)  
+		set_bit(EV_KEY,X->evbit);	/*正确设法1*/
+        	//X->evbit[BIT_WORD(EV_KEY)] = BIT_MASK(EV_KEY);/*正确设法2*/  
+		//使用那一个编码的按键, 按国际标准,每一个键盘按键,鼠标事件,其他设备的功能广义按键都有一个唯一的ID (但是用code表示)
+		//	例如 KEY_1 表示 键盘的数字 1 按键,有趣的是,后面注册设备时,如果检测到有键盘的按键编码时,认为插入了一个键盘,
+		//					 注册时会自动执行 open 函数,因为键盘默认是插入注册到linux后便可以直接使用的
+		//					 使用之前,当然要 open 设备, 所以就自动打开了设备
+		//	     BTN_1 表示 广泛的通用的按键	1	
+		//	     BTN_3 表示 广泛的通用的按键 3
+		set_bit(BTN_3,X->keybit); /*正确设法1*/ 	//这里就是 设置按键ID为BTN_3
+        	//X->keybit[BIT_WORD(BTN_3)] = BIT_MASK(BTN_3); /*正确设法2*/
+		
+		//初始化 key 值		这个对于不规范的按键驱动开发相当重要!!后面分析按钮问题分析到!!!
+		set_bit(0,X->key);  
+		//set_bit(BTN_3,key_dev->key);  
+	
+		X->open = PE8_open;  	//打开这个input次设备 (即是event逻辑设备文件),需要附加的私有的open函数,一般用于进一步硬件初始化
+		key_dev->close = PE8_release;	//关闭这个input次设备, 需要附加用上的私有释放函数,释放占有的资源,硬件资源
+ 	然后就是往linux注册这个input子设备了:	input_register_device(X)
+		然后就会自己自动建立自己的 eventx 逻辑设备文件到 /dev/input里了,
+	打开 event 设备:
+		首先我们使用的是 BTN_3 的一个通用按键的编码来标识 PE8 这个按键,所以input_register_device(X)时,不会误认为这是一个键盘硬件设备,
+			只是一个通用的按钮硬件设备,所以,不会自动执行 open /dev/input/eventX 操作,
+			所以第一步先打开 eventx 设备,打开操作经过通用的打开初始化操作后,最后会跑到 PE8_open 执行私有的硬件初始化!!
+		PE8_open:	
+			注册中断:
+			首先:kernel启动时,已经生成了 硬件中断号 与 linux中断号irq.no 的对照表 
+			//linux中断号irq.no:系统已经绑定给针 PE8 的中断号, 这里PE8 对应186
+			//button_inter:中断处理函数, 
+			//flags:IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING 表示上升下降沿触发中断,
+			//button1:中断的名称, 
+			//ID:中断号irq_desc里挂载关于这个中断的中断事件id号,从而区别使用同一个中断号里的各个中断事件(主要为共享中断服务,
+			//	一般复用dev数据指针作为ID号)
+			request_irq(key1.irq_no, button_inter, IRQF_TRIGGER_RISING, key1.name, (void *)(&key1)); //只有上升沿触发	
+			//硬件初始化!!!
+			hw_init();
+		注意到:
+			但是request 里, 我故意让只有山上升沿时才触发中断
+			然后,硬件初始化里,我做的工作是当遇到 上升沿和下降沿时都会触发中断!!
+			测试时发现,只有按下后抬起的时候才有中断时间发生(即上升沿才发生!! 因为按钮开路时接上拉电阻)
+			两者都设置了中断触发条件,但却以request 的为准!!以软件设置为准,而不是硬件??当中有跟复杂的学问!!
+	按下按钮后,触发 request 注册的 button_inter 中断处理函数:
+		//repot函数!!辗转到input_event()事件	
+		//X:这个按键时间对应的 struct input_dev 结构数据的指针
+		//EV_KEY:表示,这个event事件为按键事件!!1
+		//BTN_3:这个按键对应的编码ID , 
+		//i:应该是规范的按键值才对,我就是这里出问题了!!!!	
+		//这个函数就是往 event设备递交数据值的,然而实际上,提交的数据,一般暂存在自己的 struct input_dev 里的一个buffer
+		//并不会马上投放到 /dev/input/deentx 对应的 逻辑设备文件里 
+		//但当buffer数据满了以后,会自动投放到 /dev/input/deentx 对应的 逻辑设备文件里 
+		input_report_key(X,BTN_3,i)
+			->input_event(X, EV_KEY, BTN_3, i)
+		//repot函数!!辗转到input_event()事件
+		//这里不是传递数据,而是通知,把 buffer 里的数据 即时 投放到 /dev/input/deentx 对应的 逻辑设备文件里 
+		input_sync(X);	
+			->input_event(X, EV_SYN, SYN_REPORT, 0);
+	按键问题:
+		按照上述设定,执行cat /dev/input/eventx | hexdump 时,按下按键应该有输出!!!	但没有
+			cat /dev/input/eventx | hexdump 命令:打开eventx 阻塞方式读出数据,吧数据装换16进制形式然后输出!!
+		窥探input_event时,发现,
+			->input_handle_event
+				disposition = input_get_disposition(dev, type, code, &value); //得到一个disposition
+				//对于按键类型来说,这个disposition == INPUT_PASS_TO_HANDLERS == 1 时,才会把数值放入 buffer 或则投放到eventx
+				//但是由于我的驱动 默认了 当前键值key值是0, 而每次按键interrupts,都赋值1,
+				第一次按键时,input_get_disposition()关于EV_KEY的部分,会比较当前key值是不是不等于即将赋予的按键值,
+					if (!!test_bit(code, dev->key) != !!value ) 只有不等于的情况下才会赋予 disposition = 1
+					否则 disposition = 0, 0表示忽略这个信号,实际意义就是,当前键值已经等于即将的赋值,不用重新赋值
+				X->key 就是保存当前键值数据的,
+				按规范,	当按键按下时,按键interrupts应赋值1,X->key改为1
+					当按键松开时,按键interrupts应赋值0,X->key然后改为0
+					但现在我的驱动问题是,不管按键是否按下,按键interrupts,都赋值1,X->key被赋值前也是1,
+						所以 disposition = 0 按键事件被忽略,所以,也不把内容放入 buffer
+						最终,也没有内容投放到 /dev/input/deentx 对应的 逻辑设备文件里
+网上下载了两个测试input设备的用户态程序!!!! evtest.c 和 getevent(但是getevent源码损坏,不能用) 
+	详见:/home/kingders/SAMA5D4/sources/driver_test/input_device/button :evtest.c getevent.c getevent.h
+最后手段,改input子系统源码 加入pr_debug!!	
+	发现:
+		input_report_key 调用一次 input_event
+		input_sync 也调用一次 input_event
+		终于发现,由于我的的button设备并不规范,所以,按键信息被忽略掉了!!!
+		具体通过查看 input_event 源码得到
+
+
+
+
+
+
+
+
+
+
+20170109
+补充电容触摸屏的知识!!!
+其实触摸屏上有4层悬空透明导体!!当用尖锐的物体点击屏幕时,悬空的四层导体会接触!!!
+至于触摸屏的原理是:
+	空闲状态时,X+(Xp)点处于3.3V高电平,而且内部串联了一个100kΩ的电阻,其他层处于低电平
+	当有尖物触摸时,X+(Xp)层与Y-(Ym)层接触时,X+会被拉低电压,从而得到一个接触中断信号!!
+	接触中断信号也会诱发 中断号44的中断处理程序:
+		中断程序关闭 接触中断 打开坐标数据预备好中断,和不再接触中断
+		然后通知adc硬件模块便按照触摸屏的模式执行一个连续的转换模式:
+			每个子工作都是是,先变更配置X+(Xp) Y+(Yp) X-(Xm) Y-(Ym) 脚,然后adc采样一种坐标数据
+	当一连串的转换工作完成后,触发数据预备好中断,
+	由于同样属于adc模块,所以同样诱发 中断号44的中断处理程序,但是执行程序其他部分的内容,
+		即读出坐标数据,
+	如果接触物不离开屏幕,触摸屏就处于不断转换坐标数据,并让 中断号44的中断处理程序 处理数据的过程
+	当接触物离开屏,4层悬空透明导体再次悬空.触发 不再接触中断,同样诱发 中断号44的中断处理程序 执行第三步部分内容:
+		关闭坐标数据预备好中断,和不再接触中断  重新开启接触中断 
+	等待下次触摸接触!!!
+adc的pin位
+Instance 	Signal 	I/O Line 	Peripheral
+ADC 		ADTRG 	PE31 		A
+ADC 		AD0 	PC27 		X1
+ADC 		AD1 	PC28 		X1
+ADC 		AD2 	PC29 		X1
+ADC 		AD3 	PC30 		X1
+ADC 		AD4 	PC31 		X1
+
+probe过程重要分析!!
+	注意,channel设置哪里,官方代码at91_adc_channel_init 4线adcts只有初始化来两条idev-channel ????
+	直到 at91_adc_channel_init 执行完 probe初始化函数也只是设置了 MR寄存器!!
+	直到 at91_ts_register 只是初始化了 input 设备而已!!!
+	直到 at91_ts_hw_init 才开始初始化 各个硬件寄存器!!
+		发现 offset 为 0xc0 的 TSR 寄存器 要配置,但没有这个寄存器!!!
+		at91_ts_hw_init 只是 配置了 ADC_MR ADC_TSR ADC_TSMR ADC_ACR
+	整个过程并没有 开中断 或者 开始adc转换的操作!!!
+分析 open 函数 !!
+	关键就是 打开 了 中断控制寄存器的开关!! 打开 PEN,或者 NOPEN 这个开关!!!
+分析 interrupt 函数!!
+	检测到 EOCx 时,简单处理,就是丢弃数据!!!
+	检测到 笔接触时,关闭笔接触中断!! 开启非笔接触和X,Y,P, 的RD中断!!
+	检测到 非笔接触时, 设置软件触发adc转换, 关闭非笔接触和X,Y,P, 的RD中断 ,开启笔接触中断!! report 按钮事件
+	检测到 X,Y,P, 的RD时,当笔触还在接触时,分析 report X,Y,P 事件, 当笔触没有接触时,直接读出寄存器数据(读出而不report,等于丢弃!!!)
+不管怎么弄就是不触发中断!!!!,所以尝试从裸机adc入手,顺便学习裸机包的使用!!
+	看了文档,比想象中麻烦,的放弃!!!不过学习!!纠缠adc初始化源码!!!!!
+后面发现,adc里好像没有对GPIO做初始化,然后看了看寄存器状态!! 5针,都设了peripheral 都设了peripheral A 但都处于 低电平 level 0
+	但是data sheet 里要求 peripheral X! 而不是 A !!!! 什么鬼!!!
+	还有既然都设置为 adc 的话, 应该不全是level 0 的
+	还有,PMC_ADC peripheral clock 是启动了的 
+今天为了解构为什么不触发中断,特意扒了adc转换的裸机源码,分析初始化和工作执行的步骤!!! 本来想另外写一个linux模块测试!!
+	详见:driver_test/adc_module/adc_裸机分析(特别重视 AIC中断管理器的使用!!)
+终于找到原因了,开发板,与触摸屏相关的还有地方分开了,并没有用 0R 电阻连接上!!!!
+	成功有反应了:
+	注意:使用了evtest 用户程序来测试: ./evtest /dev/input/event0
+	evtest 用户程序在: sources/driver_test/input_device/button
+
+
+
+
+
+
+
+
+
+
+
+20170109
+深入makefile编写!!!!
+	简单多文件结构的 linux 驱动模块的 makefile 编写: 参考(已经调试好的) sources/driver_test/multifiles_make_test1
+	特别注意:
+		module license 'unspecified' taints kernel. Disabling lock debugging due to kernel taint
+		这种错误是由于多文件 链接成一个统一单.o文件时, 这个统一.o文件,与其他一个,o文件重名了!!
+	还有一种:集成到内核源码里的方式:
+	将驱动源代码文件（夹）放置在Linux内核源码的driver/xxx/的相应路径中，修改本层和上层的Makefile和KConfig文件，
+	并重新make menuconfig内核，可以在Menu中选中新加入的驱动模块，然后make module，就可以在驱动源码文件夹生成.ko文件。
+  	1. 要编译的驱动所在文件夹里的Makefile (本地Makefile)
+	    #CONFIG_ECAT_DRV为m时编译为模块，为y时编进内核  
+	    obj-$(CONFIG_ECAT_DRV) += ecat.o  
+	    #-objs指定依赖的多个.o文件  
+	    ecat-objs := ecateoe.o eoeappl.o mcihw.o ecatslv.o mailbox.o ecatappl.o ecat2440.o  
+	2. 本地Kconfig
+	    #建立一个本地子目录。“”为显示的目录名字  
+	    menu "ecat driver here"       
+	        depends on NET  #依赖于上层的某个开关  
+	    config ECAT_DRV  #配置变量名，必须和Makefile中的变量后半段一样   
+	        bool "ecat driver" #bool量， 显示的名字  
+	        ---help---  #下面为要显示的帮助文字  
+	            This is test for ecat.  
+	    endmenu  #本地子目录结束  
+	3. 上层Makefile
+	    *  
+	    *#添加下面这一句  
+	    obj-$(CONFIG_ECAT_DRV) += ecat/  #打开下一级目录编译  
+	    *  
+	    *  
+	4. 上层Kconfig
+	    *  
+	    *#添加下面这一句  
+	    source "driver/xxx/ecat/Kconfig"  
+	    #导入子文件夹中的Kconfig文件，可以为相对路径  
+	    *  
+	    *  
+解决了:lcd 10分钟自动关屏幕问题!!
+	推荐使用一个用户程序处理:
+	display.c:
+	#include <fcntl.h>
+	#include <stdio.h>
+	#include <sys/ioctl.h>
+	int main(int argc ,char *argv[])
+	{
+	 int f0;
+	 f0 = open("/dev/tty0", O_RDWR);
+	 write(f0, "\033[9;0]", 8);
+	 close(f0);
+	 return 0;
+	}
+	arm-linux-gnueabihf-gcc -o display display.c //编译
+	然后下载执行, 然后lcd的显示就又打开了!!!!
+	如果要开机自动启动，复制到根目录后，在/etc/init.d/rcS里加上一句  /display
+	详细原因见:http://blog.csdn.net/dongliqiang2006/article/details/4262950
+	与console 和 tty 有巨大关联!!!
+开发板的中断号与linux中断号的兑换表
+	相关文件:linux-at91-master/drivers/irqchip/irq-atmel-aic5.c
+	发现中断号 应该都在提取devicetree_node成platform_device_data时转换了
 
 
 
@@ -886,8 +1343,9 @@ find命令:
 
 
  VBLANK: 显示器扫描线完成最后一行后,需要重返左上角,这个过程叫做: vblank,也叫VBI(vertical blank interval) ,因为扫描线变得blank,以防止看到一个斜线显示在屏幕上.?????
-		
-		
+开机没有出现小企鹅问题!!
+开发板的中断号与linux中断号的兑换表!!		
+console 与 tty 重点!!		
 
 
 

@@ -139,7 +139,7 @@ sam-ba -p usb -b sama5d4-xplained -a nandflash -c erase -c writeboot:at91bootstr
 	atmel官网渠道下载了的uboot (面向linux4sam_5.5 )
 	编译:
 	make ARCH=arm sama5d4_xplained_nandflash_defconfig
-	make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf -j2
+	make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j2
 	生成u-boot.bin (我们只使用u-boot.bin)
 	烧录测试:linux4sam-poky-sama5d4_xplained-5.3.zip（NANDFlash版本）
 	替换掉demo里的 u-boot-sama5d4-xplained.bin 烧录,通过
