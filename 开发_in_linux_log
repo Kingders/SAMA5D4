@@ -1337,17 +1337,890 @@ probe过程重要分析!!
 
 
 
+20170112
+console 与 terminal 与 tty 重点!!
+TTY:
+	tty历史上是电传打字机的意思,后来是终端的意思!!
+	(TTY)终端的概念: 一个提供输入和输出功能的实体硬件设备, 而且可以连接到电脑主机,与主机信息交互
+		例如一台电脑的显示屏和键盘组合对于电脑主机来说这个组合是一个 TTY终端的硬件设备部分,
+	业界把tty终端 可以连接到电脑主机,与主机信息交互 的部分抽象出来,就是没有实体硬件设备的终端,只有一个抽象接口
+		当绑到一个实体硬件设备上的时候,这两者就成为一个真正意义上的终端
+		然后操作硬件设备就相当于使用 终端 与 linux与电脑主机实现信息交互!!!
+		每个终端每一时刻只能操作一个需要交互的用户程序!!
+		这些 抽象接口 不严格意义上都可以统称 tty终端
+	对于一台启动了的电脑!!
+		我们常以为是运行在一个图形界面,
+		实际上是:运行在 tty7终端上,而在这个终端上我们运行着一个大型的操作界面GUI程序而已!!
+		在这里我们如果执行了一个 terminal程序,实际上是执行了一个 软件终端,
+		透过这个软件,相当于我们在 tty7终端运行的大型软件 嵌套运行一个新的tty终端!!!		
+	每一时刻只能操作一个需要交互的用户程序的概念例如:
+		我们常常使用打开的terminal实际上就是一个终端软件,terminal窗口相当于输出端,硬件键盘就是输入端,
+		terminal窗口和硬件键盘被这个 终端软件 打包模拟成一个实体硬件设备
+		而这个硬件输入和输出功能的机器或机器组合,自动绑到一个抽象接口,即/dev/ttyX, 共同组合成一个真正意义上的终端
+		通过这个接口,这个实体硬件设备 实现了与主机信息交互 的工作,
+		也就是说 这个真正意义上的终端 实现了与主机信息交互 的工作
+		在我们往 terminal 里 写执行命令时, 就相当于 通过通过终端往主机输入信息,
+		主机把处理后的信息通过 /dev/ttyX 往terminal窗口送,便显示出来了
+		在这样的交互过程中,我们只能一条条命令地输入执行,
+		这就是每一时刻只能操作一个需要交互的用户程序的概念	
+	理论上,各种类型实体硬件设备挂入 linux 都是注册一个终端设备,并生成绑定到对应的一个唯一的/dev/ttyXXX的字符设备文件,
+		共同组合成一个含有输入和输出功能的硬件机器或机器组合,一个真正意义的终端!!
+		例如著名的串口终端设备:
+			/dev/ttyS0(对应通用标平台硬件0号口的串口终端设备) 
+			/dev/ttySAC1(对应三星平台硬件1号口的串口终端设备)
+			/dev/ttyACM4(对应at91平台硬件4号口的串口终端设备)
+			/dev/ttyUSB0(对应通用标平台硬件0号口的usb串口终端设备)
+		以上是一个硬件设备对照一个字符设备文件接口!!
+		这些字符设备文件接口 俗称 串口终端设备
+	然而,还有一种叫 虚拟终端设备 的概念: 
+		有时希望第一终端正在执行一条漫长工作的指令,但是,又需要现在执行另一条指令,又不能停掉现在执行的那条,
+		那么,我们就只能使用另外一个终端执行就可以了!!!
+		因为一般实体硬件就只有一套,例如我们地脑的显示屏和键盘,那么,我们只需要把这套硬件绑到另外一个抽象接口,即另一个/dev/ttyX
+		便可以得到一个新的终端,在这个终端里执行新的命令,
+		虽然从旧的/dev/ttyX解绑出来,但是旧的终端并没有被关闭,只是被卸下实体硬件设备,旧的终端正在工作的命令还是在继续工作着,
+		当我们把这套硬件绑回原来的抽象接口,就相当于给旧的终端装回硬件,转回到原来的终端上去!!!!
+		这些抽象接口 /dev/ttyX 相当于没有硬件设备的终端, 俗称 虚拟终端设备 
+		因为他们共用 显示屏和键盘 这套硬件设备!!!! 不像串口终端设备那样一对一的关系!!
+console:	
+	控制台终端,实际上是一个特殊终端!实际上他是基于 tty终端的,当把/dev/console映射到/dev/ttyXXX(例ttySAC0,tty0等等)时,
+		实际上就是给普通的 tty终端 赋予了控制台的属性!!!,这个tty终端也就成了控制台终端!!
+		控制台比tty终端多出来的属性是:(日志输出功能)可以显示printk内容!!!
+	在移植内核时,我们写的bootargs里 有 console=tty0,console=ttyACM0 的内容就是说,tty0和ttyACM0 俩个tty终端赋予了控制台属性!!!
+		但控制台终端只有一个!!!!
+		这两个tty终端,会同时输出日志消息!!,即在tty0执行命令输出pingtk消息时,ttyACM0也会输出同样pintk消息
+		但是,最后配置上控制台属性的 ttyACM0 才是一个实现基础的人机交互 的控制终端!!! 
+			即例如开发板看到lcd屏显示,串口输出也有显示,但是,只能使用串口输入执行命令
+			能用于人机交互的控制台,还有一个专有属性 就是提供用户登陆的功能!!
+	控制台终端 与 普通的tty终端也就以上那点区别!!那么为啥还要另外弄一个控制台终端的概念?
+		Linux kernel有一个很强烈的隐性规则----内核空间的代码不应该直接利用用户空间接口访问某些资源
+		所以kernel的代码（如printk），就不能直接使用TTY的接口访问TTY设备
+		kernel代码不应该直接使用文件系统接口访问文件（虽然它可以）
+			TTY框架通过字符设备（也即文件系统）向用户空间提供接口
+		console 是为此 开凿出来的后门.
+伪终端 Pseudo Terminal，简称pty:
+	并不是所有硬件设备都是通过串口的方式接入计算机开发板什么的,所以他们也不能简单地作为一个终端的输入输出功能的硬件
+	相反,他们需要把自己的通讯方式模拟成串口硬件设备一样的,于是就出现了伪终端 pty 一般成对出现 pts ptm
+	一般的:
+		 硬件设备 接入 ttyX, ttyx与主机交互
+	特殊的:
+		特殊通讯协议硬件设备 接向 ptm, ptm与pts交互,  pts类似ttyx一样与主机交互
+软件终端:
+	我们平时 使用的的terminal,SecureCRT就是软件终端,
+	但是也有区别:
+		terminal: 
+			把键盘输入功能和自身软件窗口输出功能打包模拟成一个串口硬件设备,或者其他特殊通讯协议的硬件设备
+			然后 接入 一般的 /dev/ttyx 接口, ttyx与主机交互 组成一个真正的终端 			 
+			或者其他特殊通讯协议的硬件设备
+			通过伪终端方式 接入 ptm ptm又与专有pts交互,  pts类似ttyx一样与主机交互
+		SecureCRT:
+			模拟一个串口硬件设备接入到 开发板的 ttyX, ttyx与主机交互
+最后,有一些未曾解决的疑问!!!
+	kernal里配置 framebuffer_console 后, 开发板的串口和lcd都同时输出!!这是有两个console??
+	当前可以进行人机交互的 tty终端,等同于console(控制台终端)么??
+	我知道 tty0 永远是当前执行的终端,即电脑开机后,我是执行着 tty7的终端,而此刻的tty0就是tty7,
+		而开机bootargs 里console=tty0, 就是说,当前不论执行在哪个tty终端都是console终端?
+		唯有通过 terminal 执行的tty终端才可以不是console中端??
 
 
+
+
+
+
+
+
+20170113
+尝试使用官网的 连续buildroot一条龙工具链看看,
+	$ git clone git://git.buildroot.net/buildroot     /* 下载buildroot 一条龙工具链  */
+	$ git tag	/* 查看版本 */
+	$ git checkout  2016.11-rc3 -b buildroot-2016.11-rc3	/* 选择 2016.11-rc3 这一版本 */
+	$ make atmel_sama5d2_xplained_defconfig 	/* 建立一个配置,配置文件 XXX_defconfig 在 configs 文件夹可查看 */
+	$ make		/* 开始一条龙编译, 最终所用生成文件放在 output/images里*/
+	//开始刷写 flash
+	$ ./board/atmel/flasher.sh ./output /dev/ttyACM1 sama5d4_xplained
+	出错:
+		couldn't load file "/tmp/tcloqFb5D": libXss.so.1: cannot open shared object file: No such file or directory
+		couldn't load file "/tmp/tcl1oGOVF": libXft.so.2: cannot open shared object file: No such file or directory
+	解决:
+		sudo apt-get install libxss1:i386
+		sudo apt-get install libxss1:i386
+	继续出错:
+		-I- Waiting ...
+		-I- TCL platform : Linux
+		-I- SAM-BA CDC 2.16  on : linux
+		-I- Retrieved arguments from command line :
+		-I- argv 0 : /dev/ttyACM1
+		-I- argv 1 : at91sama5d4x-ek
+		-I- argv 2 : ./board/atmel/nandflash.tcl
+		-I- Connection /dev/ttyACM1
+		-E- Connection /dev/ttyACM1 not found		//明明已经插好!!!使用新的sam-ba 3 可以链接!!
+		-E- Connection list : 
+	未解决:先搁置!!
+尝试移植官方版 yocto_project:
+	git clone 了 poky 的前三个软件包
+
+
+偷闲分析usb驱动!
+	drivers/usb/gadget/udc/atmel_usba_udc.c usb从设备驱动?就是把 开发板看做usb设备,而不是主机!!!
+
+
+
+
+
+
+
+
+20170116
+所谓usb_gaget 就是一个搭载linux工作的硬件设备,作为其他PC主机的 usb从设备,而需要用到的模块!!
+usb_gaget驱动:
+	基于底层提供的资源， Gadget 驱动可以运行在各种硬件平台上。重要的驱动有：
+	Gadget Zero, 类似于 dummy hcd, 该驱动用于测试 udc 驱动。它会帮助您通过 USB-IF 测试。
+	Ethernet over USB， 该驱动模拟以太网网口，它支持多种运行方式：
+	CDC Ethernet: usb 规范规定的 Communications Device Class “Ethernet Model” protocol。
+	CDC Subset： 对硬件要求最低的一种方式，主要是 Linux 主机支持该方式。
+	RNDIS： 微软公司对 CDC Ethernet 的变种实现。
+	File-backed Storage Gadget最常见的 U 盘功能实现。
+	Serial Gadget 实现，包括：
+	Generic Serial 实现（只需要Bulk-in/Bulk-out端点+ep0）
+	CDC ACM 规范实现。
+	Gadget Filesystem, 将 Gadget API 接口暴露给应用层，以便在应用层实现user mode driver。
+	MIDI: 暴露ALSA接口，提供 recording 以及 playback 功能。
+常见的 usb device 有 U 盘， usb 鼠标、键盘，usb 蓝牙模块，usb 读卡器，等等。这些设备比较简单，通常不会运行Linux。
+	运行Linux Gadget 的通常是一些集成 CPU 以及很多外设接口的 SOC （System-on-Chip）， 
+	其中 CPU 通常为 32 bit 的 CPU, 并且 udc 也是该 SOC 的一部分（ 顺带还有 DMA 通道，FIFO）。
+观察:
+  │ │                               --- USB Gadget Support                                                                                
+  │ │                               [ ]   Debugging messages (DEVELOPMENT)                                                                
+  │ │                               [ ]   Debugging information files (DEVELOPMENT)                                                       
+  │ │                               [ ]   Debugging information files in debugfs (DEVELOPMENT)                                            
+  │ │                               (2)   Maximum VBUS Power usage (2-500 mA)                                                             
+  │ │                               (2)   Number of storage pipeline buffers                                                              
+  │ │                                     USB Peripheral Controller  --->                                                                 
+  │ │                               <M>   USB Gadget Drivers                                                                              
+  │ │                               <M>     USB functions configurable through configfs                                                   
+  │ │                               [ ]       Generic serial bulk in/out                                                                  
+  │ │                               [*]       Abstract Control Model (CDC ACM)                                                            
+  │ │                               [ ]       Object Exchange Model (CDC OBEX)                                                            
+  │ │                               [ ]       Network Control Model (CDC NCM)                                                             
+  │ │                               [ ]       Ethernet Control Model (CDC ECM)                                                           
+  │ │                               [ ]       Ethernet Control Model (CDC ECM) subset     
+  │ |                               [ ]       RNDIS                                                                                     
+  │ │                               [ ]       Ethernet Emulation Model (EEM)                                                              
+  │ │                               [*]       Mass storage                                                                                
+.........                                                                      
+  │ │                               < >     Gadget Zero (DEVELOPMENT)                                                                     
+  │ │                               < >     Audio Gadget                                                                                  
+  │ │                               < >     Ethernet Gadget (with CDC Ethernet support)                                                   
+.......                                                                    
+  │ │                               <M>     Mass Storage Gadget 
+  │ │                               <M>     Serial Gadget (with CDC ACM and CDC OBEX support) 
+得到的模块(gaget模块):
+	libcomposite.ko
+	u_serial.ko
+	g_serial.ko
+	usb_f_acm.ko
+	usb_f_obex.ko
+	usb_f_serial.ko
+	g_mass_storage.ko
+	atmel_usba_udc.ko
+	usb_f_mass_storage.ko
+从 Makefile 里得知:
+	在function里编译得到的ko都是 接口中间模块,而在 legacy 里得到的ko都是真正的有实质工作的 上层usb从设备驱动
+	中间模块;
+		usb_f_acm.ko
+		usb_f_obex.ko
+		usb_f_serial.ko	
+		u_serial.ko
+		usb_f_mass_storage.ko
+	实质从设备驱动:
+		g_serial.ko
+		g_mass_storage.ko
+	gaget:udc控制器驱动:
+		atmel_usba_udc.ko
+	与复合usb从设备功能有关的中间模块:
+		libcomposite.ko
+学习到:
+	acm 和 obex 都是特殊的串口通讯协议,serial才是传统的串口通讯协议
+	所以 g_serial.ko 注册时,会选择其中一个通讯协议执行,
+	也就是说 usb_f_acm.ko,usb_f_obex.ko, usb_f_serial.ko 三个挂载的中间模块中,我们会选择使用其中一个,
+	这里 我们使用了usb_f_acm.ko
+	发现,f_serial.c里的函数暂时也就只有f_serial.c自己调用!!很奇怪,作为一个中间模块.里面的函数绝对被放到指针里被调用了
+如果项测试开发板的gaget串口功能!!可以这样:
+	把编译好的内核烧入开发板，加载生成的驱动文件，注意加载顺序，否则会出现错误。
+	insmod  u_serial.ko
+	insmod  libcomposite.ko
+	insmod   usb_f_serial.ko
+	insmod  usb_f_obex.ko
+	insmod  usb_f_acm.ko
+	insmod  g_serial.ko
+	出现内核信息如下：
+	[   27.310000] --------file=composite.c-------usb_composite_probe------1830
+	[   27.320000] ------------402
+	[   27.320000] -----usb_gadget_probe_driver------411
+	[   27.330000] -------udc_bind_to_driver-----342
+	[   27.330000] g_serial gadget: Gadget Serial v2.4
+	[   27.340000] g_serial gadget: g_serial ready
+	[   18.960000] g_serial gadget: high-speed config #2: CDC ACM config
+	说明加载成功。
+	此时你打开 win7 设备管理器会发现多了一个串口设备，
+	ELMO GMAS（COM10）
+	(未测试!!)
+测试:
+	本想安装上述.ko 但发现其实都已经=安装,表示有一shell文件,自动把这些.ko都安装上了!!!!
+	在这里,由于 usba 口 本来就接上电脑了
+	所以,其实gaget 实际上已经工作了,
+	然而,以下的初始化顺序还是很模糊!!!
+		假如 insmod g_serial.ko 后,就认为gaget已工作?,就已经建立了 /dev/ttyGS0 ??,还是插线材后??
+		pc(ubuntu)上,出现了 ttyACM1符号,显然是 由gaget 这方提供的信息,让pc机初始化的,但未见是gaget的哪部分初始化代码实现
+	pc机 打开 ttyACM1 串口终端,往里写数据
+	开发板 cat /dev/ttyGS0 监听到数据!!!
+	注意:g_serial.ko 是 gaget 串口上层模块,通俗是我们常叫做的 usb串口驱动 (从设备端的!!)
+卸载串口驱动,重新加载	
+	# rmmod g_serial.ko 
+	# insmod g_serial.ko
+	g_serial gadget: Gadget Serial v2.4
+	g_serial gadget: g_serial ready
+	插入usb线到 usba口
+	g_serial gadget: high-speed config #2: CDC ACM config	//插入出现的log!!!
+	然后又可以观察串口工作:
+	pc机 打开 ttyACM1 串口终端,往里写数据
+	开发板 cat /dev/ttyGS0 监听到数据!!!
+gaget作为u盘设备测试!!
+	先安装两个模块:
+		//libcomposite.ko, atmel_usba_udc.ko 两个模块 开示时已安装!!!
+		# insmod usb_f_mass_storage.ko	//中间模块!!!
+		# insmod g_mass_storage.ko	//u盘驱动 然而安装失败
+		由于 gaget_usb控制器atmel_usba_udc 已经被作为串口占用了,出现这样错误!!
+		insmod: ERROR: could not insert module g_mass_storage.ko: No such device
+		# rmmod g_serial.ko //先卸载 usb 串口驱动
+		//然而先不要 再次加载 u盘驱动!!
+		//如果执行insmod g_mass_storage.ko还是会出错,从错误信息中发现,加载时需要写入参数的
+		//Number of LUNs=8
+		//Mass Storage Function, version: 2009/09/11
+		//LUN: removable file: (no medium)
+		//Number of LUNs=1
+		//no file given for LUN0
+		//g_mass_storage 400000.gadget: failed to start g_mass_storage: -22
+	在加载u盘驱动前,先在 开发板 分配一个空间为u盘所用!!!! 
+   		# dd if=/dev/zero of=vfat.img bs=1M count=20	//制作一个fat格式的镜像 1M*20=20M大小的 文件，
+		20+0 records in
+		20+0 records out
+		20971520 bytes (21 MB) copied, 0.177479 s, 118 MB/s
+   		# losetup /dev/loop0 vfat.img			//将镜像与loop0建立连接
+    		# mkfs.vfat /dev/loop0				//格式化做出的镜像
+		mkfs.fat 3.0.28 (2015-05-16)
+		Loop device does not match a floppy size, using default hd params
+    		# mkdir vfat_mount_point				//创建挂载点
+    		# mount /dev/loop0 vfat_mount_point/   		//挂载挂载点
+    		# insmod g_mass_storage.ko file=/dev/loop0 stall=0 removable=1     //这才是加载u盘驱动的真正方式
+		g_mass_storage: unknown parameter 'removeble' ignored
+		Number of LUNs=8
+		Mass Storage Function, version: 2009/09/11
+		LUN: removable file: (no medium)
+		Number of LUNs=1
+		LUN: file: /dev/loop0
+		Number of LUNs=1
+		g_mass_storage gadget: Mass Storage Gadget, version: 2009/09/11
+		g_mass_storage gadget: userspace failed to provide iSerialNumber
+		g_mass_storage gadget: g_mass_storage ready
+		g_mass_storage gadget: high-speed config #1: Linux File-Backed Storage   //注意这句 是在usba口经usb线接到pc机时出现,
+    		插上开发板的usb从接口，即可从PC机段看到vfat_mount_point下的内容,
+		pc机可以刷写内容到里面!! 开发板来到vfat_mount_point 可以看到刷入数据
+		开发板往里写内容,pc机可见!!!!!
+测试总结:
+	显然如果不加载 g_XXX.ko 插入usb线并没有信息输出,gaget功能并不会实现!!!!
+	初步分析,当usb插入时,才会调用 struct usb_composite_driver里的 .bind 函数!!
+gaget 串口例程分析:
+	legacy: serial.c 将编译成上层实质从设备驱动模块 g_serial.ko:
+	(感觉这不是一个热插拔自动加载的驱动,手动加载后,就自动存在 并存在建立好的 /dev逻辑设备文件,不管此刻是否接上usb!!)
+	serial.c 初始化 :
+		static struct usb_composite_driver gserial_driver = {
+		.name		= "g_serial",
+		.dev		= &device_desc,
+		.strings	= dev_strings,
+		.max_speed	= USB_SPEED_SUPER,
+		.bind		= gs_bind,
+		.unbind		= gs_unbind,
+		};
+		struct usb_configuration serial_config_driver;
+		serial_config_driver.bmAttributes = USB_CONFIG_ATT_SELFPOWER;
+		serial_config_driver.label = "Generic Serial config";
+		serial_config_driver.bConfigurationValue = 1;
+		struct usb_device_descriptor device_desc;
+		device_desc.bDeviceClass = USB_CLASS_VENDOR_SPEC;
+		device_desc.idProduct =	cpu_to_le16(GS_PRODUCT_ID);
+		static struct usb_string strings_dev[];
+		strings_dev[STRING_DESCRIPTION_IDX].s = serial_config_driver.label;
+		usb_composite_probe(&gserial_driver);			//composite.c
+			struct usb_composite_driver *driver = &gserial_driver;
+			struct usb_gadget_driver *gadget_driver;
+			static const struct usb_gadget_driver composite_driver_template = {
+				.bind		= composite_bind,
+				.unbind		= composite_unbind,
+				.setup		= composite_setup,
+				.reset		= composite_disconnect,
+				.disconnect	= composite_disconnect,
+				.suspend	= composite_suspend,
+				.resume		= composite_resume,
+				.driver	= {
+					.owner		= THIS_MODULE,
+					},
+				};	
+			driver->gadget_driver = composite_driver_template;
+			gadget_driver = &driver->gadget_driver;
+			gadget_driver->function =  (char *) driver->name;
+			gadget_driver->driver.name = driver->name;
+			gadget_driver->max_speed = driver->max_speed;
+			usb_gadget_probe_driver(gadget_driver);			//udc_core.c
+				struct usb_gadget_driver *driver = gadget_driver
+				list_for_each_entry(udc, &udc_list, list)
+				(	if (!udc->driver)	//如果udc里没有驱动
+						goto found;	//即udc_bind_to_driver(udc, driver);	
+				}
+				udc_bind_to_driver(udc, driver);			
+					struct usb_udc *udc = udc 
+					struct usb_gadget_driver *driver = driver
+					struct usb_udc {		//udc_core.c
+						struct usb_gadget_driver	*driver;
+						struct usb_gadget		*gadget;
+						struct device			dev;
+						struct list_head		list;
+						bool				vbus;
+					};
+ 					udc->driver = driver;
+					udc->dev.driver = &driver->driver;
+					udc->gadget->dev.driver = &driver->driver;
+					ret = driver->bind(udc->gadget, driver);//这里的bind是 composite_bind
+						//然后转到 gs_bind 函数
+					ret = usb_gadget_udc_start(udc);
+						//这里执行的 ops.udc_start 应该就是 atmel_usba_udc 的这个udc驱动
+					usb_udc_connect_control(udc);
+						//Enables the D+ (or potentially D-) pullup
+					kobject_uevent(&udc->dev.kobj, KOBJ_CHANGE);
+						//通知了用户空间,注意只是通知了 atmel_usba_udc 驱动得变化,
+						//并不是通知发生了热插拔事件!!!
+关于 uevent:
+	uevent(user space event) 内核与用户空间的一种通信机制，基于netlink机制，主要用于设备驱动模型，例如热插拔
+		也就是说在某个时刻触发某个事件并通知给用户空间。
+	事件：
+		enum kobject_action {
+		 KOBJ_ADD,
+		 KOBJ_REMOVE,
+		 KOBJ_CHANGE,
+		 KOBJ_MOVE,
+		 KOBJ_ONLINE,
+		 KOBJ_OFFLINE,
+		 KOBJ_MAX
+		};
+	触发点 kobject_uevent() :
+ 		如device_add()中的触发：
+			kobject_uevent(&dev->kobj, KOBJ_ADD);
+ 		在kobject_uevent()中会先执行集成在kset中的kset_uevent_ops, 之后再通过netlink传递给用户空间。
+ 		struct kset_uevent_ops {
+		 int (* const filter)(struct kset *kset, struct kobject *kobj);
+		 const char *(* const name)(struct kset *kset, struct kobject *kobj);
+		 int (* const uevent)(struct kset *kset, struct kobject *kobj,
+		        struct kobj_uevent_env *env);
+		};
+ 		filter用于判断uevent是否要发出去，name用于得到subsystem的名字，uevent用于填充env变量。
+ 		我们可以看到kobject_uevent()中的代码： 
+			 if (uevent_ops && uevent_ops->filter)
+			  if (!uevent_ops->filter(kset, kobj)) {
+			       ......
+			  }
+			 /* originating subsystem */
+			 if (uevent_ops && uevent_ops->name) {
+			  subsystem = uevent_ops->name(kset, kobj);
+			  ......
+			 }
+			  ......
+			 /* let the kset specific function add its stuff */
+			 if (uevent_ops && uevent_ops->uevent) {
+			  retval = uevent_ops->uevent(kset, kobj, env);
+			    ......
+			 }
+ 		最后调用netlink接口发送出去，用户层会根据所设置的env变量来启动相应操作，至于env变量设置内容暂时不深究。
+	当 kobject_uevent() 把内容通知到了用户空间后,用户空间的处理!! 
+ 		uevent的用户空间程序有两个，一个是udev，一个是mdev。
+ 		udev通过netlink监听uevent消息，它能完成两个功能：
+ 		      1．自动加载模块
+ 		      2．根据uevent消息在dev目录下添加、删除设备节点。
+		另一个是mdev，mdev在busybox的代码包中能找到，它通过上节提到的uevent_helper函数被调用。
+		udev的模块自动加载过程：
+ 			etc目录下有一个uevent规则文件/etc/udev/rules.d/50-udev.rules
+			udev程序收到uevent消息后，在这个规则文件里匹配，如果匹配成功，则执行这个匹配定义的shell命令。
+			例如，规则文件里有这么一行：
+			ACTION=="add", SUBSYSTEM=="?*", ENV{MODALIAS}=="?*", RUN+="/sbin/modprobe $env{MODALIAS}"
+			所以，当收到uevent的add事件后，shell能自动加载在MODALIAS中定义的模块。	
+		mdev的模块自动加载过程与之类似，它的配置文件在/etc/mdev.conf中。例如：
+			$MODALIAS=.* 0:0 660 @modprobe "$MODALIAS"
+			这条规则指的是：当收到的环境变量中含有MODALIAS，那么加载MODALIAS代表的模块。
+			mdev的详细说明在busybox的docs/mdev.txt中。
+关于 OTG
+	OTG 是 usb 的一个通用标准功能!! USB硬件内部有一条 动态的ID线
+	当我们配置使用 OTG 功能, usb控制器驱动就会多了一个工作,监测当前usb口连接的状态,
+	当检测到 ID线接地 这个usb口会作为host口,这台设备工作在usb 的主机模式,并不会工作在usb 从机模式,即不会使用 gaget 的驱动
+	当检测到 ID线悬空 这个usb口会作为slave口,这台设备作为usb从设备,会使用 gaget 的驱动 执行工作!!!
+	这个动态id线 通过 刷写 寄存器 改变状态!!
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+20170117
+编译 yocto project:
+先建立一个总文件夹 我直接设了一个poky文件夹 cd Poky
+	git clone git://git.yoctoproject.org/poky -b krogoth	/* 下载 yocto project 总工具链 */
+	git clone git://git.openembedded.org/meta-openembedded -b krogoth	/* 下载 meta-openembedded 包 */
+	git clone git://github.com/meta-qt5/meta-qt5.git -b krogoth	/* 下载 meta-qt5 包 */
+	git clone git://github.com/linux4sam/meta-atmel.git -b krogoth	/* 下载 meta-atmel 包 */
+	备份!!4个包!! 出Poky文件夹, 另建 Poky_backup 保存git clone下来的四个工具包
+然后继续: 
+	cd poky
+	source oe-init-build-env build-atmel	//建立了编译工作文件夹 bulid-atmel 拷贝了通用配置到里面,并自动 cd 到 build-atmel 文件夹
+	gedit conf/bblayers.conf	//修改 ./build-amel/conf/bblayers.conf 文件	
+/* build-amel/conf/bblayers.conf: start */
+# POKY_BBLAYERS_CONF_VERSION is increased each time build/conf/bblayers.conf
+# changes incompatibly
+POKY_BBLAYERS_CONF_VERSION = "2"
+BBPATH = "${TOPDIR}"
+BBFILES ?= ""
+# 官方建议的BSPDIR ,但使用时出现大量 checksum错误 ,和文件无法找到的错误
+# BSPDIR := "${@os.path.abspath(os.path.dirname(d.getVar('FILE', True)) + '/../../..')}"
+# by willam 所以最好改为静态路径
+BSPDIR := "/home/infortech-ubuntu-1404/SAMA5D4/sources/Yocto_project/Poky"
+BBLAYERS ?= " \
+  ${BSPDIR}/poky/meta \
+  ${BSPDIR}/poky/meta-poky \
+  ${BSPDIR}/poky/meta-yocto-bsp \
+  ${BSPDIR}/meta-atmel \
+  ${BSPDIR}/meta-openembedded/meta-oe \
+  ${BSPDIR}/meta-openembedded/meta-networking \
+  ${BSPDIR}/meta-openembedded/meta-python \
+  ${BSPDIR}/meta-openembedded/meta-ruby \
+  ${BSPDIR}/meta-openembedded/meta-multimedia \
+  ${BSPDIR}/meta-qt5 \
+  "
+BBLAYERS_NON_REMOVABLE ?= " \
+  ${BSPDIR}/poky/meta \
+  ${BSPDIR}/poky/meta-poky \
+  "
+/* build-amel/conf/bblayers.conf: end */
+
+	gedit conf/local.conf //继续 修改 ./build-amel/conf/local.conf 文件
+
+/* build-amel/conf/local.conf: start */
+...
+#by william	
+MACHINE ?= "sama5d4-xplained"
+...
+# 还是用回 默认路径,因为这样,似乎不会出现 checksum 和 文件 not found 错误
+# 这里是指定一个下载的库文件要寄放的文件夹!!
+DL_DIR ?= "${TOPDIR}/downloads"		
+#by william
+# DL_DIR ?= "/home/infortech-ubuntu-1404/SAMA5D4/sources/Yocto_project/Poky"
+....
+#by william 符合 atmel 官方的policy configure
+DISTRO = "poky-atmel"
+....
+#
+# Package Management configuration
+#
+# This variable lists which packaging formats to enable. Multiple package backends
+# can be enabled at once and the first item listed in the variable will be used
+# to generate the root filesystems.
+# Options are:
+#  - 'package_deb' for debian style deb files
+#  - 'package_ipk' for ipk files are used by opkg (a debian style embedded package manager)
+#  - 'package_rpm' for rpm style packages
+# E.g.: PACKAGE_CLASSES ?= "package_rpm package_deb package_ipk"
+#by william Package Management configuration 使用默认使用 ipk 格式包 
+PACKAGE_CLASSES ?= "package_ipk"
+....
+# We default to enabling the debugging tweaks.
+EXTRA_IMAGE_FEATURES ?= "debug-tweaks"
+....
+#by william  未知有何用,,
+USER_CLASSES ?= "buildstats image-mklibs"
+....
+# Runtime testing of images
+PATCHRESOLVE = "noop"
+....
+# Disk Space Monitoring during the build
+BB_DISKMON_DIRS = "\
+    STOPTASKS,${TMPDIR},1G,100K \
+    STOPTASKS,${DL_DIR},1G,100K \
+    STOPTASKS,${SSTATE_DIR},1G,100K \
+    STOPTASKS,/tmp,100M,100K \
+    ABORT,${TMPDIR},100M,1K \
+    ABORT,${DL_DIR},100M,1K \
+    ABORT,${SSTATE_DIR},100M,1K \
+    ABORT,/tmp,10M,1K"
+.....
+# Qemu configuration
+PACKAGECONFIG_append_pn-qemu-native = " sdl"
+PACKAGECONFIG_append_pn-nativesdk-qemu = " sdl"
+....
+CONF_VERSION = "1"
+/* build-amel/conf/local.conf: end */
+	
+	bitbake core-image-minimal
+		ERROR:  OE-core's config sanity checker detected a potential misconfiguration.
+		    Either fix the cause of this error or at your own risk disable the checker (see sanity.conf).
+		    Following is the list of potential problems / advisories:
+
+		    Please install the following missing utilities: makeinfo,gawk,chrpath
+
+		Summary: There was 1 ERROR message shown, returning a non-zero exit code.
+		解决1:
+		sudo apt-get install makeinfo gawk chrpath
+			没有makeinfo 其实装的是texinfo 非makeinfo
+		解决2:
+		sudo apt-get install texinfo gawk chrpath
+	再次: bitbake core-image-minimal
+		WARNING: /home/infortech-ubuntu-1404/SAMA5D4/sources/Yocto_project/Poky/poky/meta/recipes-bsp/grub/grub-efi_2.00.bb: 
+		Unable to get checksum for grub-efi-native SRC_URI entry cfg: file could not be found
+		...
+		解决:
+		之前的 bblayers.conf: BSPDIR 改为:
+			BSPDIR := "/home/infortech-ubuntu-1404/SAMA5D4/sources/Yocto_project/Poky"
+		仍然 warning
+		把 local.conf:DL_DIR 改回与来的 :
+			DL_DIR ?= "${TOPDIR}/downloads" 就是说说编译过程中要下载的文件放入 build-atmel/downloads
+		居然好了
+	再次: bitbake core-image-minimal 几乎用了15小时, 还从网上下载了 25 G 内容!!!!!
+		但是还是有错!!!! 具体 log;
+/* 编译log?: start */ 
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ bitbake core-image-minimal
+Parsing recipes: 100% |###################################################################################################################################| Time: 00:00:30
+Parsing of 1934 .bb files complete (0 cached, 1934 parsed). 2490 targets, 379 skipped, 0 masked, 0 errors.
+NOTE: Resolving any missing task queue dependencies
+
+Build Configuration:
+BB_VERSION        = "1.30.0"
+BUILD_SYS         = "x86_64-linux"
+NATIVELSBSTRING   = "Ubuntu-14.04"
+TARGET_SYS        = "arm-poky-linux-gnueabi"
+MACHINE           = "sama5d4-xplained"
+DISTRO            = "poky-atmel"
+DISTRO_VERSION    = "2.1.2"
+TUNE_FEATURES     = "arm armv7a vfp thumb neon       callconvention-hard       cortexa5"
+TARGET_FPU        = "hard"
+meta              
+meta-poky         
+meta-yocto-bsp    = "krogoth:ae9b341ecfcc60e970f29cfe04306411ad26c0cf"
+meta-atmel        = "krogoth:c415e7330e6fd92e860423d144d6c98bf20c8887"
+meta-oe           
+meta-networking   
+meta-python       
+meta-ruby         
+meta-multimedia   = "krogoth:55c8a76da5dc099a7bc3838495c672140cedb78e"
+meta-qt5          = "krogoth:2b1871f0d139dc3caaa779a32a1931409c245a36"
+
+NOTE: Fetching uninative binary shim from http://downloads.yoctoproject.org/releases/uninative/1.0.1/x86_64-nativesdk-libc.tar.bz2;sha256sum=acf1e44a0ac2e855e81da6426197d36358bf7b4e88e552ef933128498c8910f8
+NOTE: Preparing RunQueue
+NOTE: Executing SetScene Tasks
+NOTE: Executing RunQueue Tasks
+WARNING: zlib-native-1.2.8-r0 do_fetch: Failed to fetch URL http://www.zlib.net/zlib-1.2.8.tar.xz, attempting MIRRORS if available
+WARNING: quilt-native-0.64-r0 do_fetch: Failed to fetch URL http://download.savannah.gnu.org/releases/quilt/quilt-0.64.tar.gz, attempting MIRRORS if available
+WARNING: attr-native-2.4.47-r0 do_fetch: Failed to fetch URL http://download.savannah.gnu.org/releases/attr/attr-2.4.47.src.tar.gz, attempting MIRRORS if available
+WARNING: libpcre-native-8.38-r0 do_fetch: Failed to fetch URL ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre/pcre-8.38.tar.bz2, attempting MIRRORS if available
+WARNING: bash-4.3.30-r0 do_fetch: Failed to fetch URL http://ftp.gnu.org/gnu/bash/bash-4.3-patches/bash43-033;apply=yes;striplevel=0;name=patch033, attempting MIRRORS if available
+WARNING: sysvinit-2.88dsf-r14 do_fetch: Failed to fetch URL http://download.savannah.gnu.org/releases/sysvinit/sysvinit-2.88dsf.tar.bz2, attempting MIRRORS if available
+NOTE: Tasks Summary: Attempted 1843 tasks of which 9 didn't need to be rerun and all succeeded.
+
+Summary: There were 6 WARNING messages shown.
+
+
+
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky$ source oe-init-build-env build-atmel
+bash: infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky$: 没有那个文件或目录
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ You had no conf/local.conf file. This configuration file has therefore been
+You：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ created for you with some default values. You may wish to edit it to, for
+未找到 'created' 命令，您要输入的是否是：
+ 命令 'createdb' 来自于包 'postgresql-client-common' (main)
+ 命令 'createdb' 来自于包 'postgres-xc-client' (universe)
+created：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ example, select a different MACHINE (target hardware). See conf/local.conf
+bash: 未预期的符号 `(' 附近有语法错误
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ for more information as common configuration options are commented.
+bash: 未预期的符号 `information' 附近有语法错误
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ 
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ You had no conf/bblayers.conf file. This configuration file has therefore been
+You：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ created for you with some default values. To add additional metadata layers
+未找到 'created' 命令，您要输入的是否是：
+ 命令 'createdb' 来自于包 'postgres-xc-client' (universe)
+ 命令 'createdb' 来自于包 'postgresql-client-common' (main)
+created：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ into your configuration please add entries to conf/bblayers.conf.
+未找到 'into' 命令，您要输入的是否是：
+ 命令 'pinto' 来自于包 'pinto' (universe)
+ 命令 'info' 来自于包 'info' (main)
+into：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ 
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ The Yocto Project has extensive documentation about OE including a reference
+未找到 'The' 命令，您要输入的是否是：
+ 命令 'the' 来自于包 'the' (universe)
+The：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ manual which can be found at:
+manual：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$     http://yoctoproject.org/documentation
+bash: http://yoctoproject.org/documentation: 没有那个文件或目录
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ 
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ For more information about OpenEmbedded see their website:
+未找到 'For' 命令，您要输入的是否是：
+ 命令 'tor' 来自于包 'tor' (universe)
+ 命令 'sor' 来自于包 'pccts' (universe)
+ 命令 'vor' 来自于包 'vor' (universe)
+For：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$     http://www.openembedded.org/
+bash: http://www.openembedded.org/: 没有那个文件或目录
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ 
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ 
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ ### Shell environment set up for builds. ###
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ 
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ You can now run 'bitbake <target>'
+You：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ 
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ Common targets are:
+Common：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$     core-image-minimal
+core-image-minimal：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$     core-image-sato
+core-image-sato：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$     meta-toolchain
+meta-toolchain：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$     meta-ide-support
+meta-ide-support：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ 
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ You can also run generated qemu images with a command like 'runqemu qemux86'
+You：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ bitbake core-image-minimal
+bash: infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$: 没有那个文件或目录
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ Parsing recipes: 100% |###################################################################################################################################| Time: 00:00:30
+> Parsing of 1934 .bb files complete (0 cached, 1934 parsed). 2490 targets, 379 skipped, 0 masked, 0 errors.
+bash: 未预期的符号 `(' 附近有语法错误
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ NOTE: Resolving any missing task queue dependencies
+NOTE:：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ 
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ Build Configuration:
+未找到 'Build' 命令，您要输入的是否是：
+ 命令 'guild' 来自于包 'guile-2.0-libs' (main)
+Build：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ BB_VERSION        = "1.30.0"
+BB_VERSION：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ BUILD_SYS         = "x86_64-linux"
+BUILD_SYS：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ NATIVELSBSTRING   = "Ubuntu-14.04"
+NATIVELSBSTRING：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ TARGET_SYS        = "arm-poky-linux-gnueabi"
+TARGET_SYS：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ MACHINE           = "sama5d4-xplained"
+MACHINE：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ DISTRO            = "poky-atmel"
+DISTRO：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ DISTRO_VERSION    = "2.1.2"
+DISTRO_VERSION：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ TUNE_FEATURES     = "arm armv7a vfp thumb neon       callconvention-hard       cortexa5"
+TUNE_FEATURES：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ TARGET_FPU        = "hard"
+TARGET_FPU：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ meta              
+未找到 'meta' 命令，您要输入的是否是：
+ 命令 'metar' 来自于包 'flightgear' (universe)
+ 命令 'metar' 来自于包 'metar' (universe)
+meta：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ meta-poky         
+meta-poky：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ meta-yocto-bsp    = "krogoth:ae9b341ecfcc60e970f29cfe04306411ad26c0cf"
+meta-yocto-bsp：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ meta-atmel        = "krogoth:c415e7330e6fd92e860423d144d6c98bf20c8887"
+meta-atmel：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ meta-oe           
+meta-oe：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ meta-networking   
+meta-networking：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ meta-python       
+meta-python：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ meta-ruby         
+meta-ruby：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ meta-multimedia   = "krogoth:55c8a76da5dc099a7bc3838495c672140cedb78e"
+meta-multimedia：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ meta-qt5          = "krogoth:2b1871f0d139dc3caaa779a32a1931409c245a36"
+meta-qt5：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ 
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ NOTE: Fetching uninative binary shim from http://downloads.yoctoproject.org/releases/uninative/1.0.1/x86_64-nativesdk-libc.tar.bz2;sha256sum=acf1e44a0ac2e855e81da6426197d36358bf7b4e88e552ef933128498c8910f8
+NOTE:：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ NOTE: Preparing RunQueue
+NOTE:：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ NOTE: Executing SetScene Tasks
+NOTE:：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ NOTE: Executing RunQueue Tasks
+NOTE:：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ WARNING: zlib-native-1.2.8-r0 do_fetch: Failed to fetch URL http://www.zlib.net/zlib-1.2.8.tar.xz, attempting MIRRORS if available
+WARNING:：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ WARNING: quilt-native-0.64-r0 do_fetch: Failed to fetch URL http://download.savannah.gnu.org/releases/quilt/quilt-0.64.tar.gz, attempting MIRRORS if available
+WARNING:：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ WARNING: attr-native-2.4.47-r0 do_fetch: Failed to fetch URL http://download.savannah.gnu.org/releases/attr/attr-2.4.47.src.tar.gz, attempting MIRRORS if available
+WARNING:：未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ Currently 8 running tasks (191 of 1843):
+bash: 未预期的符号 `(' 附近有语法错误
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ 0: gcc-source-5.3.0-5.3.0-r0 do_fetch (pid 15030)bash: 未预期的符号 `(' 附近有语法错误
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ 1: ncurses-native-6.0+20160213-r0 do_fetch (pid 15046)
+bash: 未预期的符号 `(' 附近有语法错误
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ 2: binutils-cross-arm-2.26-r0 do_fetch (pid 15122)
+bash: 未预期的符号 `(' 附近有语法错误
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ 3: linux-libc-headers-4.4-r0 do_fetch (pid 15145)bash: 未预期的符号 `(' 附近有语法错误
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ 4: glibc-initial-2.23-r0 do_fetch (pid 15156)
+bash: 未预期的符号 `(' 附近有语法错误
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ 5: glibc-2.23-r0 do_fetch (pid 28211)
+bash: 未预期的符号 `(' 附近有语法错误
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ 6: openssl-native-1.0.2h-r0 do_compile (pid 20726)
+bash: 未预期的符号 `(' 附近有语法错误
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ 7: xproto-native-1_7.0.28-r0 do_fetch (pid 11955)bash: 未预期的符号 `(' 附近有语法错误
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ 
+/* 编译log: end*/
+	过程中,有六个网上获取包失败!!!
+	经过发现,后面的所谓命令找不到,极可能是以不正当的方式在输出一个报告文件,
+	实际上已经全部编译完成!!!!!!镜像放在:
+		/home/infortech-ubuntu-1404/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel/tmp/deploy/images/sama5d4-xplained
+测试便以结果!!!!
+只烧写了 dtb 和 zImage,成功!!! 
+sudo sam-ba -p serial:ttyACM1:115200 -b sama5d4-xplained -a nandflash -c erase:0x200000:0x600000 -c erase:0x180000:0x80000 -c write:zImage-at91-sama5d4_xplained.dtb:0x180000 -c write:zImage:0x200000
+只烧写 uboot dtb zImage 成功!!!
+sudo sam-ba -p serial:ttyACM1:115200 -b sama5d4-xplained -a nandflash -c erase:0x40000:0x80000 -c erase:0x200000:0x600000 -c erase:0x180000:0x80000 -c write:u-boot.bin:0x40000 -c write:zImage-at91-sama5d4_xplained.dtb:0x180000 -c write:zImage:0x200000
+只烧写 uboot dtb zImage fs成功!!!
+sudo sam-ba -p serial:ttyACM1:115200 -b sama5d4-xplained -a nandflash -c erase:0x40000:0x80000 -c erase:0x200000:0x600000 -c erase:0x180000:0x80000 -c erase:0x800000:0x1f800000 -c write:u-boot.bin:0x40000 -c write:zImage-at91-sama5d4_xplained.dtb:0x180000 -c write:zImage:0x200000 -c write:core-image-minimal-sama5d4-xplained.ubi:0x800000
+都烧写:(注意,at91bootstrap居然 链接到uboot,也是uboot?你妹,名字差点就坑死我了,注意是spl-uboot!!) 
+/* 不成功!!!!!!! */
+sudo sam-ba -p serial:ttyACM1:115200 -b sama5d4-xplained -a nandflash -c erase:0x0:0x40000 -c erase:0x40000:0x80000 -c erase:0x200000:0x600000 -c erase:0x180000:0x80000 -c erase:0x800000:0x1f800000 -c write:at91bootstrap-sama5d4_xplained.bin:0x0 -c write:u-boot.bin:0x40000 -c write:zImage-at91-sama5d4_xplained.dtb:0x180000 -c write:zImage:0x200000 -c write:core-image-minimal-sama5d4-xplained.ubi:0x800000
+/* 成功 */  /* 注意,bootstrap 用 writeboot 指令 ,不用加地址 ":0x0" */
+sudo sam-ba -p serial:ttyACM1:115200 -b sama5d4-xplained -a nandflash -c erase:0x0:0x40000 -c erase:0x40000:0x80000 -c erase:0x200000:0x600000 -c erase:0x180000:0x80000 -c erase:0x800000:0x1f800000 -c writeboot:at91bootstrap-sama5d4_xplained.bin -c write:u-boot.bin:0x40000 -c write:zImage-at91-sama5d4_xplained.dtb:0x180000 -c write:zImage:0x200000 -c write:core-image-minimal-sama5d4-xplained.ubi:0x800000
+	至此,全部生成镜像 通过!!
+	把景象文件全考到:core-image-minimal_demo文件夹备份
+	另外,如何 更改内核配置!!! 而bitbake 又可以通过????
+处理好 core-image-minimal 后,开始搭载 QT界面镜像的编译!!!
+	特别注意,由于重启电脑的关系!!!!等等情况
+	回到 poky 文件夹!!!
+	重新执行一次: source oe-init-build-env build-atmel 指令!!!
+	自动转到build-atmel
+	把备份了的 build-atmel/conf 覆盖当前conf
+	gedit conf/local.conf	//最后添加两行
+		......
+		LICENSE_FLAGS_WHITELIST += "commercial"
+		SYSVINIT_ENABLED_GETTYS = ""
+	然后才:bitbake atmel-qt5-demo-image	
+	如果不重新执行 source oe-init-build-env build-atmel:
+		直接修改 conf/local.conf
+		然后执行 bitbake atmel-qt5-demo-image 会出现 bitbake命令没找到的错误!!!!!!
+/* 编译log : start */
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky$ source oe-init-build-env build-atmel
+
+### Shell environment set up for builds. ###
+
+You can now run 'bitbake <target>'
+
+Common targets are:
+    core-image-minimal
+    core-image-sato
+    meta-toolchain
+    meta-ide-support
+
+You can also run generated qemu images with a command like 'runqemu qemux86'
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ bitbake atmel-qt5-demo-image
+Loading cache: 100% |#####################################################################################################################################| ETA:  00:00:00
+Loaded 2486 entries from dependency cache.
+Parsing recipes: 100% |###################################################################################################################################| Time: 00:00:06
+Parsing of 1934 .bb files complete (1929 cached, 5 parsed). 2490 targets, 358 skipped, 0 masked, 0 errors.
+NOTE: Resolving any missing task queue dependencies
+
+Build Configuration:
+BB_VERSION        = "1.30.0"
+BUILD_SYS         = "x86_64-linux"
+NATIVELSBSTRING   = "universal"
+TARGET_SYS        = "arm-poky-linux-gnueabi"
+MACHINE           = "sama5d4-xplained"
+DISTRO            = "poky-atmel"
+DISTRO_VERSION    = "2.1.2"
+TUNE_FEATURES     = "arm armv7a vfp thumb neon       callconvention-hard       cortexa5"
+TARGET_FPU        = "hard"
+meta              
+meta-poky         
+meta-yocto-bsp    = "krogoth:ae9b341ecfcc60e970f29cfe04306411ad26c0cf"
+meta-atmel        = "krogoth:c415e7330e6fd92e860423d144d6c98bf20c8887"
+meta-oe           
+meta-networking   
+meta-python       
+meta-ruby         
+meta-multimedia   = "krogoth:55c8a76da5dc099a7bc3838495c672140cedb78e"
+meta-qt5          = "krogoth:2b1871f0d139dc3caaa779a32a1931409c245a36"
+
+NOTE: Preparing RunQueue
+NOTE: Executing SetScene Tasks
+NOTE: Executing RunQueue Tasks
+WARNING: apr-native-1.5.2-r0 do_fetch: Failed to fetch URL http://archive.apache.org/dist/apr/apr-1.5.2.tar.bz2, attempting MIRRORS if available
+WARNING: libcap-2.24-r0 do_fetch: Failed to fetch URL http://kernel.org/pub/linux/libs/security/linux-privs/libcap2/libcap-2.24.tar.xz, attempting MIRRORS if available
+WARNING: iso-codes-3.65-r0 do_fetch: Failed to fetch URL https://pkg-isocodes.alioth.debian.org/downloads/iso-codes-3.65.tar.xz, attempting MIRRORS if available
+WARNING: libtirpc-1.0.1-r0 do_fetch: Failed to fetch URL http://distfiles.gentoo.org/distfiles/libtirpc-glibc-nfs.tar.xz;name=glibc-nfs, attempting MIRRORS if available
+ERROR: libtirpc-1.0.1-r0 do_fetch: Fetcher failure: Fetch command failed with exit code 4, output:
+wget: unable to resolve host address 'distfiles.gentoo.org'
+
+ERROR: libtirpc-1.0.1-r0 do_fetch: Function failed: Fetcher failure for URL: 'http://distfiles.gentoo.org/distfiles/libtirpc-glibc-nfs.tar.xz;name=glibc-nfs'. Unable to fetch URL from any source.
+ERROR: Logfile of failure stored in: /home/infortech-ubuntu-1404/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel/tmp/work/cortexa5hf-neon-poky-linux-gnueabi/libtirpc/1.0.1-r0/temp/log.do_fetch.9327
+ERROR: Task 4195 (/home/infortech-ubuntu-1404/SAMA5D4/sources/Yocto_project/Poky/poky/meta/recipes-extended/libtirpc/libtirpc_1.0.1.bb, do_fetch) failed with exit code '1'
+WARNING: qtbase-native-5.6.2+gitAUTOINC+b4ada3f0d8-r0 do_fetch: Failed to fetch URL git://github.com/qt/qtbase.git;name=qtbase;branch=5.6;protocol=git, attempting MIRRORS if available
+ERROR: qtbase-native-5.6.2+gitAUTOINC+b4ada3f0d8-r0 do_fetch: Fetcher failure: Fetch command failed with exit code 128, output:
+Cloning into bare repository '/home/infortech-ubuntu-1404/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel/downloads/git2/github.com.qt.qtbase.git'...
+fatal: read error: Connection reset by peer
+fatal: early EOF
+fatal: index-pack failed
+
+ERROR: qtbase-native-5.6.2+gitAUTOINC+b4ada3f0d8-r0 do_fetch: Function failed: Fetcher failure for URL: 'git://github.com/qt/qtbase.git;name=qtbase;branch=5.6;protocol=git'. Unable to fetch URL from any source.
+ERROR: Logfile of failure stored in: /home/infortech-ubuntu-1404/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel/tmp/work/x86_64-linux/qtbase-native/5.6.2+gitAUTOINC+b4ada3f0d8-r0/temp/log.do_fetch.3732
+ERROR: Task 1923 (/home/infortech-ubuntu-1404/SAMA5D4/sources/Yocto_project/Poky/meta-qt5/recipes-qt/qt5/qtbase-native_git.bb, do_fetch) failed with exit code '1'
+WARNING: qtbase-5.6.2+gitAUTOINC+b4ada3f0d8-r0 do_fetch: Failed to fetch URL git://github.com/qt/qtbase.git;name=qtbase;branch=5.6;protocol=git, attempting MIRRORS if available
+ERROR: qtbase-5.6.2+gitAUTOINC+b4ada3f0d8-r0 do_fetch: Fetcher failure: Fetch command failed with exit code 128, output:
+Cloning into bare repository '/home/infortech-ubuntu-1404/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel/downloads/git2/github.com.qt.qtbase.git'...
+fatal: read error: Connection timed out
+fatal: early EOF
+fatal: index-pack failed
+
+ERROR: qtbase-5.6.2+gitAUTOINC+b4ada3f0d8-r0 do_fetch: Function failed: Fetcher failure for URL: 'git://github.com/qt/qtbase.git;name=qtbase;branch=5.6;protocol=git'. Unable to fetch URL from any source.
+ERROR: Logfile of failure stored in: /home/infortech-ubuntu-1404/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel/tmp/work/cortexa5hf-neon-poky-linux-gnueabi/qtbase/5.6.2+gitAUTOINC+b4ada3f0d8-r0/temp/log.do_fetch.3735
+ERROR: Task 630 (/home/infortech-ubuntu-1404/SAMA5D4/sources/Yocto_project/Poky/meta-qt5/recipes-qt/qt5/qtbase_git.bb, do_fetch) failed with exit code '1'
+NOTE: Tasks Summary: Attempted 1498 tasks of which 1066 didn't need to be rerun and 3 failed.
+Waiting for 0 running tasks to finish:
+
+Summary: 3 tasks failed:
+  /home/infortech-ubuntu-1404/SAMA5D4/sources/Yocto_project/Poky/poky/meta/recipes-extended/libtirpc/libtirpc_1.0.1.bb, do_fetch
+  /home/infortech-ubuntu-1404/SAMA5D4/sources/Yocto_project/Poky/meta-qt5/recipes-qt/qt5/qtbase-native_git.bb, do_fetch
+  /home/infortech-ubuntu-1404/SAMA5D4/sources/Yocto_project/Poky/meta-qt5/recipes-qt/qt5/qtbase_git.bb, do_fetch
+Summary: There were 6 WARNING messages shown.
+Summary: There were 6 ERROR messages shown, returning a non-zero exit code.
+/* 编译log : end */
+	log显示 qtbase-native-5.6.2+gitAUTOINC+b4ada3f0d8-r0 下载失败,感觉这个是关键!!
+	测试生成的镜像,全部成功启动,就是不知道最终是否有图像帧输出!!!!
 
 
 
  VBLANK: 显示器扫描线完成最后一行后,需要重返左上角,这个过程叫做: vblank,也叫VBI(vertical blank interval) ,因为扫描线变得blank,以防止看到一个斜线显示在屏幕上.?????
 开机没有出现小企鹅问题!!
 开发板的中断号与linux中断号的兑换表!!		
-console 与 tty 重点!!		
 
-
+使用 bitbake 工具链???
+	另外,如何 更改内核配置!!! 而bitbake 又可以通过!!!
 
 
 
