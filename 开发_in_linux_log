@@ -1761,8 +1761,14 @@ gaget 串口例程分析:
 	当检测到 ID线接地 这个usb口会作为host口,这台设备工作在usb 的主机模式,并不会工作在usb 从机模式,即不会使用 gaget 的驱动
 	当检测到 ID线悬空 这个usb口会作为slave口,这台设备作为usb从设备,会使用 gaget 的驱动 执行工作!!!
 	这个动态id线 通过 刷写 寄存器 改变状态!!
-
-
+github常用命令:
+平时提交!!
+git add -A	//把所有修改了的文件和新建的文件的痕迹加入暂存区,相当于全员备份
+git add modules/*	// */  把modules整个文件夹及其内容载入暂存区
+git commit -m "xxx"	//提交
+git push origin master	//提交远程库
+git rm --cached tools/qt/qt-everywhere-opensource-src-5.6.0-rc.tar.gz	//移除多余错误添加git add 到index缓存的文件
+git reset --soft HEAD^	//软回溯到上个版版本,即上个版本还没有git commit 的状态
 
 
 
@@ -2212,15 +2218,951 @@ Summary: There were 6 ERROR messages shown, returning a non-zero exit code.
 /* 编译log : end */
 	log显示 qtbase-native-5.6.2+gitAUTOINC+b4ada3f0d8-r0 下载失败,感觉这个是关键!!
 	测试生成的镜像,全部成功启动,就是不知道最终是否有图像帧输出!!!!
+	感觉并没有QT界面demo程序的出现
+感觉 bitbake atmel-qt5-demo-image 是失败了的,官网上 Build Atmel Poky Qt-Embedded SDK 是什么鬼??
+	bitbake -c populate_sdk atmel-qt5-demo-image //先尝试,不管了,
+	//这次鸣不需要重新执行一次: source oe-init-build-env build-atmel 指令!!! 估计是没有重启关系,配置文件没用删回原样!!
+	//另外,观察是不是每次bitbake都要重新下载文件!!! 并没有重新下载文件!! 然而 qtbase包还是没有!!
+/* log : start */
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel$ bitbake -C populate_sdk atmel-qt5-demo-image
+Loading cache: 100% |#####################################################################################################################################| ETA:  00:00:00
+Loaded 2486 entries from dependency cache.
+Parsing recipes: 100% |###################################################################################################################################| Time: 00:00:36
+Parsing of 1934 .bb files complete (1929 cached, 5 parsed). 2490 targets, 358 skipped, 0 masked, 0 errors.
+NOTE: Resolving any missing task queue dependencies
 
+Build Configuration:
+BB_VERSION        = "1.30.0"
+BUILD_SYS         = "x86_64-linux"
+NATIVELSBSTRING   = "universal"
+TARGET_SYS        = "arm-poky-linux-gnueabi"
+MACHINE           = "sama5d4-xplained"
+DISTRO            = "poky-atmel"
+DISTRO_VERSION    = "2.1.2"
+TUNE_FEATURES     = "arm armv7a vfp thumb neon       callconvention-hard       cortexa5"
+TARGET_FPU        = "hard"
+meta              
+meta-poky         
+meta-yocto-bsp    = "krogoth:ae9b341ecfcc60e970f29cfe04306411ad26c0cf"
+meta-atmel        = "krogoth:c415e7330e6fd92e860423d144d6c98bf20c8887"
+meta-oe           
+meta-networking   
+meta-python       
+meta-ruby         
+meta-multimedia   = "krogoth:55c8a76da5dc099a7bc3838495c672140cedb78e"
+meta-qt5          = "krogoth:2b1871f0d139dc3caaa779a32a1931409c245a36"
+
+NOTE: Preparing RunQueue
+NOTE: Tainting hash to force rebuild of task /home/infortech-ubuntu-1404/SAMA5D4/sources/Yocto_project/Poky/meta-atmel/qt5-layer/recipes-qt/images/atmel-qt5-demo-image.bb, do_populate_sdk
+NOTE: Executing SetScene Tasks
+NOTE: Executing RunQueue Tasks
+WARNING: libproxy-0.4.11-r0 do_fetch: Failed to fetch URL http://snapshot.debian.org/archive/debian/20160728T043443Z/pool/main/libp/libproxy/libproxy_0.4.11.orig.tar.gz, attempting MIRRORS if available
+WARNING: ethtool-4.2-r0 do_fetch: Failed to fetch URL http://kernel.org/pub/software/network/ethtool/ethtool-4.2.tar.gz, attempting MIRRORS if available
+WARNING: openssh-7.1p2-r0 do_fetch: Failed to fetch URL http://ftp.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-7.1p2.tar.gz, attempting MIRRORS if available
+WARNING: mpeg2dec-0.4.1-r2 do_fetch: Failed to fetch URL http://libmpeg2.sourceforge.net/files/mpeg2dec-0.4.1.tar.gz, attempting MIRRORS if available
+WARNING: apmd-3.2.2-15-r0 do_fetch: Failed to fetch URL http://snapshot.debian.org/archive/debian/20160728T043443Z/pool/main/a/apmd/apmd_3.2.2.orig.tar.gz;name=tarball, attempting MIRRORS if available
+WARNING: sysklogd-1.5.1-r0 do_fetch: Failed to fetch URL http://www.infodrom.org/projects/sysklogd/download/sysklogd-1.5.1.tar.gz, attempting MIRRORS if available
+ERROR: apmd-3.2.2-15-r0 do_fetch: Fetcher failure: Fetch command failed with exit code 4, output:
+wget: unable to resolve host address 'snapshot.debian.org'
+
+ERROR: apmd-3.2.2-15-r0 do_fetch: Function failed: Fetcher failure for URL: 'http://snapshot.debian.org/archive/debian/20160728T043443Z/pool/main/a/apmd/apmd_3.2.2.orig.tar.gz;name=tarball'. Unable to fetch URL from any source.
+ERROR: Logfile of failure stored in: /home/infortech-ubuntu-1404/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel/tmp/work/cortexa5hf-neon-poky-linux-gnueabi/apmd/3.2.2-15-r0/temp/log.do_fetch.15423
+ERROR: Task 3283 (/home/infortech-ubuntu-1404/SAMA5D4/sources/Yocto_project/Poky/poky/meta/recipes-bsp/apmd/apmd_3.2.2-15.bb, do_fetch) failed with exit code '1'
+ERROR: sysklogd-1.5.1-r0 do_fetch: Fetcher failure: Fetch command failed with exit code 4, output:
+wget: unable to resolve host address 'www.infodrom.org'
+
+ERROR: sysklogd-1.5.1-r0 do_fetch: Function failed: Fetcher failure for URL: 'http://www.infodrom.org/projects/sysklogd/download/sysklogd-1.5.1.tar.gz'. Unable to fetch URL from any source.
+ERROR: Logfile of failure stored in: /home/infortech-ubuntu-1404/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel/tmp/work/cortexa5hf-neon-poky-linux-gnueabi/sysklogd/1.5.1-r0/temp/log.do_fetch.15450
+ERROR: Task 3270 (/home/infortech-ubuntu-1404/SAMA5D4/sources/Yocto_project/Poky/poky/meta/recipes-extended/sysklogd/sysklogd_1.5.1.bb, do_fetch) failed with exit code '1'
+WARNING: time-1.7-r2 do_fetch: Failed to fetch URL http://ftp.gnu.org/gnu/time/time-1.7.tar.gz, attempting MIRRORS if available
+WARNING: wpa-supplicant-2.5-r0 do_fetch: Failed to fetch URL http://w1.fi/releases/wpa_supplicant-2.5.tar.gz, attempting MIRRORS if available
+WARNING: qtbase-native-5.6.2+gitAUTOINC+b4ada3f0d8-r0 do_fetch: Failed to fetch URL git://github.com/qt/qtbase.git;name=qtbase;branch=5.6;protocol=git, attempting MIRRORS if available
+ERROR: qtbase-native-5.6.2+gitAUTOINC+b4ada3f0d8-r0 do_fetch: Fetcher failure: Fetch command failed with exit code 128, output:
+Cloning into bare repository '/home/infortech-ubuntu-1404/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel/downloads/git2/github.com.qt.qtbase.git'...
+fatal: read error: Connection timed out
+fatal: early EOF
+fatal: index-pack failed
+
+ERROR: qtbase-native-5.6.2+gitAUTOINC+b4ada3f0d8-r0 do_fetch: Function failed: Fetcher failure for URL: 'git://github.com/qt/qtbase.git;name=qtbase;branch=5.6;protocol=git'. Unable to fetch URL from any source.
+ERROR: Logfile of failure stored in: /home/infortech-ubuntu-1404/SAMA5D4/sources/Yocto_project/Poky/poky/build-atmel/tmp/work/x86_64-linux/qtbase-native/5.6.2+gitAUTOINC+b4ada3f0d8-r0/temp/log.do_fetch.12778
+ERROR: Task 1923 (/home/infortech-ubuntu-1404/SAMA5D4/sources/Yocto_project/Poky/meta-qt5/recipes-qt/qt5/qtbase-native_git.bb, do_fetch) failed with exit code '1'
+NOTE: Tasks Summary: Attempted 2348 tasks of which 1710 didn't need to be rerun and 3 failed.
+Waiting for 0 running tasks to finish:
+
+Summary: 3 tasks failed:
+  /home/infortech-ubuntu-1404/SAMA5D4/sources/Yocto_project/Poky/poky/meta/recipes-bsp/apmd/apmd_3.2.2-15.bb, do_fetch
+  /home/infortech-ubuntu-1404/SAMA5D4/sources/Yocto_project/Poky/poky/meta/recipes-extended/sysklogd/sysklogd_1.5.1.bb, do_fetch
+  /home/infortech-ubuntu-1404/SAMA5D4/sources/Yocto_project/Poky/meta-qt5/recipes-qt/qt5/qtbase-native_git.bb, do_fetch
+Summary: There were 9 WARNING messages shown.
+Summary: There were 6 ERROR messages shown, returning a non-zero exit code.
+/* log : end */
+	
+
+
+
+
+
+
+
+
+
+
+
+20170120
+关于 yocto project  的学习!!
+You can find log files for each task in the recipe's temp directory 
+	(e.g. poky/build/tmp/work/qemux86-poky-linux/foo/1.3.0-r0/temp). 
+	 Log files are named log.taskname (e.g. log.do_configure, log.do_fetch, and log.do_compile). 
+To add a new machine, you need to add a new machine configuration file to the layer's conf/machine directory. 
+	This configuration file provides details about the device you are adding. 	
+	The most important variables you must set in your machine configuration file 	
+	or include from a lower-level configuration file are as follows:
+		TARGET_ARCH (e.g. "arm")
+		PREFERRED_PROVIDER_virtual/kernel
+		MACHINE_FEATURES (e.g. "apm screen wifi")
+	You might also need these variables:
+		SERIAL_CONSOLES (e.g. "115200;ttyS0 115200;ttyS1")
+		KERNEL_IMAGETYPE (e.g. "zImage")
+		IMAGE_FSTYPES (e.g. "tar.gz jffs2")
+	You can find full details on these variables in the reference section. 
+	You can leverage existing machine .conf files from meta-yocto-bsp/conf/machine/. 
+Adding a Kernel for the Machine
+
+
+
+
+
+
+
+
+20170203
+/** 配置qt5.6.2 环境 **/
+下载源码:
+	http://download.qt.io/official_releases/qt/5.6/5.6.2/single/下载(官方发布非调试版本):
+		qt-everywhere-opensource-src-5.6.2.zip
+	然后解压
+配置 qmake:
+	qtbase/mkspecs/linux-arm-gnueabi-g++/qmake.conf
+	#
+	# qmake configuration for building with arm-linux-gnueabi-g++
+	#
+
+	MAKEFILE_GENERATOR      = UNIX
+	CONFIG                 += incremental
+	QMAKE_INCREMENTAL_STYLE = sublib
+	
+	QT_QPA_DEFAULT_PLATFORM = linuxfb   
+	#QMAKE_CFLAGS_RELEASE   +=-O2 -march=armv5te  
+	QMAKE_CFLAGS_RELEASE	+= -O2 -march=armv7-a      	#选择armv7架构
+	QMAKE_CXXFLAGS_RELEASE	+= -O2 -march=armv7-a  		#选择armv7架构
+	
+	include(../common/linux.conf)
+	include(../common/gcc-base-unix.conf)
+	include(../common/g++-unix.conf)
+	
+	# modifications to g++.conf
+	QMAKE_CC                = arm-linux-gnueabihf-gcc	#把 arm-linux-gnueabi  换成arm-linux-gnueabihf
+	QMAKE_CXX               = arm-linux-gnueabihf-g++
+	QMAKE_LINK              = arm-linux-gnueabihf-g++
+	QMAKE_LINK_SHLIB        = arm-linux-gnueabihf-g++
+	
+	# modifications to linux.conf
+	QMAKE_AR                = arm-linux-gnueabihf-ar cqs
+	QMAKE_OBJCOPY           = arm-linux-gnueabihf-objcopy
+	QMAKE_NM                = arm-linux-gnueabihf-nm -P
+	QMAKE_STRIP             = arm-linux-gnueabihf-strip
+	load(qt_config)
+
+配置 QT 工具链:
+	cd 到 qt-everywhere-opensource-src-5.6.2 源码根目录
+	..sources/qt/qt-5.6.2/qt-everywhere-opensource-src-5.6.2$ ./configure -release -opensource -xplatform linux-arm-gnueabi-g++ -prefix /home/infortech-ubuntu-1404/SAMA5D4/sources/qt/qt-5.6.2/armv7-a -no-c++11 -qreal float
+		//-xplatform linux-arm-gnueabi-g++ 说明 生成的QT工具包和库是面向arm架构的，表示这些工具和库要用对应的编译工具生成
+		//-prefix home/infortech-ubuntu-1404/SAMA5D4/sources/qt/qt-5.6.2/armv7-a 表示 生成的QT工具包和库 都install到的目标文件夹
+		//-no-c++11 表示不使用C++11标准来编译文件, 即使用旧版的 c++98 标准来编译工具链
+	./configure出错:  bash: ./configure: /bin/sh^M: 解释器错误: 没有那个文件或目录
+		由于configure文件本来面向win系统 以 \n\r表示行结尾, 而linux单纯以 \n表示行结尾,
+		在linux里 \r 被显示为^M
+		所以要把\r替换为空格
+		注意使用gedit 去掉\r 不彻底,由于gedit自动识别到 configure是 win文件 所以 保存文件时又会重新添上 \r
+		不然./configure还会出现像:/bin/sh: 0: Can't open  这样的错误!!
+		所以使用命令替换\r为空格 : sed -i 's/\r$//' configure
+		./configure 继续出错: ./configure: 49: exec: /home/infortech-ubuntu-1404/SAMA5D4/sources/qt/qt-5.6.2/qt-everywhere-opensource-src-5.6.2/qtbase/configure: not found
+		原因是: qtbase/configure 依然有 /r
+			sed -i 's/\r$//' ./qtbase/configure
+		./configure 继续出错: You don't seem to have 'make' or 'gmake' in your PATH.
+			初步解决办法: sudo apt-get install build-essential(未执行)
+
+发现: qt-everywhere-opensource-src-5.6.2.zip 是面向 win 的源码包,
+	我们应该下载面向linux 的源码包 :qt-everywhere-opensource-src-5.6.2.tar.gz
+	重新配置....
+	然后 ./cofigure 一直通过,没有再出现之前遇到的错误
+/* log : start */
++ cd qtbase
++ /home/infortech-ubuntu-1404/SAMA5D4/sources/qt/qt-5.6.2/qt-everywhere-opensource-src-5.6.2/qtbase/configure -top-level -release -opensource -xplatform linux-arm-gnueabi-g++ -prefix /home/infortech-ubuntu-1404/SAMA5D4/sources/qt/qt-5.6.2/armv7-a -no-c++11 -qreal float
+
+This is the Qt Open Source Edition.
+
+You are licensed to use this software under the terms of
+the Lesser GNU General Public License (LGPL) versions 2.1.
+You are also licensed to use this software under the terms of
+the GNU Lesser General Public License (LGPL) versions 3.
+
+Type '3' to view the GNU Lesser General Public License version 3.
+Type 'L' to view the Lesser GNU General Public License version 2.1.
+Type 'yes' to accept this license offer.
+Type 'no' to decline this license offer.
+
+Do you accept the terms of either license? yes
+
+Running configuration tests (phase 1)...
+Done running configuration tests.
+Creating qmake...
+.........................................................................................Done.
+Running configuration tests (phase 2)...
+Warning: Disabling pkg-config since PKG_CONFIG_LIBDIR is not set and
+the host's .pc files would be used (even if you set PKG_CONFIG_PATH).
+Set this variable to the directory that contains target .pc files
+for pkg-config to function correctly when cross-compiling or
+use -pkg-config to override this test.
+Warning: Disabling pkg-config since PKG_CONFIG_SYSROOT_DIR is not set.
+Set this variable to your sysroot for pkg-config to function correctly when
+cross-compiling or use -pkg-config to override this test.
+checking for default C++ standard edition...  yes.
+checking for 64-bit std::atomic...  yes.
+checking for sse2...  no.
+checking for ipc_sysv...  yes.
+checking for zlib...  no.
+checking for mtdev...  no.
+checking for libjpeg...  no.
+checking for libpng...  no.
+checking for dlopen...  no.
+checking for libdl...  yes.
+checking for DB2...  no.
+checking for InterBase...  no.
+checking for MySQL (thread-safe)...  no.
+checking for MySQL (thread-unsafe)...  no.
+checking for OCI...  no.
+checking for ODBC...  no.
+checking for iODBC...  no.
+checking for PostgreSQL...  no.
+checking for SQLite2...  no.
+checking for TDS...  no.
+checking for Cups...  no.
+checking for POSIX iconv...  yes.
+checking for D-Bus...  no.
+checking for libproxy...  no.
+checking for Glib...  no.
+checking for ICU...  no.
+checking for PulseAudio...  no.
+checking for OpenGL...  no.
+checking for OpenGL ES 2.0...  no.
+checking for FontConfig...  no.
+checking for libudev...  no.
+checking for evdev...  yes.
+checking for tslib...  no.
+checking for xkbcommon...  no.
+checking for XLib...  no.
+checking for Xrender...  no.
+checking for XInput2...  no.
+checking for xcb...  no.
+checking for GBM...  no.
+checking for LinuxFB...  yes.
+checking for KMS...  no.
+checking for Mir client...  no.
+checking for EGL...  no.
+checking for FreeType...  no.
+checking for STL...  yes.
+checking for POSIX clock_gettime()...  yes.
+checking for POSIX Monotonic Clock...  yes.
+checking for posix_fallocate...  yes.
+checking for mremap...  yes.
+checking for getaddrinfo...  yes.
+checking for inotify...  yes.
+checking for eventfd...  yes.
+checking for IPv6 interface name...  yes.
+checking for getifaddrs...  yes.
+checking for cloexec...  yes.
+checking for OpenSSL...  no.
+checking for PCRE...  no.
+checking for OpenVG...  no.
+checking for OpenVG...  no.
+checking for OpenVG (lc includes)...  no.
+checking for OpenVG (lc includes)...  no.
+checking for alsa...  no.
+checking for GStreamer 1.0...  no.
+checking for GStreamer 0.10...  no.
+Done running configuration tests.
+
+   Configure summary
+
+Building on:   linux-g++ (x86_64, CPU features: mmx sse sse2)
+Building for:  linux-arm-gnueabi-g++ (arm, CPU features: none detected)
+Platform notes:
+
+            - Also available for Linux: linux-clang linux-kcc linux-icc linux-cxx
+        
+Build options:
+  Configuration .......... accessibility audio-backend clock-gettime clock-monotonic compile_examples concurrent cross_compile dbus enable_new_dtags evdev eventfd freetype full-config getaddrinfo getifaddrs harfbuzz iconv inotify ipv6ifname large-config largefile linuxfb medium-config minimal-config mremap no-pkg-config pcre png posix_fallocate precompile_header qpa qpa reduce_exports release rpath shared small-config threadsafe-cloexec zlib 
+  Build parts ............ libs examples
+  Mode ................... release
+  Using sanitizer(s)...... none
+  Using C++ standard ..... c++98		//使用旧版的 c++98 标准来编译工具链
+  Using gold linker....... no
+  Using new DTAGS ........ yes
+  Using PCH .............. yes
+  Using LTCG ............. no
+  Target compiler supports:
+    Neon ................. no
+
+Qt modules and options:
+  Qt D-Bus ............... yes (loading dbus-1 at runtime)
+  Qt Concurrent .......... yes
+  Qt GUI ................. yes
+  Qt Widgets ............. yes
+  Large File ............. yes
+  QML debugging .......... yes
+  Use system proxies ..... no
+
+Support enabled for:
+  Accessibility .......... yes
+  ALSA ................... no
+  CUPS ................... no
+  Evdev .................. yes
+  FontConfig ............. no
+  FreeType ............... yes (bundled copy)
+  Glib ................... no
+  GStreamer .............. no
+  GTK theme .............. no
+  HarfBuzz ............... yes (bundled copy)
+  Iconv .................. yes
+  ICU .................... no
+  Image formats: 
+    GIF .................. yes (plugin, using bundled copy)
+    JPEG ................. yes (plugin, using bundled copy)
+    PNG .................. yes (in QtGui, using bundled copy)
+  libinput................ no
+  Logging backends: 
+    journald ............... no
+    syslog   ............... no
+  mtdev .................. no
+  Networking: 
+    getaddrinfo .......... yes
+    getifaddrs ........... yes
+    IPv6 ifname .......... yes
+    libproxy.............. no
+    OpenSSL .............. no
+  OpenGL / OpenVG: 
+    EGL .................. no
+    OpenGL ............... no
+    OpenVG ............... no
+  PCRE ................... yes (bundled copy)
+  pkg-config ............. no 
+  PulseAudio ............. no
+  QPA backends: 
+    DirectFB ............. no
+    EGLFS ................ no
+      EGLFS i.MX6 ........ no
+      EGLFS i.MX6 Wayland. no
+      EGLFS EGLDevice .... no
+      EGLFS GBM .......... no
+      EGLFS Mali ......... no
+      EGLFS Raspberry Pi . no
+      EGLFS X11 .......... no
+    LinuxFB .............. yes
+    Mir client............ no
+    XCB .................. no
+  Session management ..... yes
+  SQL drivers: 
+    DB2 .................. no
+    InterBase ............ no
+    MySQL ................ no
+    OCI .................. no
+    ODBC ................. no
+    PostgreSQL ........... no
+    SQLite 2 ............. no
+    SQLite ............... yes (plugin, using bundled copy)
+    TDS .................. no
+  tslib .................. no
+  udev ................... no
+  xkbcommon-x11........... no
+  xkbcommon-evdev......... no
+  zlib ................... yes (bundled copy)
+
+Info: creating super cache file /home/infortech-ubuntu-1404/SAMA5D4/sources/qt/qt-5.6.2/qt-everywhere-opensource-src-5.6.2/.qmake.super
+
+        NOTICE: The -no-c++11 / --c++-level=c++98 option is deprecated.
+
+        Qt 5.7 will require C++11 support. The options are in effect for this
+        Qt 5.6 build, but you should update your build scripts to remove the
+        option and, if necessary, upgrade your compiler.
+
+Qt is now configured for building. Just run 'make'.
+Once everything is built, you must run 'make install'.
+Qt will be installed into /home/infortech-ubuntu-1404/SAMA5D4/sources/qt/qt-5.6.2/armv7-a
+
+Prior to reconfiguration, make sure you remove any leftovers from
+the previous build.
+/* log : end */
+	./configure成功
+编译:
+	make
+	出错:
+	在编译plugins/canbus时:
+	../../../../include/QtSerialBus/../../src/serialbus/qcanbusdevice.h:98:46: error: ‘nullptr’ was not declared in this scope
+In file included from main.cpp:37:0:
+	../../../../include/QtSerialBus/../../src/serialbus/qcanbus.h:60:31: error: ‘nullptr’ was not declared in this scope
+	main.cpp:58:14: error: ‘device’ does not name a type
+	main.cpp:59:16: error: ‘device’ was not declared in this scope
+	初步认为是,编译时没有开启支持 C++11 的特性!! 而一些内容需要C++11的特性来编译
+重新配置:
+	./configure -release -opensource -xplatform linux-arm-gnueabi-g++ -prefix /home/infortech-ubuntu-1404/SAMA5D4/sources/qt/qt-5.6.2/armv7-a -c++11 -qreal float	//注意 -c++11 前面没有-no前缀 ,这里配置应该就表示使用C++11标准编译 qt工具链 
+/* log : start */
++ cd qtbase
++ /home/infortech-ubuntu-1404/SAMA5D4/sources/qt/qt-5.6.2/qt-everywhere-opensource-src-5.6.2/qtbase/configure -top-level -release -opensource -xplatform linux-arm-gnueabi-g++ -prefix /home/infortech-ubuntu-1404/SAMA5D4/sources/qt/qt-5.6.2/armv7-a -c++11 -qreal float
+
+This is the Qt Open Source Edition.
+
+You are licensed to use this software under the terms of
+the Lesser GNU General Public License (LGPL) versions 2.1.
+You are also licensed to use this software under the terms of
+the GNU Lesser General Public License (LGPL) versions 3.
+
+Type '3' to view the GNU Lesser General Public License version 3.
+Type 'L' to view the Lesser GNU General Public License version 2.1.
+Type 'yes' to accept this license offer.
+Type 'no' to decline this license offer.
+
+Do you accept the terms of either license? yes
+
+Running configuration tests (phase 1)...
+Done running configuration tests.
+Creating qmake...
+.Done.
+Running configuration tests (phase 2)...
+Warning: Disabling pkg-config since PKG_CONFIG_LIBDIR is not set and
+the host's .pc files would be used (even if you set PKG_CONFIG_PATH).
+Set this variable to the directory that contains target .pc files
+for pkg-config to function correctly when cross-compiling or
+use -pkg-config to override this test.
+Warning: Disabling pkg-config since PKG_CONFIG_SYSROOT_DIR is not set.
+Set this variable to your sysroot for pkg-config to function correctly when
+cross-compiling or use -pkg-config to override this test.
+checking for C++11...  yes.
+checking for default C++ standard edition...  yes.
+checking for 64-bit std::atomic...  yes.
+checking for sse2...  no.
+checking for ipc_sysv...  yes.
+checking for zlib...  no.
+checking for mtdev...  no.
+checking for libjpeg...  no.
+checking for libpng...  no.
+checking for dlopen...  no.
+checking for libdl...  yes.
+checking for DB2...  no.
+checking for InterBase...  no.
+checking for MySQL (thread-safe)...  no.
+checking for MySQL (thread-unsafe)...  no.
+checking for OCI...  no.
+checking for ODBC...  no.
+checking for iODBC...  no.
+checking for PostgreSQL...  no.
+checking for SQLite2...  no.
+checking for TDS...  no.
+checking for Cups...  no.
+checking for POSIX iconv...  yes.
+checking for D-Bus...  no.
+checking for libproxy...  no.
+checking for Glib...  no.
+checking for ICU...  no.
+checking for PulseAudio...  no.
+checking for OpenGL...  no.
+checking for OpenGL ES 2.0...  no.
+checking for FontConfig...  no.
+checking for libudev...  no.
+checking for evdev...  yes.
+checking for tslib...  no.
+checking for xkbcommon...  no.
+checking for XLib...  no.
+checking for Xrender...  no.
+checking for XInput2...  no.
+checking for xcb...  no.
+checking for GBM...  no.
+checking for LinuxFB...  yes.
+checking for KMS...  no.
+checking for Mir client...  no.
+checking for EGL...  no.
+checking for FreeType...  no.
+checking for STL...  yes.
+checking for POSIX clock_gettime()...  yes.
+checking for POSIX Monotonic Clock...  yes.
+checking for posix_fallocate...  yes.
+checking for mremap...  yes.
+checking for getaddrinfo...  yes.
+checking for inotify...  yes.
+checking for eventfd...  yes.
+checking for IPv6 interface name...  yes.
+checking for getifaddrs...  yes.
+checking for cloexec...  yes.
+checking for OpenSSL...  no.
+checking for PCRE...  no.
+checking for OpenVG...  no.
+checking for OpenVG...  no.
+checking for OpenVG (lc includes)...  no.
+checking for OpenVG (lc includes)...  no.
+checking for alsa...  no.
+checking for GStreamer 1.0...  no.
+checking for GStreamer 0.10...  no.
+Done running configuration tests.
+
+   Configure summary
+
+Building on:   linux-g++ (x86_64, CPU features: mmx sse sse2)
+Building for:  linux-arm-gnueabi-g++ (arm, CPU features: none detected)
+Platform notes:
+
+            - Also available for Linux: linux-clang linux-kcc linux-icc linux-cxx
+        
+Build options:
+  Configuration .......... accessibility audio-backend c++11 clock-gettime clock-monotonic compile_examples concurrent cross_compile dbus enable_new_dtags evdev eventfd freetype full-config getaddrinfo getifaddrs harfbuzz iconv inotify ipv6ifname large-config largefile linuxfb medium-config minimal-config mremap no-pkg-config pcre png posix_fallocate precompile_header qpa qpa reduce_exports release rpath shared small-config threadsafe-cloexec zlib 
+  Build parts ............ libs examples
+  Mode ................... release
+  Using sanitizer(s)...... none
+  Using C++ standard ..... c++11		//使用C++11标准来 编译
+  Using gold linker....... no
+  Using new DTAGS ........ yes
+  Using PCH .............. yes
+  Using LTCG ............. no
+  Target compiler supports:
+    Neon ................. no
+
+Qt modules and options:
+  Qt D-Bus ............... yes (loading dbus-1 at runtime)
+  Qt Concurrent .......... yes
+  Qt GUI ................. yes
+  Qt Widgets ............. yes
+  Large File ............. yes
+  QML debugging .......... yes
+  Use system proxies ..... no
+
+Support enabled for:
+  Accessibility .......... yes
+  ALSA ................... no
+  CUPS ................... no
+  Evdev .................. yes
+  FontConfig ............. no
+  FreeType ............... yes (bundled copy)
+  Glib ................... no
+  GStreamer .............. no
+  GTK theme .............. no
+  HarfBuzz ............... yes (bundled copy)
+  Iconv .................. yes
+  ICU .................... no
+  Image formats: 
+    GIF .................. yes (plugin, using bundled copy)
+    JPEG ................. yes (plugin, using bundled copy)
+    PNG .................. yes (in QtGui, using bundled copy)
+  libinput................ no
+  Logging backends: 
+    journald ............... no
+    syslog   ............... no
+  mtdev .................. no
+  Networking: 
+    getaddrinfo .......... yes
+    getifaddrs ........... yes
+    IPv6 ifname .......... yes
+    libproxy.............. no
+    OpenSSL .............. no
+  OpenGL / OpenVG: 
+    EGL .................. no
+    OpenGL ............... no
+    OpenVG ............... no
+  PCRE ................... yes (bundled copy)
+  pkg-config ............. no 
+  PulseAudio ............. no
+  QPA backends: 
+    DirectFB ............. no
+    EGLFS ................ no
+      EGLFS i.MX6 ........ no
+      EGLFS i.MX6 Wayland. no
+      EGLFS EGLDevice .... no
+      EGLFS GBM .......... no
+      EGLFS Mali ......... no
+      EGLFS Raspberry Pi . no
+      EGLFS X11 .......... no
+    LinuxFB .............. yes
+    Mir client............ no
+    XCB .................. no
+  Session management ..... yes
+  SQL drivers: 
+    DB2 .................. no
+    InterBase ............ no
+    MySQL ................ no
+    OCI .................. no
+    ODBC ................. no
+    PostgreSQL ........... no
+    SQLite 2 ............. no
+    SQLite ............... yes (plugin, using bundled copy)
+    TDS .................. no
+  tslib .................. no
+  udev ................... no
+  xkbcommon-x11........... no
+  xkbcommon-evdev......... no
+  zlib ................... yes (bundled copy)
+
+
+Qt is now configured for building. Just run 'make'.
+Once everything is built, you must run 'make install'.
+Qt will be installed into /home/infortech-ubuntu-1404/SAMA5D4/sources/qt/qt-5.6.2/armv7-a
+
+Prior to reconfiguration, make sure you remove any leftovers from
+the previous build.
+/* log : end */
+	然后直接make
+	之前用 c++98 编译的,不用再编译,之后未编译的用 c++11 标准继续编译!!
+	出错!!
+/* log : start */
+make[2]:正在离开目录 `/home/infortech-ubuntu-1404/SAMA5D4/sources/qt/qt-5.6.2/qt-everywhere-opensource-src-5.6.2/qtcanvas3d/src'
+cd examples/ && ( test -e Makefile || /home/infortech-ubuntu-1404/SAMA5D4/sources/qt/qt-5.6.2/qt-everywhere-opensource-src-5.6.2/qtbase/bin/qmake /home/infortech-ubuntu-1404/SAMA5D4/sources/qt/qt-5.6.2/qt-everywhere-opensource-src-5.6.2/qtcanvas3d/examples/examples.pro -o Makefile ) && make -f Makefile 
+make[2]: 正在进入目录 `/home/infortech-ubuntu-1404/SAMA5D4/sources/qt/qt-5.6.2/qt-everywhere-opensource-src-5.6.2/qtcanvas3d/examples'
+cd canvas3d/ && ( test -e Makefile || /home/infortech-ubuntu-1404/SAMA5D4/sources/qt/qt-5.6.2/qt-everywhere-opensource-src-5.6.2/qtbase/bin/qmake /home/infortech-ubuntu-1404/SAMA5D4/sources/qt/qt-5.6.2/qt-everywhere-opensource-src-5.6.2/qtcanvas3d/examples/canvas3d/canvas3d.pro -o Makefile ) && make -f Makefile 
+make[3]: 正在进入目录 `/home/infortech-ubuntu-1404/SAMA5D4/sources/qt/qt-5.6.2/qt-everywhere-opensource-src-5.6.2/qtcanvas3d/examples/canvas3d'
+cd textureandlight/ && ( test -e Makefile || /home/infortech-ubuntu-1404/SAMA5D4/sources/qt/qt-5.6.2/qt-everywhere-opensource-src-5.6.2/qtbase/bin/qmake /home/infortech-ubuntu-1404/SAMA5D4/sources/qt/qt-5.6.2/qt-everywhere-opensource-src-5.6.2/qtcanvas3d/examples/canvas3d/textureandlight/textureandlight.pro -o Makefile ) && make -f Makefile 
+Project ERROR: Unknown module(s) in QT: quick
+make[3]: *** [sub-textureandlight-make_first] 错误 3
+make[3]:正在离开目录 `/home/infortech-ubuntu-1404/SAMA5D4/sources/qt/qt-5.6.2/qt-everywhere-opensource-src-5.6.2/qtcanvas3d/examples/canvas3d'
+make[2]: *** [sub-canvas3d-make_first] 错误 2
+make[2]:正在离开目录 `/home/infortech-ubuntu-1404/SAMA5D4/sources/qt/qt-5.6.2/qt-everywhere-opensource-src-5.6.2/qtcanvas3d/examples'
+make[1]: *** [sub-examples-make_first] 错误 2
+make[1]:正在离开目录 `/home/infortech-ubuntu-1404/SAMA5D4/sources/qt/qt-5.6.2/qt-everywhere-opensource-src-5.6.2/qtcanvas3d'
+make: *** [module-qtcanvas3d-make_first] 错误 2
+/* log : end */
+	由于是未知错误,所以,无法追踪出错源头,初步怀疑是之前用C++98 编译的模块 与后面用 C++11 编译的模块 要组合时出错!!!
+	make distclean	//把之前所有生成的东西都删掉!!!! 但make distclean 也有出错的!!!	加上 -j8 加快clean速度 
+	make confclean	//恢复出厂配置 configure 和 qmake.conf
+	
+	编译 qtcanvas3d 失败 是因为 使用的 quick 模块 需要 opengl
+	网上参考:
+		在编译之前，还有个改动，额。。。qt3d和qtcanvas3d在编译的时候会报错，说是未识别模块，
+		而且嵌入式的没有opengl，识别了也会报错，导致编译失败，而且编译配置参数里面也没有这两个模块的配置。
+		我的解决方法简单粗暴，在配置时参数加-no-opengl，然后打开qt-everywhere-opensource-src-5.7.0/qt.pro文件，找到：
+			addModule(qt3d, qtdeclarative qtimageformats)
+			addModule(qtcanvas3d, qtdeclarative)
+		这两行注释掉（#号注释），或者直接删掉。如果不注释掉，即使加了-no-opengl也会报错，编译失败。
+	这就是说跳过 qtcanvas3d qt3d 的意思,如果我坚决要编译的话,就得加入 opengl
+	重新./configure:
+		./configure -release -opensource -xplatform linux-arm-gnueabi-g++ -prefix /home/infortech-ubuntu-1404/SAMA5D4/sources/qt/qt-5.6.2/armv7-a -c++11 -opengl -qreal float	//添加了opengl项
+		出错:
+			checking for OpenGL...  no.
+			checking for OpenGL ES 2.0...  no.
+			All the OpenGL functionality tests failed!
+			You might need to modify the include and library search paths by editing
+ 			QMAKE_INCDIR_OPENGL, QMAKE_LIBDIR_OPENGL and QMAKE_LIBS_OPENGL in
+ 			/home/infortech-ubuntu-1404/SAMA5D4/sources/qt/qt-5.6.2/qt-everywhere-opensource-src-5.6.2/qtbase/mkspecs/linux-arm-gnueabi-g++.
+	网上参考:
+		编译安装Qt可能出现的问题及解决办法:
+		以下模块，yes的是qt默认安装的。
+		Debug ............... no
+		Qt 3 compatibility .. yes
+		QtDBus module ....... no
+		QtScriptTools module  yes
+		QtXmlPatterns module  yes
+		Phonon module ....... no
+		SVG module .......... yes
+		WebKit module ....... yes
+		STL support ......... yes
+		PCH support ......... yes
+		MMX/3DNOW/SSE/SSE2..  yes/yes/yes/yes
+		Graphics System ..... default
+		IPv6 support ........ yes
+		IPv6 ifname support . yes
+		getaddrinfo support . yes
+		getifaddrs support .. yes
+		Accessibility ....... yes
+		NIS support ......... yes
+		CUPS support ........ no
+		Iconv support ....... yes
+		Glib support ........ yes
+		GStreamer support ... no
+		Large File support .. yes
+		GIF support ......... plugin
+		TIFF support ........ plugin (qt)
+		JPEG support ........ plugin (system)
+		PNG support ......... yes (system)
+		MNG support ......... plugin (system)
+		zlib support ........ system
+		Session management .. yes
+		OpenGL support ...... yes (Desktop OpenGL)
+		NAS sound support ... no
+		XShape support ...... yes
+		XSync support ....... yes
+		Xinerama support .... runtime
+		Xcursor support ..... runtime
+		Xfixes support ...... runtime
+		Xrandr support ...... runtime
+		Xrender support ..... yes
+		Xi support .......... runtime
+		MIT-SHM support ..... yes
+		FontConfig support .. yes
+		XKB Support ......... yes
+		immodule support .... yes
+		GTK theme support ... no
+		PostgreSQL support .. plugin
+		SQLite 2 support .... plugin
+		SQLite support ...... plugin (qt)
+		OpenSSL support ..... yes (run-time)
+		所以，但我们开始装qt之前没有编译显示no的那些模块，我们可以
+		重新编译一次。
+		#./configure -phonon
+		但这时候，可能会提示以下内容，
+		Phonon support cannot be enabled due to functionality tests 
+		解决办法：
+		先下载必要的包：
+		sudo apt-get install libgstreamer0.10-dev libgstreamer-plugins-base0.10-dev
+		重新#./configure -phonon
+		即可。。。
+
+		如出现
+		Basic XLib functionality test failed!
+		则先安装libxext-dev
+		sudo apt-get install libxext-dev
+
+		mark时出现
+		/usr/bin/ld: cannot find -lXext
+		则需安装libxt-dev
+		sudo apt-get install libxt-dev
+
+		mark时出现
+		/usr/bin/ld: cannot find -lXrender
+		则需安装libxrender-dev
+		sudo apt-get install libxrender-dev
+
+		出现
+		X11/extensions/Xdamage.h: No such file or directory
+		则安装libxdamage-dev
+		sudo apt-get install libxdamage-dev
+
+		About QtOpenGL
+		If try -opengl then: All the OpenGL functionality tests failed!
+		sudo apt-get install libgl1-mesa-dev libglu1-mesa-dev
+
+		About QtDBus
+		If try -dbus then:The QtDBus module cannot be enabled because libdbus-1 version 0.93 was not found
+		sudo apt-get install libdbus-1-dev
+		sudo apt-get install libedbus-dev
+
+		gconf
+		sudo apt-get install libgconf2-dev
+
+		icu
+		sudo apt-get install libicu-dev
+
+	因此:先sudo apt-get install libgl1-mesa-dev libglu1-mesa-dev
+	然后qtbase/mkspecs/linux-arm-gnueabi-g++/qmake.conf添加:
+		QMAKE_INCDIR_OPENGL   = /usr/include/GL
+		QMAKE_LIBDIR_OPENGL   = /usr/lib
+		QMAKE_LIBS_OPENGL     = -lGLU -lGL	
+	依然错误:	All the OpenGL functionality tests failed!
+	网上参考:
+		如果需要openGL，就需要用 -opengl选项指定opengl的api，对于嵌入式平台，一般使用 opengl ES2，配置选项中加入" -opengl es2 " 。
+		不过想使用openGL可能会比较麻烦，因为openGL一般在有硬件图形加速的条件下才能高效运行，而这需要显卡或Soc厂家提供openGL的支持库，
+		但并不是所有Soc都能找到对应的支持库，比如三星就没有提供S5PV210的openGL库，所以我这里编译的Qt也是没有opengl的。
+		(openGL的替代方案：如果没有厂家提供的硬件图形库，可以考虑使用纯软件实现的opengl，这样的软件库有很多是开源的，如mesa3D库等，
+		不过纯软件实现的opengl在效率方面肯定要比带硬件加速的低很多，而且要想在嵌入式平台上使用，必须将opengl的软件库也交叉编译出来，
+		我在交叉编译mesa3D时遇到了些问题，所以目前还没能在开发板上用上openGL)；
+	还是先放弃 opengl:
+		
+
+
+
+
+
+
+
+
+20170204
+昨天编译QT 一直卡在qtcanvas3d编译失败,原因是需要用到opengl模块,但是并没有加载安装使用oepngl 所以试图先跳过qtcanvas与qt3d 
+然而按晚上参考的 qt.pro里没有对应项给予更改!!!
+不过知道了,虽然卡在了canvas3d上,但是qt的主体部分已经编译完成!!!
+所以直接make install 输出生成文件!!!
+现在的工作是拷到文件系统里,做测试!!!
+由于没有使用nfs 所以,先学习制作 ubi文件系统!!!
+
+解压一个ubi镜像:
+网上参考(走运,直接找到sama5d4_xpl的): http://blog.csdn.net/andylao62/article/details/50750404
+	sudo apt-get install mtd-utils //安装mtd-utils
+	//sama5d4ek or sama5d4_xplained board, the nand flash is different, 
+	//so use following line to do the nandsim, change the page size to 4096.
+	sudo modprobe nandsim first_id_byte=0x2c second_id_byte=0xdc third_id_byte=0x90 fourth_id_byte=0xa6	
+	sudo modprobe ubi mtd=0
+	sudo ubidetach /dev/ubi_ctrl -m 0
+	sudo ubiformat /dev/mtd0 -s 4096 -f xxxx.ubi 	//2048 改为 4096
+	sudo ubiattach /dev/ubi_ctrl -m 0 -O 4096	//2048 改为 4096
+	sudo mkdir /mnt/loop
+	sudo mount -t ubifs ubi0 /mnt/loop
+	sudo cp -R /mnt/loop/* ./xxxfs 		//把内容全部拷到xxxfs文件夹里!! */
+附加:解压JFFS2 images
+	//注意,不同的 nandflash 匹配不同的 nandsim 和 page size 以下nandsim 不是sama5d4开发板所用nandflash对应的nandsim 
+	sudo modprobe nandsim first_id_byte=0x2c second_id_byte=0xda third_id_byte=0x00 fourth_id_byte=0x15
+	sudo modprobe mtdblock
+	sudo modprobe mtdchar
+	sudo modprobe mtd mtd=0
+	sudo dd if=xxxxxxxxjffs2 of=/dev/mtd0
+	sudo mkdir /mnt/loop
+	sudo mount -t jffs2 /dev/mtdblock0 /mnt/loop
+	sudo cp -R /mnt/loop/* ./xxxfs	//把内容全部拷到xxxfs文件夹里!! */
+
+然后压缩成一个 ubi 镜像!!!
+	//假如现在处于 rootfs1 ,把 rootfs1/minfs 整个文件夹制作成ubi文件系统
+	sudo mkfs.ubifs -r /home/infortech-ubuntu-1404/SAMA5D4/sources/rootfs/rootfs1/minfs -m 4KiB -e 248KiB -c 2048 -o minfs.ubifs
+	//mkfs.ubifs 制作成 ubifs镜像
+	//-r 要制作成镜像的文件夹路径
+	//-m nandflash 的 page 大小
+	//-e 逻辑擦除块大小 block 大小, 每个物理块有2个4KiB(2个page)是由系统管理不可被用户使用的,所以不可被擦除,所以大小是248KiB,非256KiB
+	//-c 有多少个逻辑擦除块
+	//-o 生成镜像的名字!!!
+	sudo ubinize -o minfs.ubi -m 4KiB -p 256KiB -s 4096 -O 4096 ubinize.cfg
+	//mkfs.ubifs 制作成 ubi 二进制镜像
+	//-m nandflash 的 page 大小
+	//-p 物理块大小(物理块就是 逻辑擦除块 + 由系统管理不可被用户使用的空间)
+	//-s 给 ubi文件系统头信息所使用的空间 一般等于一个对应的 nandflash page大小
+	//-O 逻辑擦除块 距物理块开始位置的偏移量,一般为一个 由系统管理不可被用户使用的空间
+	ubinize.cfg : 配置文件
+[rootfs-volume]  
+mode=ubi
+image=/home/infortech-ubuntu-1404/SAMA5D4/sources/rootfs/rootfs1/minfs.ubifs
+vol_id=0
+vol_size=520MiB  
+vol_type=dynamic
+vol_name=min-rootfs
+vol_flags=autoresize
+	//生成镜像加载失败!!!
+	由于知道了 mkfs.ubifs 通过追踪 yocto项目此命令的使用途径就可以跟踪到具体出错处,
+	最后挖掘到  成功生成镜像并执行  的命令集!!! (并且是把解压的 ubi文件 重新打包生成镜像执行,说明,解压的方法也是正确的!!)
+	sudo mkfs.ubifs -r /home/infortech-ubuntu-1404/SAMA5D4/sources/rootfs/rootfs1/minfs -o minfs.ubifs -e 0x3e000 -c 2082 -m 0x1000 -x lzo
+	//-e 0x3e000	即 248KiB 与上面的指令的参数及意义一样
+	//-c 2082	2082 表示理论上有2082个逻辑块, 意味着2082个物理块,意味着理论上文件系统应管理的nandflash磁盘空间有520MiB
+	//-m 0x1000	即 4KiB 与上面的指令的参数及意义一样	
+	//-x lzo	强调 制作成 .ubifs 镜像是 lzo 压缩格式
+	sudo ubinize -o minfs.ubi -m 0x1000 -p 0x40000 ubinize.cfg
+	//-m 0x1000	即 4KiB 与上面的指令的参数及意义一样	
+	//-p 0x40000	即 256KiB 与上面的指令的参数及意义一样
+	//此外并没有设置 -s -O 参数,任其自动使用默认值
+	ubinize.cfg : 配置文件
+[rootfs-volume]		//名字顺便改,不参与内核识别,只便于程序员阅读
+mode=ubi
+image=/home/infortech-ubuntu-1404/SAMA5D4/sources/rootfs/rootfs1/minfs.ubifs
+vol_id=0		//内核会识别
+vol_size=480MiB 	//虽然 yocto 工程里面没有,但是这里一定要加入!!
+vol_type=dynamic
+vol_name=rootfs		//内核会识别ubi文件系统的名称,所以不能乱改,只能是 rootfs 这个名字
+vol_flags=autoresize
+	//特别注意:vol_size=480MiB 这一项,对比yocto工程发现,yocto工程里对应的ubinize.cfg本身没有这一项!!
+	//yocto工程使用工程自带封闭的 mkfs.ubifs 工具来编译生成 ubi文件系统镜像,与我使用的 mkfs.ubifs 工具 可能版本不一样
+	//所以yocto工程里对应的ubinize.cfg可以没有这一项,但是我的没有这一项vol_size=.. 使用ubinize时便会报错:
+ubinize: volume size was not specified in section "rootfs-volume", assume minimum to fit image "/home/infortech-ubuntu-1404/SAMA5D4/sources/rootfs/rootfs1/minfs.ubifs"6602752 bytes (6.3 MiB)
+	//而vol_size=480MiB 的值也有讲究:
+	//上面曾设置为: vol_size=520MiB,而 mkfs.ubifs 参数-c 2082 也暗示这个文件系统将可以管理nandflash磁盘空间有520MiB
+	//然而加载时出错:
+ubi0 error: vtbl_check: too large reserved_pebs 2165, good PEBs 2012
+	//这里表示内核运行时会扫描nandflash,会把坏的物理块标记,最后告知,只剩下2012个可用物理快,表明实际可被使用的空间 只有500MiB左右,
+	//并没有520MiB那么多, 而且,对于文件系统说,内核 与 bootloader 与 dtb 占据的空间不可访问,
+	//所以实际上 文件系统将可以管理nandflash磁盘空间或许只能是480MiB左右,文件系统不可能写入多于这个量的内容到磁盘上
+	//所以 vol_size=520MiB 时会出错,提示,磁盘实际上没有这么多空间!!!!!
+
+	成功运行 自己制作的ubi镜像的log信息
+/* log : start */
+ubi0: attaching mtd7
+random: nonblocking pool is initialized
+ubi0: scanning is finished
+ubi0 warning: print_rsvd_warning: cannot reserve enough PEBs for bad PEB handling, reserved 26, need 36
+ubi0: volume 0 ("rootfs") re-sized from 1982 to 1982 LEBs
+ubi0: attached mtd7 (name "rootfs", size 504 MiB)
+ubi0: PEB size: 262144 bytes (256 KiB), LEB size: 253952 bytes
+ubi0: min./max. I/O unit sizes: 4096/4096, sub-page size 4096
+ubi0: VID header offset: 4096 (aligned 4096), data offset: 8192
+ubi0: good PEBs: 2012, bad PEBs: 4, corrupted PEBs: 0
+ubi0: user volume: 1, internal volumes: 1, max. volumes count: 128
+ubi0: max/mean erase counter: 1/0, WL threshold: 4096, image sequence number: 1337189846
+ubi0: available PEBs: 0, total reserved PEBs: 2012, PEBs reserved for bad PEB handling: 26
+ubi0: background thread "ubi_bgt0d" started, PID 662
+at91_rtc fc0686b0.rtc: setting system clock to 2017-01-16 21:01:12 UTC (1484600472)
+panel-power-supply: disabling
+ALSA device list:
+  No soundcards found.
+UBIFS (ubi0:0): UBIFS: mounted UBI device 0, volume 0, name "rootfs", R/O mode
+UBIFS (ubi0:0): LEB size: 253952 bytes (248 KiB), min./max. I/O unit sizes: 4096 bytes/4096 bytes
+UBIFS (ubi0:0): FS size: 500793344 bytes (477 MiB, 1972 LEBs), journal size 9404416 bytes (8 MiB, 38 LEBs)
+UBIFS (ubi0:0): reserved for root: 0 bytes (0 KiB)
+UBIFS (ubi0:0): media format: w4/r0 (latest is w4/r0), UUID 9B79CCE3-363E-40CB-9F39-03BF4EF7F87B, small LPT model
+VFS: Mounted root (ubifs filesystem) readonly on device 0:14.
+devtmpfs: mounted
+Freeing unused kernel memory: 200K (c068c000 - c06be000)
+INIT: version 2.88 booting
+Starting udev
+udevd[692]: starting version 3.1.5
+open_ts!
+ubi0 error: ubi_open_volume: cannot open device 0, volume 0, error -16
+ubi0 error: ubi_open_volume: cannot open device 0, volume 0, error -16
+UBIFS (ubi0:0): background thread "ubifs_bgt0_0" started, PID 721
+Populating dev cache
+/* log : end */
+
+通过学习制作ubi格式文件系统!!更深刻地了解了文件系统的运作!!!
+	从 ubi 文件系统来分析!!!
 
 
  VBLANK: 显示器扫描线完成最后一行后,需要重返左上角,这个过程叫做: vblank,也叫VBI(vertical blank interval) ,因为扫描线变得blank,以防止看到一个斜线显示在屏幕上.?????
 开机没有出现小企鹅问题!!
-开发板的中断号与linux中断号的兑换表!!		
+开发板的中断号与linux中断号的兑换表!!		 
 
 使用 bitbake 工具链???
 	另外,如何 更改内核配置!!! 而bitbake 又可以通过!!!
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
