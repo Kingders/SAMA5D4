@@ -3853,6 +3853,213 @@ clock-frequency = <12000000>;	表示输入供main_rc_osc使用的clock频率 单
 clock-accuracy = <100000000>;	表示main_rc_osc 输出的clock频率 单位hz
 而在这里 就已经找到 adc_clk 的 参数,即 st->adc_clk.rate = clock-accuracy = 100000000
 
+触摸屏幕校对 ts_calibrate 只要多校对几次就好了!!
+
+
+
+
+
+
+
+
+
+20170210
+移植 window-manager 和 软键盘
+软键盘 首选 syszuxpinyin 然而只是下载了源码,大概搜集了做法,却未实现
+window-manager 先选 X-window 但是网上移植的教程不多
+最后想到,还不如做 移植一个 ubuntu 的文件系统,里面就附带 window-manager
+于是开始移植 ubuntu 文件系统!!
+几经波折,居然勉强把ubuntu15 的文件系统给挂上!!!,但是容易死机,特便是 cloud-init什么初始化失败,login 时就死机!!
+以下是一些移植 ubuntu 文件系统的 参考网页
+https://www.ibm.com/developerworks/linux/tutorials/l-ubuntu/
+http://blog.csdn.net/embbnux/article/details/12751465
+http://www.arm9home.net/read.php?tid-81429.html
+http://blog.csdn.net/kickxxx/article/details/15341079
+http://cdimage.ubuntu.com/ubuntu-core/vivid/daily-preinstalled/20170104/
+https://www.embbnux.com/category/embedded_linux/
+http://cdimage.ubuntu.com/ubuntu-base/releases/12.04.4/release/
+
+
+
+
+
+
+
+
+
+20170215
+内核启动后,挂载根文件系统后的初始化有两种方式
+1,传统的 System V initialization 需要先查询 /etc/inittab 文件, 
+  init进程启动后第一时间找的就是inittab 文件！inittab负责初始化系统，设置系统runlevel及进 入各runlevel对应要执行的命令。
+  假设当前inittab中设置的默认runlevle是5，则init会运行/etc/init.d/rc 5命令，该命令会依据系统服务的依赖关系遍历执行/etc/rc5.d中的脚本/程序。
+  进入/etc/rc5.d目录可以发现里面的文件都是到/etc /init.d/下对应的脚本/程序的软链接。
+  以S开头的为启动的意思，以K开头的为停止。并且S/K后面的两位数数字代表了服务的启动顺序（由服务依赖关系决定）
+  传统的 System V initialization 是以 runlevel 为核心的,依据服务依赖关系初始化
+  传统的 System V initialization 一般包含的主要文件有
+  /etc/inittab
+  /etc/init.d
+  /etc/rc0.d
+  /etc/rc1.d
+  /etc/rc2.d
+  /etc/rc3.d
+  /etc/rc4.d
+  /etc/rc5.d
+  /etc/rc6.d
+  /etc/rcS.d
+2,新的方式是 Upstart job 模式!!
+  就是事件驱动,才初始化启动对应的服务功能,严格上说只使用到 /etc/init 里的文件!!
+  Upstart job 模式 把 分配 runlevel 也当做是一种事件!!
+然而, ubuntu 使用的是合拼型的启动方式!!
+ubuntu 的 /etc/init 有以下几个重点文件!!
+rc.conf			//rc-sysinit在startup事件发生时被启动
+rc-sysinit.conf		//rc在系统runlevel变化时被启动
+rcS.conf		//rcS在系统runlevel为S时启动
+ubuntu使用的合拼启动模式是,把 System V initialization 的后动当做是一个事件, 用Upstart init 来启动这个事件
+在配置文件的注释中说明了，这几个文件，正是Upstart init处理System V-style服务的关键。
+文件系统挂载后,startup 启动,然后启动 rc-sysinit.conf ,设置runlevel,然后转到 rc.conf 执行:
+exec /etc/init.d/rc $RUNLEVEL  转到了对应的 /etc/rcx.d 开始对应内容的执行!! 即转到了 System V initialization 的内容!!
+
+网上参考:(ubuntu初始化)
+启动时会首先执行/etc/init目录中配置文件
+配置文件中可以设置启动的时机与顺序，start on startup,start on runlevel [1234],stop on [!3453]
+一般的Linux分8个级别:0-6和一个'S'级别。
+	0代表关机(halt)，
+	6代表重启(restart)；
+	1-5分别是不同功能的级别，其中1级别是单用户模式(single)，2-5各有不同。但是在userlinux(包括ubuntu)中2-5级别是毫无差别的。
+	最后'S'级别是一个比较特殊的级别，他应该是先于其他级别运行的级别。(这一点有待考证)。
+	这里说明一下，0-6级别的运行是互斥的，而不是叠加运行，
+	也就是说如果进入(move into)4级别，不是指0-3都要运行，而只是完成4级别里所规定的服务。
+所有的运行服务的脚本存储在/etc/init.d/里面。而在/etc/中有rc'X'.d的文件夹，'X'代表0-6和S，也就对应了这8个启动级别，
+	里面就都是指向/etc/init.d/里面运行服务的脚本的软连接(symbol link)，
+会发现，软连接的数目少于运行脚本数，这就是说不是所有服务都要在一个级别中运行的。软连接的命名是有规则的：
+	[K|S][0-90-9][name]，K代表kill，S代表start，后面是个二位数，最后是对应的运行服务的脚本文件名。
+	这个name是在运行相应的脚本的时候传递的参数，
+	K是传递stop(就是关闭服务),S是传递start(就是启动服务)，
+	运行顺序：K小数->K大数->S小数->S大数。这里注意文件夹里的所有软连接都会被执行，
+rc'x'.d里面的软连接是由/etc/init/rc.conf调用的 ("x"不包括S)
+rcS.d里面的软连接是由/etc/init/rc.conf调用的
+rcS.conf		//rcS在系统runlevel为S时启动
+在ubuntu中，可以使用update-rc.d命令去维护rc，语法为：sudo update-rc.d servicename defaults 
+
+然而发现 ubuntu12 符合以上ubuntu启动方式, 不可以启动,但是 ubuntu15不符合以上方式,不可启动!!
+
+嵌入式桌面系统架构; gnome 和 kde 而真正的gui是建立在这些架构上的软件!!
+
+简单的嵌入式桌面系统 qt-extended (旧时代手机桌面,已不再维护)
+重点记录!!!
+在configure时!!出错!!
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D4/sources/qt-extended/qte1/build-pc$ echo yes | ../qt-extended-4.4.3/configure -ui-type home -release -clean -sound-system alsa -build-qt -no-sxe -no-ssl -no-v4l2 -no-vpn -no-phonon -no-libamr -mediaengines cruxus -remove-mediaengine gstreamer,helix -pictureflow -remove-module bluetooth,drm -no-dbus -no-dbusipc -add-displaysize 480x272 -extra-qt-embedded-config "-qt-freetype -no-webkit -no-dbus -qt-gfx-transformed -qt-gfx-linuxfb" -extra-qt-config "-no-webkit" 
+/* log start */
+perl: warning: Setting locale failed.
+perl: warning: Please check that your locale settings:
+	LANGUAGE = "”en_US”",
+	LC_ALL = (unset),
+	LC_CTYPE = "”en_US”",
+	LANG = "”en_US”"
+    are supported and installed on your system.
+perl: warning: Falling back to the standard locale ("C").
+perl: warning: Setting locale failed.
+perl: warning: Please check that your locale settings:
+	LANGUAGE = "”en_US”",
+	LC_ALL = (unset),
+	LC_CTYPE = "”en_US”",
+	LANG = "”en_US”"
+    are supported and installed on your system.
+perl: warning: Falling back to the standard locale ("C").
+
+This is the Qt Extended Open Source Edition.
+
+You are licensed to use this software under the terms of the GPL.
+Please see the file LICENSE.GPL for the licensing terms.
+
+Type 'yes' to accept this license offer.
+Type 'no' to decline this license offer.
+
+Do you accept this license agreement? 
+Testing the system Qt: OK (bootstrap only)
+Found Qt 4.8 while expecting Qt 4.4.
+Qt Extended will build Qt from source.
+Qt Extended is using the following locations:
+Qt          SOURCE tree = /home/infortech-ubuntu-1404/SAMA5D4/sources/qt-extended/qte1/qt-extended-4.4.3/qtopiacore/qt
+Qt          BUILD  tree = /home/infortech-ubuntu-1404/SAMA5D4/sources/qt-extended/qte1/build-pc/qtopiacore/host
+Qt Embedded SOURCE tree = /home/infortech-ubuntu-1404/SAMA5D4/sources/qt-extended/qte1/qt-extended-4.4.3/qtopiacore/qt
+Qt Embedded BUILD  tree = /home/infortech-ubuntu-1404/SAMA5D4/sources/qt-extended/qte1/build-pc/qtopiacore/target
+Qt Extended SOURCE tree = /home/infortech-ubuntu-1404/SAMA5D4/sources/qt-extended/qte1/qt-extended-4.4.3
+Qt Extended BUILD  tree = /home/infortech-ubuntu-1404/SAMA5D4/sources/qt-extended/qte1/build-pc
+Qt Extended SDK    tree = /home/infortech-ubuntu-1404/SAMA5D4/sources/qt-extended/qte1/build-pc/sdk
+
+Checking the compiler (host): OK (GCC 4, Little Endian)
+Checking the compiler (target): OK (GCC 4, Little Endian)
+Bootstrap QBuild: .. FAIL
+In file included from ../../../qt-extended-4.4.3/qbuild/src/main.cpp:37:0:
+../../../qt-extended-4.4.3/qbuild/src/options.h: In constructor 'Options::Options()':
+../../../qt-extended-4.4.3/qbuild/src/options.h:52:22: error: call of overloaded 'QString(int)' is ambiguous  //错误处
+           traceFile(0) {}
+                      ^
+../../../qt-extended-4.4.3/qbuild/src/options.h:52:22: note: candidates are:
+In file included from /usr/include/qt4/QtCore/QString:1:0,
+                 from ../../../qt-extended-4.4.3/qbuild/src/qfastdir.h:23,
+                 from ../../../qt-extended-4.4.3/qbuild/src/main.cpp:21:
+/usr/include/qt4/QtCore/qstring.h:421:43: note: QString::QString(const QByteArray&)
+     inline QT_ASCII_CAST_WARN_CONSTRUCTOR QString(const QByteArray &a)
+                                           ^
+/usr/include/qt4/QtCore/qstring.h:419:43: note: QString::QString(const char*)
+     inline QT_ASCII_CAST_WARN_CONSTRUCTOR QString(const char *ch) : d(fromAscii_helper(ch))
+                                           ^
+/usr/include/qt4/QtCore/qstring.h:725:8: note: QString::QString(const QString&)
+ inline QString::QString(const QString &other) : d(other.d)
+        ^
+/usr/include/qt4/QtCore/qstring.h:89:5: note: QString::QString(QChar)
+     QString(QChar c);
+     ^
+/usr/include/qt4/QtCore/qstring.h:88:14: note: QString::QString(const QChar*)
+     explicit QString(const QChar *unicode); // Qt5: merge with the above
+              ^
+../../../qt-extended-4.4.3/qbuild/src/main.cpp: In function 'void createProject()':
+../../../qt-extended-4.4.3/qbuild/src/main.cpp:49:33: warning: ignoring return value of 'int chdir(const char*)', declared with attribute warn_unused_result [-Wunused-result]
+         ::chdir(pwd.constData());
+                                 ^
+make[1]: *** [main.o] Error 1
+/* log end */
+初步认为是冲突了 网上都说要把 QT creator 删掉, 实际上不止,应该把不知道什么时候装在pc上的qt4删掉或暂时屏蔽掉路径
+还是失败,原来还是需要寻找QT库的,但是显然qt-extended4.4.3与pc机上的qt库版本冲突了!!
+(所以搁置 qt-etended 的移植!!)
+
+移植 minigui
+(待续)
+
+
+
+
+
+
+
+
+
+
+20170216
+架设 ssh 登陆 远程电脑:
+安装
+	sudo apt-get install openssh-client
+	sudo apt-get install openssh-server
+启动ssh服务：
+	sudo /etc/init.d/ssh start
+停止ssh服务：
+	sudo /etc/init.d/ssh stop
+重启ssh服务：
+	sudo /etc/init.d/ssh restart
+然后确认sshserver是否启动了：（或用“netstat -tlp”命令)
+	ps -e | grep ssh
+
+
+申请免费域名并挂到路由器DNS
+暴露pc主机的dmz 到公网
+设置端口转送
+ssh配置:
+ssh -NfR 2284:localhost:22 infortechubuntu1404-HP-EliteDesk-880-G2-TWR@16r6d01795.iask.in  // ??反向代理
+ssh -gNfR *:2222:localhost:22 root@16r6d01795.iask.in	//  ??或这样设置?
+
+
 
 
 
