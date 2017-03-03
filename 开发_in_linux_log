@@ -4058,6 +4058,134 @@ make[1]: *** [main.o] Error 1
 ssh配置:
 ssh -NfR 2284:localhost:22 infortechubuntu1404-HP-EliteDesk-880-G2-TWR@16r6d01795.iask.in  // ??反向代理
 ssh -gNfR *:2222:localhost:22 root@16r6d01795.iask.in	//  ??或这样设置?
+(未成功)!!
+
+
+
+
+
+
+
+
+
+20170217
+重新尝试 buildroot,事实上,发现,buildroot更适合,构造根文件系统和arm-gcc,g++ 编译工具!!
+不推荐使用提供的sh脚本来烧录镜像!!因为,有很多与之前研究中不一样的配置和操作!!所以推荐手动烧录文件系统镜像到机器
+编译记录:
+使用之前 git clone 下来的 buildroot 即 buildroot1
+先 make distclean
+然后 make atmel_sama5d4_xplained_mmc_defconfig	做初步配置
+然后 make menuconfig 修改配置!!!
+	Target option 里的 默认不变
+	Build option 里的 蓦然不变
+	System configuration 里的 默认不变
+	kernel 取消不选
+	bootloader 取消不选
+	Target package 根文件系统里预装的内容
+		添加QT5的图形库!!
+		Graphic libraries and applications (graphic/text)  --->  ->  [*] Qt5  --->
+		--- Qt5       
+		-*-   qt5base            
+		[ ]     Approve free license    
+		()      Config file         
+		[*]     Compile and install examples (with code) 	//一定要examples 检验图像库是否移植成功!!
+		[ ]     concurrent module       
+		[ ]     MySQL Plugin          
+		[ ]     PostgreSQL Plugin              
+			SQLite 3 support (No sqlite support)  ---> 
+		[*]     gui module            
+		[*]       widgets module             
+			  *** OpenGL support needs an OpenGL-capable backend ***  
+		-*-       linuxfb support            
+		          *** directfb backend available if directfb is enabled ***    
+		          *** X.org XCB backend available if X.org is enabled ***   
+			  *** eglfs backend available if OpenGL and EGL are enabled ***    
+		(linuxfb) Default graphical platform  
+		[*]       fontconfig support    
+		[*]       GIF support            
+		[*]       JPEG support          
+		[*]       PNG support           
+		[*]     DBus module             
+		[*]     Enable ICU support       
+		[*]     Enable Tslib support  
+		......
+	Filesystem images 根文件系统的镜像格式选取!!
+		在这里我们要添加ubi选项,让根文件系统添加这个格式的镜像
+		[*] ubifs root filesystem
+		(0x3e000) logical eraseblock size	//逻辑擦除块大小 248kiB
+		(0x1000) minimum I/O unit size 		//page的大小 4kiB
+		(2082) maximum logical eraseblock count  //逻辑擦除块数量
+		ubifs runtime compression (lzo)  ---> 	 //压缩格式 lzo
+		Compression method (no compression)  ---> 
+		()    Additional mkfs.ubifs options  
+		[*]   Embed into an UBI image    	//生成 .ubi镜像
+		(0x40000) physical eraseblock size  	//物理块大小 256kiB
+		(4096)  sub-page size             	//page的大小 4kiB
+	Toolchain  编译工具链,其实就是整套 arn-linux-gcc 工具链,
+		注意,一定要把里面的功能全部使能,不然得到的 的工具链功能是有缺陷的,而且中途不能通过重新编译添加未添加的功能,
+		只能把整套删掉 make distclean 然后再重新生成一整套!!
+		我们这次用到的工具链的版本配置信息!!!
+		Toolchain type (Buildroot toolchain)  ---> //使用Buildroot toolchain 即,自动下载gcc工具链源码包编译
+							   //而 External toolchain 就是说使用已有的,用户现成的 gcc 工具包,即不用重新编译
+		 *** Toolchain Buildroot Options ***		
+	(buildroot) custom toolchain vendor name
+		C library (glibc)  --->			   //这套gcc工具 使用 glibc库
+		*** Kernel Header Options *** 
+		Kernel Headers (Linux 4.1.x kernel headers)  ---> //是说明这套gcc是专门面向kernel4.1?
+								  //还是说这套gcc是拥有kernel4,1的特征?? 
+		glibc version (2.23)  ---> 		  //这套gcc工具 使用的 glibc库 版本!!
+		*** Binutils Options ***
+		Binutils Version (binutils 2.26.1)  --->  //这套gcc工具 使用的 binutils 版本!!
+	    ()  Additional binutils options 
+		*** GCC Options ***
+		GCC compiler Version (gcc 4.8.x)  --->  
+	    ()  Additional gcc options   
+	    //添加这套gcc工具 的其他功能,使之成为完整的的一套工具!!!
+	    [*] Enable C++ support   			
+	    [*] Enable Fortran support 
+	    [*] Enable compiler link-time-optimization support       
+	    [*] Enable compiler OpenMP support    
+	    [*] Enable libmudflap support 
+	    [*] Enable graphite support  
+		*** Host GDB Options ***  
+	    [*] Build cross gdb for the host  
+	    [*]   TUI support 
+	    [*]   Python support     
+	    [*]   Simulator support 
+		  GDB debugger Version (gdb 7.10.x)  --->   
+		*** Toolchain Generic Options *** 
+	    [ ] Copy gconv libraries  
+	    [*] Enable MMU support  
+	    ()  Target Optimizations  
+	    ()  Target linker options  
+	    [ ] Register toolchain within Eclipse Buildroot plug-in                                                            │ │  
+
+配置完就 make -j8 进行编译
+	再次注意:如果 本来的toolchain里不包含Enable C++ support 那么得到的 gcc工具包里就没有 arm-linux-gnueabihf-g++,
+	所以当builroot 编译rootfs要加入qt5的内容,会因为中找不到g++来编译cpp文件而出现以下错误,	 
+	configure: error: You need a C++ compiler for C++ support  ubuntu
+	这时,中途 make menuconfig 重新选上 Enable C++ support ,然后重新 make -j8并不会让toolchain 自动添加 arm-linux-gnueabihf-g++ 这个工具
+	唯一办法是,把toolchain生成的全删后,重新 make -j8
+编译成功好后:
+buildroot/output/build 里是下载下来的函数库或者工具包的源码以及编译后的文件
+buildroot/output/host/usr 里的是 生成的一整套完整 arm-linux-gcc 工具链, 可以直接拷出来自己使用!!
+buildroot/output/images 里的是生成的镜像文件!!! 由于我们只使用buildroot构造文件系统,所以只有 rootfs相关的各个镜像,并没有zImage等其他镜像
+buildroot/output/target 未打包成镜像前的根文件目录的内容!!
+烧录:
+cd到images
+sudo sam-ba -p serial:ttyACM1:115200 -b sama5d4-xplained -a nandflash -c erase:0x800000:0x1f800000 -c write:rootfs.ubi:0x800000
+开机,成功加载系统!!!
+测试ts_test,ts_calibrate, qt-example 成功!!
+但是,qt-example的的触摸屏按键 依然出现 翻转错位现象
+此外文件系统加载时,并没有自动初始化网络:
+使用命令:
+udhcpc 初始化网络!!
+此外,想知道,qt程序是如何运用tslib的,所以希望查找 /etc/profile文件来查看qt配置!!
+什么也没有发现!!
+没有 TSLIB_**, QT_QPA_** 一类环境变量,grep搜索,没发现相关的配置文件,
+却发现在内嵌在 libqt***.so.65.6.2XXX 之类的库文件里!! 
+检查 tslib 与 qt图形库的关系,发现 qt图形库直接使用event0 压根没有使用tslib!!!
+但是 grep 发现 qtbase 编译前的configure 是有添加 -tslib 选项的!!!
 
 
 
@@ -4069,10 +4197,612 @@ ssh -gNfR *:2222:localhost:22 root@16r6d01795.iask.in	//  ??或这样设置?
 
 
 
+20170220
+追查qt5.6.2 与 tslib1.1 的联系 
+(注意只是从 buildroot 里制作的根文件系统做的实验,未知其他根文件系统会是怎么样!!!)
+先把 buildroot生成的 rootfs 文件目录,拷贝到 rootfs3
+使用组合命令 编译成 rootfs.ubi 镜像
+sudo mkfs.ubifs -r /home/infortech-ubuntu-1404/SAMA5D4/sources/rootfs/rootfs2/demofs -o demofs.ubifs -e 0x3e000 -c 2082 -m 0x1000 -x lzo
+sudo ubinize -o demofs.ubi -m 0x1000 -p 0x40000 ubinize.cfg
+sudo sam-ba -p serial:ttyACM1:115200 -b sama5d4-xplained -a nandflash -c erase:0x800000:0x1f800000 -c write:demofs.ubi:0x800000
+烧录后,却被告知说 不能打开 /dev/console permittion denyed  
+经过一番折腾发现,buildroot 生成的 rootfs 目录全部文件都被赋予了只读权限,
+因此在 生成ubi镜像前,先把文件的所有权限开放
+sudo chmod 777 rootfs/*			//  开发所有文件的权限 */
+然后烧录运行正常!!
+关于QT触摸屏错位的改正!!
+直接怀疑 QT库并没有使用 tslib !!
+发现profile内容没有 常规移植QT和tslib时要添加的 路径变量,所以怀疑 tslib 和 QT 一直在使用默认环境变量!!
+于是 profile 末尾加上一项
+export QT_QPA_GENERIC_PLUGINS=tslib
+//注意,不是 export QT_QPA_GENERIC_PLUGINS=tslib:/dev/input/event0
+// :号 表示,要么使用tslib修正过的触摸屏设备,要么直接使用原生触摸屏设备
+//为了避免 QT5 可能直接使用原生设备, 所以不要加入/dev/input/event0!!!!
+执行 QT5 examples/widgets/desktop/screenshot 里的例程时,出现了 ts_open() faired with error (no such file or dictionary ) 
+执行 QT5 examples/widgets/touch/fingerpaint 里的例程时,也出现了 ts_open() faired with error (no such file or dictionary ) 
+这时因为要使用tslib修正过的触摸屏设备,就得使用tslib的 api ts_open
+而 ts_open 要打开原生触摸屏设备,但是我们没有给出 这个设备的环境变量,所以要在 profile 加上
+export TSLIB_TSDEVICE=/dev/input/event0
+然后 screenshot 成功了!!!! 成功用上了 tslib矫正的触摸屏,但是出现一个新问题,按键并不是特别灵光!!
+而 fingerpaint 虽然没有提示 ts_open() faired with error 但是似乎没有 用上矫正过的触摸屏,而还是用原生的,
+QT 用原生出现的问题具体是 x轴正常, y轴是中点反对称地出现!!!
+
+也就是虽然可以使用上 tslib 了 但是还有很多问题:
+animation/easing 滑动条不能滑动!只能跳着过 没有tslib前可以拖着滑动!!
+但是animation/states 可以拖动!!
+按键不灵光
+touch/fingerpaint(绘图) 好像没用上tslib
+touch/dials(数字旋表,就像汽车转速表) 好像没用上tslib
+qpa/windows 好像用上了,但是出现跳屏!!!
+
+修改profile删掉
+export QT_QPA_GENERIC_PLUGINS=tslib
+export TSLIB_TSDEVICE=/dev/input/event0
+只添加:
+export QT_QPA_GENERIC_PLUGINS=tslib:/dev/input/event0
+效果一样!!!
 
 
 
 
+
+
+
+
+
+
+20170221
+字符显示!!
+(注意只是从 buildroot 里制作的根文件系统做的实验,未知其他根文件系统会是怎么样!!!)
+之前的测试一直没有字符显示!!!
+按网上方法!!
+把pc机的 /usr/share/fonts/truetype/dejavu 文件夹拷到开发板的 /usr/share/fonts/dejavu
+然后 开发板profile添加!!
+export QT_QPA_FONTDIR=/usr/share/fonts/dejavu
+(补充,未实现!!)
+关于中文字符的显示,据搜索说是要,添加 /usr/share/fonts/truetype/arphic 然后,profile做同样修改!!
+研究屏幕键盘!!!
+安装 qtcreator4.2 ,及配置环境 
+官网下载 qt-creator-opensource-linux-x86_64-4.2.0.run 安装包
+直接指令安装 ./qt-creator-opensource-linux-x86_64-4.2.0.run
+安装后,就要配置qtcreator的编译选项:工具tools -> build and run窗口
+先配置 QT Version
+	先了解qt的编译工作流程!!!例如我要编译一个面向 armmv7-a 的窗口程序,用到 qt5.6 的库
+	首先,我使用 面向armv7-a 的 qt5.6 的 qmake 工具 编译这个窗口程序工程的.pro配置文件!!! 最后生成 指定Makefile
+	然后, 使用makefile 编译出真正的执行文件
+	QT Version配置,我们需要使用 哪个版本,面向那种机器的qt库, 我们就把他对应的qmake工具加进来!!
+	我们添加了 面向armv7-a 的 qt5.6 的 qmake 工具
+	然而报错说我们 缺乏指定的编译器!!
+配置 编译器
+	上述 面向armv7-a 的 qt5.6 的 qmake 工具 就指明了 他生成的 makefile 是使用我们之前指定的 arm-linux-gnueabihf-gcc 系列工具
+	来编译成 执行文件 的, 所以我们要把 arm-linux-gnueabihf-gcc 系列工具 添加到这里来,
+	分别独立添加 对应 gcc 和 g++
+	然后回到 QT Version 发现刚刚添加的 面向armv7-a 的 qt5.6 的 qmake 工具 不再报错!!
+配置 DEbuggers
+	arm-linux-gnueabihf-gcc 系列工具 也有gdb 调试工具, 但是不会用,加不加无所谓
+配置CMake
+	不用管
+构建套件(kit)
+	不使用 QT creator 时,要生成一个窗口可执行文件,我们需要使用多条编译指令,使用多个编译器
+	但是配置成一个套件后,使用 QT creator 生成一个窗口可执行文件,只是一个按键的事情,
+	这里要用到的工具捆绑在一起
+	添加一个套件:
+	名称自选
+	设备类型, 对于嵌入式触摸屏设备,推荐使用 桌面就可以,选择通用linux设备,需要自己定义一台设备,相当麻烦!!
+	Sysroot 不管
+	编译器C 选刚刚加入的 arm-linux-gnueabihf-gcc
+	编译器C++ 选刚刚加入的 arm-linux-gnueabihf-g++
+	调试器 选刚刚加入的 arm-linux-gnueabihf-gdb
+	QT版本 选QT5.6.2 这是刚刚加的 qmake 识别出来的QT版本
+配置好,弄个例程编译试试: example里的 screenshot
+注意,要在项目那检查工程配置
+	选择新构建的套件:
+	它的qmake 里编译用到的 qmake命令
+	它的make 里编译用到的 make 命令
+编译时注意:
+由于是使用arm架构的gcc编译工具,所以,并不能在pc机上做debug 所以,只需要按 build 按钮就好了,
+最后烧录到开发板,测试通过!!!!
+
+移植屏幕键盘到开发板!!
+现实
+
+
+
+
+
+
+
+
+
+
+20170222
+搞好ssh 远程桌面!!!
+重启ssh服务：
+	sudo /etc/init.d/ssh restart
+然后确认sshserver是否启动了：（或用“netstat -tlp”命令)
+	ps -e | grep ssh
+
+简单局域网相连:
+ssh -X root@200.200.200.102	// 
+sudo ssh -X 200.200.200.102	//这两条命令作用相同,都是登陆到 ip为200.200.200.102的pc机 的root用户!!
+sudo ssh -X infortech-ubuntu-1404@200.200.200.102 //
+sudo ssh -X infortech-ubuntu-1404@200.200.200.102 //这两条命令作用相同,都是登陆到 ip为200.200.200.102的pc机 的infortech-ubuntu-1404用户!!
+出错:
+Permission denied, please try again. 
+解决:
+要修改 ip为200.200.200.102的pc机 的root的ssh权限，即修改 /etc/ssh/sshd_config文件中
+	PermitRootLogin no 改为 PermitRootLogin yes 
+此外, -X 表示窗口界面,不是命令行终端,但没有成功使用窗口登陆!!
+
+拷贝文件操作!!
+kingders@kingders-ThinkPad-T420:~$ scp ./安川电机/report infortech-ubuntu-1404@200.200.200.102:./桌面
+//把 本机的/home/kingders/安川电机/report 文件   拷贝到   ip为200.200.200.102的pc机的/home/infortech-ubuntu-1404/桌面 文件夹 去
+kingders@kingders-ThinkPad-T420:~$ scp infortech-ubuntu-1404@200.200.200.102:./桌面/temp_20170117 ./Desktop
+//把 ip为200.200.200.102的pc机的/home/infortech-ubuntu-1404/桌面/temp_20170117 文件   拷贝到   本机的/home/kingders/Desktop 文件夹 去 
+
+挂载远程硬盘(未完待续)
+
+最后还是脱离了ssh 使用上了基于vnc 的远程桌面
+sudo apt-get install xrdp //安装 xrdp 多了一个 Desktop Sharing Preferences 的选项框
+这样就装上了两款软件!!!
+Desktop Sharing /桌面共享
+Remmina Remote Desktop Client / Remmina远程桌面客户端!!
+被远程控制的机子 在 桌面共享 里 选允许其他人查看/控制您的桌面,安全 不选"进行访问确认"
+要远程控制的机子 打开 Remmina远程桌面客户端 新建->协议是VNC虚拟网络计算->填写:
+	被远程控制的机子的ip
+	其他的可以都不填(不知道为啥)
+然后就可以connect过去了
+
+还有一个更加傻瓜的方法就是使用 teamviewer
+另外,安装google远程桌面 和 teamviewer 时 注入了一个bug 会启动 deja-dup-monitor 无限吃内存!!!卡死机器!!!
+鉴于 deja-dup-monitor 并没有啥用 直接 重命名 让bug读取不到!!!
+罪魁祸首还是 google-chrome, 删掉就好了!!!
+
+最后关于 ubuntu 两种软件安装方式  apt-get 和 .deb包!!
+主要用到apt-get dpkg两个命令：
+1. 快速使用
+安装软件 apt-get install softname1 softname2 softname3……
+卸载软件 apt-get remove softname1 softname2 softname3……
+卸载并清除配置 apt-get remove --purge softname1
+更新软件信息数据库 apt-get update
+进行系统升级 apt-get upgrade
+搜索软件包 apt-cache search softname1 softname2 softname3……
+修正（依赖关系）安装：apt-get -f install
+
+安装deb软件包 dpkg -i xxx.deb
+删除软件包 dpkg -r xxx		//不需要写deb包全名 xxx_版本_架构.deb
+连同配置文件一起删除 dpkg -r --purge xxx.deb
+查看软件包信息 dpkg -info xxx.deb
+查看文件拷贝详情 dpkg -L xxx.deb
+查看系统中已安装软件包信息 dpkg -l
+重新配置软件包 dpkg-reconfigure xx
+sudo dpkg -p package_name卸载软件包及其配置文件，但无法解决依赖关系！
+sudo aptitude purge pkgname卸载软件包及其配置文件与依赖关系包！ 
+清除所有已删除包的残馀配置文件
+dpkg -l |grep ^rc|awk '{print $2}' |sudo xargs dpkg -P
+如果报如下错误，证明你的系统中没有残留配置文件了，无须担心。
+
+
+
+
+
+
+
+
+20170224
+移植 摄像头!! 
+首先,分别使用ov7670 和 ov3640 两款摄像头
+使用两种协议工作: 
+	ISI:传输图像数据
+	I2C:控制摄像头
+涉及文件 atmel-isi.c ov2640.c ov7670.c
+采集原理:
+	cmos硬件采集 -> isi协议传输数据 -> V4L2中间库 -> 应用程序
+总的说,	ov2640.c是i2c从设备, 
+	atmel-isi.c是isi的平台设备,
+	那么对应ov2670的isi从设备是哪一个,难道 ov2640.c兼顾?
+	make ARCH=arm menuconfig 里关于 isi i2c ov2640 v4l2 该选的都选上了 
+纠错:上述热时错误是,直接把 xxx平台设备等同于 XXX协议总线!!!
+	xxx平台设备是挂在 平台总线 上的一个设备而已,虽然大多数平台设备都可以操作硬件寄存器
+	以一个例子为例
+		i2c-core.c是 构成i2c协议总线
+		i2c-at91.c是 挂载在 platform协议总线 上的i2c控制器驱动设备
+		i2c协议总线 与 platform总线协议 本质上是同阶级的 都是抽象出来的总线
+		i2c-at91.c(i2c控制器设备) 会给 i2c协议总线 一个接口,
+		xxxx.c是 挂载在 i2c协议总线 上的 i2c从设备,
+		操作 i2c从设备时,归根到底还是操作 主芯片i2c控制器,
+		i2c从设备 通过 i2c协议总线 上公开的i2c控制器接口, 实现控制i2c控制器从而实现i2c从设备的功能!!!
+
+dts的examples 写法也疑惑: 注意,以下是 ,txt的例子,并非.dts里的实例
+设置isi的!!
+Example: isi: isi@f0034000 { compatible = "atmel,at91sam9g45-isi";
+		reg = <0xf0034000 0x4000>;
+		interrupts = <37 IRQ_TYPE_LEVEL_HIGH 5>;
+		clocks = <&isi_clk>;
+		clock-names = "isi_clk";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_isi>;
+		port { 
+			#address-cells = <1>;
+			#size-cells = <0>;
+			isi_0: endpoint { 
+				remote-endpoint = <&ov2640_0>;
+				bus-width = <8>; 
+			}; 
+		}; 
+	};
+	i2c1: i2c@f0018000 { ov2640: camera@0x30 { compatible = "ovti,ov2640";
+			reg = <0x30>;
+			port { 
+				ov2640_0: endpoint { 
+					remote-endpoint = <&isi_0>;
+					bus-width = <8>; 
+					}; 
+				}; 
+			}; 
+		}; 
+设置ov2670的!!
+Example:
+	i2c1: i2c@f0018000 { 
+		ov2640: camera@0x30 { 
+			compatible = "ovti,ov2640";
+			reg = <0x30>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_pck1 &pinctrl_ov2640_pwdn &pinctrl_ov2640_resetb>;
+			resetb-gpios = <&pioE 24 GPIO_ACTIVE_LOW>;
+			pwdn-gpios = <&pioE 29 GPIO_ACTIVE_HIGH>;
+			clocks = <&pck1>;
+			clock-names = "xvclk";
+			assigned-clocks = <&pck1>;
+			assigned-clock-rates = <25000000>;
+			port { 
+				ov2640_0: endpoint { 
+					remote-endpoint = <&isi_0>;
+					bus-width = <8>; 	//v4l2_of_parse_parallel_bus //重点,从获得的endpoint中的提取设置信息,
+				}; 				//video-interfaces.txt //设置信息参考文件!!!
+			}; 
+		}; 
+	}; 
+
+简阅atmel-isi.c 
+isi_clk = isi->pclk	//分清两个时钟
+iscclk = isi->iscck
+probe:
+atmel_isi_parse_dt() //分析endpoint的内容 其实就是把isi协议的所有设置上的内容!!
+	v4l2_of_parse_parallel_bus //重点,从获得的endpoint中的提取设置信息,
+	video-interfaces.txt //设置信息参考文件!!!
+申请dma framebuffer 缓存
+申请irq
+soc_camera_host_register //
+分析发现驱动中, isc层是直接控制硬件的, isc接入isi层,isi层又是与v4l2层接轨的
+而 isi 对应着 soc_camera 这层内容!!! //可以参考gpio_keys的做法
+
+
+
+
+
+
+
+
+
+20170227
+RGB 格式直接显示的, 
+YCbCu 是编码的格式,使用于压缩MP4格式的文件
+ov7670 cmos芯片的针脚!
+	pclk: 像素输出时钟! 是由ov芯片输出的时钟 
+	D0-7: 图像并排数据针
+	xclk: 提供ov芯片运行的时钟信号脚 典型是 24Mhz
+	scl: i2c时钟针
+	sda: i2c数据针
+	vsync: 帧起始信号
+	href: 行起始信号
+	reset: 重置针 ,正常状态下高电平 低电平触发
+	pwdn: power down 针
+就是说,除了 isi 和i2c 的接口外 还要自己定义 pwdn reset xclk针!!
+pwdn reset 两gpio功能针的配置,要另外使用dts 自己做一个pinctrl出来!!//可以参考 at91-sama5d4_xplaint.dts gpio_keys的做法
+xclk 输出时钟针的配置!! 		//xclk即 datasheet的 isi_mck 即 Programmable Clock output 1(PCK1)
+xclk 指 pc4 或pc24 或pd31	//没有参考设置输出时钟的!!的例子
+想起到 www.at91.com 找 camera
+居然还真找到!!!我去, github 的linux源码里 有一个 at91-sama5d4ek_isi.dts 直接就是ov2640模块的!!
+
+ov2640的针口配置:
+	并口数据针共10位 D0-D9,但是我们只使用8位,默认是 D2-D9 对应sama5d4 的 isi_D0 - isi_D7
+
+sama5d4对应的针口:
+	AT91_PIOC 19 AT91_PERIPH_A AT91_PINCTRL_NONE	/* ISI_D0 */
+	AT91_PIOC 20 AT91_PERIPH_A AT91_PINCTRL_NONE	/* ISI_D1 */
+	AT91_PIOC 21 AT91_PERIPH_A AT91_PINCTRL_NONE	/* ISI_D2 */
+	AT91_PIOC 22 AT91_PERIPH_A AT91_PINCTRL_NONE	/* ISI_D3 */
+	AT91_PIOC 23 AT91_PERIPH_A AT91_PINCTRL_NONE	/* ISI_D4 */
+	AT91_PIOC 24 AT91_PERIPH_A AT91_PINCTRL_NONE	/* ISI_D5 */
+	AT91_PIOC 25 AT91_PERIPH_A AT91_PINCTRL_NONE	/* ISI_D6 */
+	AT91_PIOC 26 AT91_PERIPH_A AT91_PINCTRL_NONE	/* ISI_D7 */
+	AT91_PIOB  1 AT91_PERIPH_C AT91_PINCTRL_NONE	/* ISI_PCK, conflict with G0_RXCK */
+	AT91_PIOB  3 AT91_PERIPH_C AT91_PINCTRL_NONE	/* ISI_VSYNC */
+	AT91_PIOB  4 AT91_PERIPH_C AT91_PINCTRL_NONE	/* ISI_HSYNC */
+	AT91_PIOA 30 AT91_PERIPH_A AT91_PINCTRL_NONE	/* TWD0 */
+	AT91_PIOA 31 AT91_PERIPH_A AT91_PINCTRL_NONE	/* TWCK0 */
+	AT91_PIOC  4 AT91_PERIPH_C AT91_PINCTRL_NONE	/* PC4 periph C ISI_MCK */ 与sd卡复用了 所以要disable mmc0
+	AT91_PIOB  5 AT91_PERIPH_GPIO AT91_PINCTRL_NONE /* PB5 power down */
+	AT91_PIOB 11 AT91_PERIPH_GPIO AT91_PINCTRL_NONE	/* PB11 reset */ 
+
+
+
+
+
+
+
+20170228
+加载摄像头功能: (修改内核)
+修改dts,给at91-sama5d4_xplained.dts插入,以下相关内容!!
+/ {
+	ahb {
+		apb {
+			pinctrl@fc06a000 {
+				board {
+					pinctrl_pck1_as_isi_mck: pck1_as_isi_mck-0 {
+						atmel,pins =
+							<AT91_PIOC  4 AT91_PERIPH_C AT91_PINCTRL_NONE>; /* PC4 periph C ISI_MCK */
+					};
+
+					pinctrl_sensor_power: sensor_power {
+						atmel,pins =
+							<AT91_PIOB  5 AT91_PERIPH_GPIO AT91_PINCTRL_NONE>; /* PB5 gpio */
+					};
+
+					pinctrl_sensor_reset: sensor_reset {
+						atmel,pins =
+							<AT91_PIOB 11 AT91_PERIPH_GPIO AT91_PINCTRL_NONE>; /* PB11 gpio */
+					};
+				};
+			};
+		};
+	};
+};
+
+&usart2 {
+	status = "disabled";
+};
+
+&spi0 {
+	status = "disabled";
+};
+
+&mmc00 {
+	status = "disabled";
+};
+
+&isi {
+	status = "okay";
+
+	port {
+		isi_0: endpoint@0 {
+			remote-endpoint = <&ov2640_0>;
+			bus-width = <8>;
+			vsync-active = <1>;
+			hsync-active = <1>;
+		};
+	};
+};
+
+&i2c0 {
+	status =""
+	ov2640: camera@0x30 {
+		compatible = "ovti,ov2640";
+		reg = <0x30>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_pck1_as_isi_mck &pinctrl_sensor_power &pinctrl_sensor_reset>;
+		resetb-gpios = <&pioB 11 GPIO_ACTIVE_LOW>;
+		pwdn-gpios = <&pioB 5 GPIO_ACTIVE_HIGH>;
+		/* use pck1 for the master clock of ov2640 */
+		clocks = <&pck1>;
+		clock-names = "xvclk";
+		assigned-clocks = <&pck1>;
+		assigned-clock-rates = <25000000>;
+
+		port {
+			ov2640_0: endpoint {
+				remote-endpoint = <&isi_0>;
+				bus-width = <8>;
+			};
+		};
+	};
+};
+menuconfig:添加
+select the menu: "Device Drivers -> Multimedia support -> Sensors used on soc_camera driver -> ov2640 camera support"
+select the menu: "Device Drivers -> Multimedia support -> Media Controller API"
+select the menu: "Device Drivers -> Multimedia support -> V4L2 sub-device userspace API"
+select the menu: "Device Drivers -> Multimedia support -> Autoselect ancillary drivers (tuners, sensors, i2c, 
+另外,如果要选择老版本摄像头芯片,例如 ov7670 等
+	deselect the menu: "Device Drivers -> Multimedia support -> Autoselect ancillary drivers (tuners, sensors, i2c, 
+	find in the menu: "Device Drivers -> Multimedia support -> Encoders, decoders, sensors and other helper chips ->其他xxx芯片"
+添加 pr_debug 到 atmel-isi.c 和 ov2640.c 调试!!! //参考之前的操作!!!
+编译 缮写
+make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- 
+sudo sam-ba -p serial:ttyACM1:115200 -b sama5d4-xplained -a nandflash -c erase:0x200000:0x600000 -c erase:0x180000:0x80000 -c write:at91-sama5d4_xplained.dtb:0x180000 -c write:zImage:0x200000
+开机,如果发现以下log内容,可以初步认为驱动已经成功运行了!!!
+soc-camera-pdrv soc-camera-pdrv.0: Probing soc-camera-pdrv.0
+ov2640 0-0030: ov2640 Product ID 26:42 Manufacturer ID 7f:a2
+i2c i2c-0: OV2640 Probed
+
+在尝试采集图片之前,先尝试显示jpg图片!!
+先处理好网络功能!!
+udhcpc 初始化网络环境
+关于 tftp 传输文件的命令!!(在开发板上使用的 规范写法)
+	tftp -g 200.200.200.102 -r ./aaa -l ./bbb	//取得ip200.200.200.102的tftp服务器路径下的aaa文件,拷贝到当前文件夹并改名为bbb
+							//如果当前文件夹已存在 bbb 文件,则替换他!!!
+	tftp -p 200.200.200.102 -r ./ccc -l ./ddd	//把当前文件夹的 ddd 文件,上传到ip200.200.200.102的tftp服务器路径上
+							//直接替换掉 服务器上的 ccc 文件,
+							//如果服务器本身没有 ccc 文件,那么命令就会出错不工作!!
+那么我们把得到的图片回放上来就可以了!!!
+然后,使用 atmel推荐的 fswebcam,最简单做法:使用 buildroot1 给文件系统添加这个内->置内容
+make menuconfig 添加:
+	Target packages -> Graphic libraries and applications (graphic/text) -> fswebcam
+make -j8
+测试命令:
+fswebcam -S 20 -d /dev/video0 -p RGB565 -r 640x480 uio.jpg	//跳过开头20帧采样,在当前文件夹得到uio.jpg图片文件!!
+tftp回电脑 成功显示!!!
+
+下一步,移植 ov7670 到新架构!!!!!
+
+
+
+
+
+
+
+
+
+20170301
+移植 ov7670 到新架构
+ov7670 和 ov2640 的reset 和 pwdn 针的控制方式一致
+reset: 低电平触发,平时处于高电平
+pwdn: 高电平触发 平时处于低电平
+ov7670 和 ov2640 的 i2c协议控制参数一致
+关于 ov7670 和 ov2640 的区别:
+ov7670 30万像素,
+ov2640 200万像素,
+ov7670 控制的寄存器在同一个块里
+ov2640 控制的寄存器分成两个块,sensor块 和 DSP块, 要范文相关控制寄存器,要先设置寄存器所处的块!!!
+还有能支持的编码格式:
+	都不一样,还有的是,ov7670多了 一个叫 matrix
+	注意移植修改重点 ov2640_enum_mbus_code() -> ov7670_enum_mbus_code()
+		忽略掉 matrix 的调整!!
+		ov7670_supported_win_sizes 的内容及后续内容没有改!!!!!!!关于7670的采样格式规范问题!!!
+			ov7670_get_fmt的 MEDIA_BUS_FMT 内容....
+
+无意发现 出厂id与pdf 不一样!!
+ov2640的 datasheet 是 26 41 7f a2  芯片读出的是 26 42 7f a2
+ov7670的 datasheet 是 76 73 7f a2  芯片读出的是 87 87 87 87
+还有真正的 i2c地址 与 datsheet 里的 i2c地址 也不一样!!
+ov2640的 datasheet 是 0x60 芯片使用的是 0x30
+ov7670的 datasheet 是 0x42 芯片使用的是 
+使用ov7670时,发现出现了i2c不能访问的现象!!! 读出的pid和mid 都是87
+ov7670的i2c并没有工作!!!
+	一开始是怀疑地址 不对 因为出现了 nack
+	后来地址改过来了,发现好像时钟也不对 ,出现了 control timed out
+	两款芯片的i2c datasheet参数一样,所以跟i2c时钟没有问题
+	最后发现 芯片可写,但不可读!!!读寄存器时,直接出错!!!
+
+
+
+
+
+
+
+
+
+20170303
+先搁置驱动移植细节,先做好移植架构!!
+at91-sama5d4_xplained.dts i2c添加:
+			isi: isi@f0008000 {
+				status = "okay";
+				port {
+					isi_1: endpoint@1 {
+						remote-endpoint = <&ov7670_0>;
+						bus-width = <8>;
+						vsync-active = <1>;
+						hsync-active = <1>;
+					};
+				};
+			};
+			i2c0: i2c@f8014000 {
+				status = "okay";
+				/* have to set clock-frequency, otherwise use default-scl 100khz */
+				clock-frequency = <100000>;	
+				/* by william about ov7670 */
+				ov7670: camera@0x21 {
+					compatible = "ovti,ov7670";
+					/* ov7670 i2c 8bits-addr 0x42w 0x43r 7bits-addr 0x21 */
+					reg = <0x21>;	
+					pinctrl-names = "default";
+					pinctrl-0 = <&pinctrl_pck1_as_isi_mck &pinctrl_sensor_power &pinctrl_sensor_reset>;
+					resetb-gpios = <&pioB 11 GPIO_ACTIVE_LOW>;
+					pwdn-gpios = <&pioB 5 GPIO_ACTIVE_HIGH>;
+					/* use pck1 for the master clock of ov2640 */
+					clocks = <&pck1>;
+					clock-names = "xvclk";
+					assigned-clocks = <&pck1>;
+					/* assigned-clock-rates = <25000000>; */
+					assigned-clock-rates = <24000000>;
+
+					port {
+						ov7670_0: endpoint {
+							remote-endpoint = <&isi_1>;
+							bus-width = <8>;
+						};
+					};
+				};
+			};
+
+新添加 ov7670_dts.c 到/home/infortech-ubuntu-1404/SAMA5D4/sources/kernel/kernel1/linux-at91-master/drivers/media/i2c/soc_camera
+修改 ov7670_dts.c 基于ov2640.c修改的dts架构的驱动!,注意修改以下内容:
+static const struct i2c_device_id ov7670_id[] = {
+	{ "ov7670", 0 },	//看过源码,0这一项没有使用,所以填 0 !!
+	{ }
+};
+MODULE_DEVICE_TABLE(i2c, ov7670_id);
+
+static const struct of_device_id ov7670_of_match[] = {
+	{.compatible = "ovti,ov7670", },
+	{},
+};
+MODULE_DEVICE_TABLE(of, ov7670_of_match);
+
+static struct i2c_driver ov7670_i2c_driver = {
+	.driver = {
+		.name = "ov7670",
+		.of_match_table = of_match_ptr(ov7670_of_match),
+	},
+	.probe    = ov7670_probe,
+	.remove   = ov7670_remove,
+	.id_table = ov7670_id,
+};
+
+module_i2c_driver(ov7670_i2c_driver);
+
+MODULE_DESCRIPTION("SoC Camera driver for Omni Vision 2640 sensor");
+MODULE_AUTHOR("william huang");
+MODULE_LICENSE("GPL v2");
+
+修改 /home/infortech-ubuntu-1404/SAMA5D4/sources/kernel/kernel1/linux-at91-master/drivers/media/i2c/soc_camera/Makefile 添加:
+#by william
+obj-$(CONFIG_SOC_CAMERA_OV7670DTS)	+= ov7670_dts.o
+
+修改 /home/infortech-ubuntu-1404/SAMA5D4/sources/kernel/kernel1/linux-at91-master/drivers/media/i2c/soc_camera/Kconfig 添加:
+# by william
+config SOC_CAMERA_OV7670DTS
+	tristate "ov7670 camera support in DTS"
+	depends on SOC_CAMERA && I2C
+	help
+	  This is a ov2640 camera driver
+
+make ARCH=arm menuconfig 就可以选择 ov7670 camera support in DTS 这项了
+make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- 就会去编译 ov7670_dts.c这个文件了!!!
+把多余的错误纠正后得到成功编译驱动文件,接下来就是调试编译文件了!!!
+由于只是把框架改过来而已,还保留着ov2640的功能,可以利用ov2640模块 测试驱动是否成功运行!!!
+	只需要,把ov7670 dts i2c 的addr与ov2640 的就换过来测试
+	结果 i2c访问ov2640失败,因为i2c地址不对,
+	但是访问"ov7670"成功,因为ov7670驱动保留着ov2640的内容未更改,由于i2c地址也对上了,所以 ov7670驱动 成功运行,还抓取了图片
+	证明 ov7670 的驱动框架没有问题,成功运行
+
+接下来,要分析分析像摄像头这样复合功能的设备的实现!!
+以 ov2640为例
+整体说, 这个摄像头主要涉及到两个功能!!一个是i2c 一个是isi
+而只需要工程师编写的 的文件只有 ov2640.c
+但是涉及的内容有 soc_camera i2c 等子系统,还有 v4l2 isi 等内容!!!!
+先看soc_camera 
+涉及 soc_camera.c 和 soc_camera_platform.c 两个关键文件
+
+
+
+
+
+
+
+
+
+??????
  VBLANK: 显示器扫描线完成最后一行后,需要重返左上角,这个过程叫做: vblank,也叫VBI(vertical blank interval) ,因为扫描线变得blank,以防止看到一个斜线显示在屏幕上.?????
 开机没有出现小企鹅问题!!
 开发板的中断号与linux中断号的兑换表!!		 
@@ -4234,7 +4964,7 @@ static int at91_twi_probe(struct platform_device *pdev)		//i2c_at91.c
 				{ dev_set_name(&adap->dev, "i2c-%d", adap->nr);
 				adap->dev.bus = &i2c_bus_type;
 				adap->dev.type = &i2c_adapter_type;
-				res = device_register(&adap->dev);  }	//把i2c adapter的设备信息 挂入 spi bus
+				res = device_register(&adap->dev);  }	//把i2c adapter的设备信息 挂入 i2c bus
 				bri->recover_bus--int (*recover_bus)(struct i2c_adapter *)	//从dtb中读取 具体其他外接从设备信息 挂入 i2c bus
 					//只有一个指针，实际函数在哪还不知道！！
 	

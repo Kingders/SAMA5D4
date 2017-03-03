@@ -9,7 +9,8 @@ VCC GND 线 一般 至少 0.5mm ~ 1mm
 过孔时的工艺是 hole > 0.3mm,diameter > 0.6mm 中间通孔 hole 的越大 通过的电流的面积越大!!!
 供电模块要经可能靠近 重点的负载,避免太远传输带来的噪波
 并排线功能布线,要求并排线的长度几乎相同,不要出现某些过长的情况
-修改原理图 update 到 pcb 时.
+修改原理图 update 到 pcb 
+电阻电容,不要要轻易从中间过线!!!
 
 
 重点图层(基于二层版):
@@ -33,12 +34,17 @@ pcb软件技巧:
 	*键,快速切换 top_layer 和 bottom_layer 
 修改了原理图,要 update 到 pcb 时. 先execute changes 再Validate changes ,不然出错
 	因为修改后,先要添加变化到pcb图,再分析pcb图
+其他:
+	当update
 
+find similar objects 的用法! 
+	shift+f -> 选某网络某点,弹出的窗口 net 选 same  下面选select matched
+布完pcb一定要分析有没有出错:
+	Tools->Design rule check...->Run design rule check
+	特别是检查画线是不是都连上了!!!!
 
-
-
-
-
-
+输出bom表
+reports -> bill of material -> export
+注意按照 元器件的值来区分一项项元器件,把 ALL Columns 里的Value选择并拉到 group columns
 	
 
