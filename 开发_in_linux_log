@@ -4522,7 +4522,7 @@ sama5d4对应的针口:
 	AT91_PIOB  4 AT91_PERIPH_C AT91_PINCTRL_NONE	/* ISI_HSYNC */
 	AT91_PIOA 30 AT91_PERIPH_A AT91_PINCTRL_NONE	/* TWD0 */
 	AT91_PIOA 31 AT91_PERIPH_A AT91_PINCTRL_NONE	/* TWCK0 */
-	AT91_PIOC  4 AT91_PERIPH_C AT91_PINCTRL_NONE	/* PC4 periph C ISI_MCK */ 与sd卡复用了 所以要disable mmc0
+	AT91_PIOC  4 AT91_PERIPH_C AT91_PINCTRL_NONE	/* PC4 periph C ISI_MCK */ 与sd卡复用了pd8 所以要disable mmc0
 	AT91_PIOB  5 AT91_PERIPH_GPIO AT91_PINCTRL_NONE /* PB5 power down */
 	AT91_PIOB 11 AT91_PERIPH_GPIO AT91_PINCTRL_NONE	/* PB11 reset */ 
 
@@ -4793,6 +4793,1647 @@ make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- 就会去编译 ov7670_dts.c这
 但是涉及的内容有 soc_camera i2c 等子系统,还有 v4l2 isi 等内容!!!!
 先看soc_camera 
 涉及 soc_camera.c 和 soc_camera_platform.c 两个关键文件
+重新讨论 soc_camera v4l2 和 ov2640.c 的关系:
+v4l2 是 上层软件和 设备驱动层的 接口
+soc_camera 是一个规范的摄像头驱动规范,不同的摄像头都通过接入这个规范是大大减少开发程度
+ov2640.c就是摄像头驱动最底层工作的具体实现,他符合soc_camera规范,跟soc_camera共同组合才形成一个完成可用的摄像头驱动,供v4l2调用
+从初始化:分析关系:
+	先初始化 i2c从设备 ov2640.c 里头也填充了一些 soc_camera 的结构体
+	然后初始化 atmel-isi.c 这里提取构建好各种isi的具体操作后,便注册 soc_camera_host_register	
+	soc_camera_host_register -> soc_camera_scan -> soc_camera_probe
+	最后才是 soc_camera_pdr_probe!!!
+	注意,并没有看错,soc_camera_pdr_probe作为platform设备驱动,居然后于 isi 和 ov2640  注册到linux
+
+
+
+
+
+
+
+
+
+20170309
+暂时不移植 ov7670
+使用上层软件测试 ov2640摄像头!!
+使用 gsteamer0.1 把摄像头的实时图像显示到lcd上去!!
+参考:http://www.at91.com/linux4sam/bin/view/Linux4SAM/UsingIsi
+同样,直接往之前的buildroot上塞东西 gsteamer0.1
+make menuconfig	添加: 
+	Target Packages -> Audio and video application -> gsteamer 0.10
+	~ gst-plugins-base -> ffmpegcolorspace
+	~ gst-plugins-good -> v4l2
+	~ gst-plugins-bad -> fbdev
+	~ gst-ffmpeg
+make -j8
+然后烧录,
+然后测试:
+gst-launch v4l2src device="/dev/video0" ! video/x-raw-yuv,width=640,height=480 ! ffmpegcolorspace ! fbdevsink
+成功看到采集的图像实时显示在lcd上!!
+
+使用 gsteamer1.0 把摄像头的实时图像显示到lcd上去!!
+参考:http://www.at91.com/linux4sam/bin/view/Linux4SAM/UsingIsi
+同样,直接往之前的buildroot上塞东西 gsteamer0.1
+make menuconfig	添加: 
+	Target Packages -> Audio and video application -> gsteamer 0.10
+	~ gst-plugins-base -> videoconvert
+	~ gst-plugins-good -> v4l2
+	~ gst-plugins-bad -> fbdev
+make -j8
+然后烧录,
+然后测试:
+gst-launch-1.0 v4l2src device="/dev/video0" ! video/x-raw,width=640,height=480 ! videoconvert ! fbdevsink
+注意由于一开始,没有选上videoconvert 一直提示没有找到videoconvert模块,于是的重新make
+重新make前先把 ~~output/build里的gstreamer1.0先关文件夹删掉,
+只是重新加上gst-plugins-base -> videoconvert 并不会重新编译和添加videoconvert模块!!!
+成功看到采集的图像实时显示在lcd上!!
+提高 图像的fps 尝试提高时钟频率
+这个摄像头驱动涉及 三个时钟 i2c通讯时钟, 提供摄像头芯片的主时钟 xvclk 还有摄像头芯片输出的图像时钟pclk
+在dts里 i2c 时钟默认100khz 可以改到400khz
+在dts里 xvclk 设置处后面的 assigned-clocks = <&pck1>; assigned-clock-rates = <25000000>;改的是时钟的参数,
+	但是发现时钟的频率并不是  assigned-clock-rates = <25000000> 里的值,不轮怎么改都维持在 18Mhz
+	一度以为这里并不是设置 xvclk的, 可一旦去掉 assigned-clock-rates = <25000000> 摄像头芯片就不工作!! i2c也启动不了
+在dts里 pclk 最难发现现要在哪里修改!!! 不知道怎么改, 一直保持在 28mhz 
+
+摄像像头采集窗口格式:
+#define CIF_WIDTH	352
+#define CIF_HEIGHT	288
+
+#define QCIF_WIDTH	176
+#define QCIF_HEIGHT	144
+
+#define QQCIF_WIDTH	88
+#define QQCIF_HEIGHT	72
+
+#define QQVGA_WIDTH	160
+#define QQVGA_HEIGHT	120
+
+#define QVGA_WIDTH	320
+#define QVGA_HEIGHT	240
+
+#define SVGA_WIDTH	800
+#define SVGA_HEIGHT	600
+
+#define SXGA_WIDTH	1280
+#define SXGA_HEIGHT	1024
+
+#define VGA_WIDTH	640
+#define VGA_HEIGHT	480
+
+#define UXGA_WIDTH	1600
+#define UXGA_HEIGHT	1200
+
+#define XGA_WIDTH	1024
+#define XGA_HEIGHT	768
+上述说明的 cif qcif qqcif qqvga qvga vga svga uxga xga 是典型的窗口格式
+例如,cif窗口格式 典型是 352x288 分辨率的窗口!!!
+ov2640 最大可以采集 1600X1200大小的图片, 但是,如果要采集一张 352x288 分辨率的图片,
+	就要设置寄存器, 芯片就会处于一种设定的采集模式,通过选择采集矩阵排列上的特定点,最终组合成一张接近 352x288 分辨率 的图片!
+	例如,ov2640 分析需求图片的分辨率,然后设置为 cif 的采集格式,然后采集出 一张400x296分辨率的图片,接近 352x288 分辨率
+	不可能完全采集到完全等于 352x288 分辨率的图片,因为 采集是有规律选择cmos矩阵上的特定点!!,所以不可能完全符合需求的分辨率,只能接近.
+
+关于 ov2640 的时钟频率的调节!!
+	上述知道,dts设置的 xvclk 只是起到了一个开关的左右, 设置 25mhz 并未达到,事实上,不能设置多少mhz,输出还是18mhz
+	然而xvclk 是sama5d4提供的时钟, 而不是ov2640真正工作的时钟
+	查看ov2640的 datasheet 发现, 有两处修改时钟频率的的地方!!!
+	clkrc: 对 xvclk 分频处理后 得到 ov2640芯片实际工作的时钟频率
+	R_DVP_SP: ov2640 执行这个分频器处理后得到 输出时钟pclk 的时钟频率
+	经测试,clkrc 分频系数为1,ov2640 已经处于最高速的工作时钟,
+	R_DVP_SP 为2,也产生最高速的pclk输出时钟,不能为1,会失真,而且pclk频率相比起 R_DVP_SP 为2 的时候也没有变化!
+	所以综合地说,提高 sama5d4提供的时钟, 或许是提高摄像头实时监测的唯一路径!!
+
+
+
+
+
+
+
+
+
+
+20170314
+注意 以后 未特殊说明!! mpu 直接代表 sama5d4 这芯片
+关于 ov2640 的时钟频率的调节!! 续:
+	无意间返现clkrc能够倍频 输入的xvclk信号,得到更高的芯片工作频率
+	刚开始认为,芯片工作信号成倍增加,其他设置不变,输出的pclk也会成倍增加,输出的帧数就会成倍增加
+	经足够测试`,发现pclk频率不能太高,不然输出图像明显不正常:
+	mpu输出频率为18mhz clkrc倍频后 ov2640 的工作频率为36mhz,采集640X320 的视频.芯片默认vga模式采集, 
+		R_DVP_SP的pclk分频设置为原来的2, pclk从原来的28mhz 升到 56mhz,然而 输出严重失真!! 但是,每帧44ms左右 每秒22.7帧
+		R_DVP_SP的pclk分频设置为4,此消彼长,pclk保持原来的28mhz,但是输出正常,而且 每帧44ms 每秒22.7帧
+	mpu输出频率为18mhz clkrc不设置 ov2640 的工作频率为18mhz,采集640X320 的视频.芯片默认vga模式采集, 
+		R_DVP_SP的pclk分频设置为原来的2, pclk是原来的28mhz 但是输出正常,而且 每帧82.5ms 每秒12.1帧
+	摄像头自带有源时钟 > 18Mhz, clkrc倍频后 ov2640 的工作频率为 > 36mhz,采集640X320 的视频.芯片默认vga模式采集, 
+		R_DVP_SP的pclk分频设置为原来的2, pclk上升了一倍,然而 输出严重失真!!
+		R_DVP_SP的pclk分频设置为4,此消彼长,pclk保持原来,但是输出正常,而且 每帧34ms 每秒29.4帧
+	从中还发现:
+		pclk不能太高,输出会失真
+		vsync 信号代表每帧图片传输需要的时间,采集320x240 与采集640x480 的帧传输时间不变
+		更一层说,pclk的周期大小,不影响 vsync周期大小!!!!
+		芯片的工作时钟越快, vsync信号周期越短,图片质量也越差,但是,pclk的改变,并不会影响vsync改变
+改变pclk 并不会,因此改变vsync信号周期 而让输出图片帧速率发生改变,
+	因为,相对应的 href信号里,亢余信号段会自动延长,使能信号段会自动减少,
+	改变vsync FLL,FLH寄存器显著改变的的是vsync的启动信号(无效信号)长度,也稍微改变有效信号的长度
+		原来 FLL 0x22, vsync周期44ms 启动信号 2ms 有效信号42ms
+		后来 FLL 0xff, vsync周期 > 60ms, 启动信号 >10ms 有效信号41ms  
+	改变vsync ADDVSH,ADDVSL寄存器 改变了vsync信号有效信号的电平,并没有改变vsync的周期
+	改变REG2A,FRARL,HSDY,HEDY 可以用于改编 vsync HREF 信号,从而改编 帧数率,
+		然而他们的修改帧速率的做法是增加vsync默认信号的周期!!!,而没有缩减vsync默认信号周期的做法!!
+也就说,默认状态下,vsync信号周期是与 ov2640 的运行时钟频率有关系,例如 
+	18mhz工作时钟下, vsync周期为 82mhz 输出帧速率就是11帧左右
+	36mhz工作时钟下, vsync周期为 44mhz 输出帧速率就是22帧左右
+	48mhz工作时钟下, vsync周期为 34mhz 输出帧速率接近30帧左右
+	这些都是对应当前芯片工作频率所可以达到的最快帧速率,不论是输出640X480分辨率格式的图片,还是320x240格式
+	href信号的亢余信号段分配会根据 vsync信号周期和pclk周期而自动分配
+	而其他修改寄存器影响帧速率的操作,只会提高帧速率,而不会缩小帧速率
+然而新的问题是datasheet说过 cif格式图片帧速率可以达到60fps,但是48mhz下的vsync说明最大也只是30fps,矛盾??
+	驱动代码COM7寄存器说明,芯片时钟运行在 uxga模式(全像素点进行采集的模式)!!!(感觉不论是采集640x480,还是320x240
+	
+现在知道!!要改变芯片的延时问题,最根本还是要让 mpu 改变输出的xvclk时钟频率
+添加内核追踪:
+添加头文件:
+    #include <linux/kprobes.h>
+    #include <asm/traps.h> 
+然后在需要向上跟踪函数调用关系里,添加 dump_stack();
+int xxxx()
+{
+	...
+	 dump_stack();
+	...
+}
+发现 clk-sam9x5_peripheral_enable() 并不是开启 xvclk 输出时钟信号的开关,而是直接去启动i2c内部时钟准备与ov2640通讯
+但是没有 xvclk 输出时钟信号 ov2640 并不工作,跟不用说 与 mpu i2c通讯了!!!!!
+所以 xvclk 应该先于此设置并工作起来!!
+从 ov2640_hw_power 开始追溯 priv->ssdd_dt.power = ov2640_hw_power
+设置时钟! priv->clk 是 v4l2_clk
+关于xvclk输出时钟:mpu的datasheet有写:The sensor master clock (ISI_MCK) can be generated either by the Advanced Power Management Controller
+(APMC) through a Programmable Clock output
+然后 dump_stack clk-programmer.c 的函数,发现,在ov2640真正probe之前,注册了一个i2cadapter,而这个adaptor又调用了clk-programer的函数
+	怀疑 xvclk 是在这里初始化的,但是xvclk是 isi 的输出时钟,居然在 i2c adaptor 这里初始化?
+	把dts xvclk的设置的频率去掉了,然后就不出现调用 clk-programer的函数 是不是意味着没有初始化xvclk?
+	使用自带时钟源的ov2640模块, 发现 把dts xvclk的设置的频率去掉的情况下 可以工作!!! 可以通i2c!!!!
+	使用无自带时钟源ov2640模块, 发现 把dts xvclk的设置的频率去掉的情况下 不能工作!!!
+	也就说,clk-programer设置了xvclk
+但是设置xvclk的地方太诡异了,居然放在i2c注册adaptor时设置,而不是在 ov2640_probe 那里设置!!!
+上述是设置了xvclk 的时钟频率,和输出管脚的设置,而真正打开时钟输出开关的在后面
+还有一处:
+	在之前,ov2640_video_probe 看到 ov2640_s_power 在 i2c_smbus_write_byte_data 之前!!
+	就是说, ov2640_s_power 里的 v4l2_clk_enable -> clk_prepare_enable()
+		->clk_enale->clk_core_enable 是xvclk时钟的输出开关!!! 
+		而 clk_core_enable 里的 clk->ops.enable() 应该就是 真正的时钟源输出开关!!!
+		但是并不知道 clk->ops.enable 所指向,于是尝试寻找了所有关于at91 的enable函数,发现都说不是!!
+		然后在 clk->ops.enable() 旁加上了dump_stack, 发现原来这里的clk->ops.enable() 并没有执行!!
+		后来想想,enable应该是让时钟运作起来,但是打开输出开关的事应该不是他干的!!!
+		而且在之前的 clk-programmer已经使时钟运作起来!!!
+		后来怀疑并没有执行 clk_enable 没做什么实质的事情, 所有启动输出的开关在 clk_prepare_enable() ->clk_prepare 就做了,果然!!
+		在 clk_prepare_enable() ->clk_prepare ->clk_core_prepare -> clk->ops->prepare 即 at91的 clk_system_prepare 给做了!!
+		而且很奇怪:
+			pmc_write(pmc,AT91_PMC_SCER,mask);和 is_pck(sys->id),一起组合后, 才输出xvclk时钟
+			单单 pmc_write(pmc,AT91_PMC_SCER,mask) 并不会触发时钟输出!!
+			后来发现,pmc_write 打开了programmable-clk-output的开关,才输出时钟信号的,
+			但是从打开开关,到有信号输出,需要一段时间,才有输出,如果打开了开关就马上进入while(1);死循环的话,信号也不会输出
+			所以,就有连同is_pck一起执行后 再进入死循环,才看到输出的xvclk时钟!!!
+几经波折终于找到了 xvclk信号输出开关!! 
+	原来是在 clk_prepare里给做了,而不是 clk_enable 
+	具体是clk-system.c 的 clk_system_prepare 的 pmc_write(pmc,AT91_PMC_SCER,mask) 打开的!!!
+	之前一直找错了方向,你妹,驱动写成这样乱!!
+
+
+
+
+
+
+
+
+
+20170316
+开始设置时钟频率!!
+注意 ov2640_video_probe 设置了 while(1);堵塞调试!! 
+分析了clk-programmable.c
+	recalc_rate () 检查时钟频率
+	determine_rate() 获取要设置的信息
+	set_parent 设置xvclk的父时钟源!!
+	set_rate 设置时钟频率
+经分析,的确输出 25mhz 时钟!!! 
+	是通过 200mhz-masterclock 经过8分频得到的
+	在linux启动初始化摄像头设置阶段也是设置好的25mhz, 
+	但是为什么执行gst视频流时会降到18mhz??
+更诡异的是 如果我设置输出 12.5mhz 时钟
+	执行gst视频流时还是保持12.5mhz
+	vsync信号周期65ms,输出15fps, 图片质量还贼好
+如果我dts写20mhz 系统会设置最近20mhz的一个可设置频率 18.75mhz
+	执行gst视频流时还是保持18.75mhz
+如果我dts写30mhz 系统会设置最近20mhz的一个可设置频率 30mhz
+	但是执行gst视频流时还是变回18.75mhz
+终于找到了问题症结, 因为 ov2640 和 ov7670 都使用了 pck1 输出作为xvclk 但是ov2640设置频率25mhz,系统能设置为25mhz
+	而ov7670 设置为24mhz,但是系统只能设置自认为最好的18.75mhz,于是pck1本来是25mhz又改回18.75mhz..我去
+	也就说如果开发板要挂两个摄像头,要么分别用pck1 和pck2, 要么只用pck1 输出统一时钟频率
+	另外,如果ov2640之所以我设置了12.5mhz 为什么后面ov7670没有改回到18.75mhz?是因为我是强制填参数得到12.5mhz,
+		后面设置18mhz也用回了12.5mhz的硬参数,
+	pck 是programmable clock 的缩写!!!
+ 
+最后尝试设置 48mhz 系统默认最多只能得到37.5mhz 
+	对于37.5mhz高频,ov2640 的clcrc 不倍频,R_DVP_SP 改回2 , 图像轻微失真
+	默认帧速率是由 ov2640 的芯片的工作频率决定的, 至少暂时认识到的并不是由 pclk 和 采集图像的分辨率大小决定和修改的!!
+		所以不管什么分辨率和pclk 默认输出的帧速率为 24fps
+还有当芯片运行的时钟频率是 30mhz时 ,可输出15fps 而且感觉图片质量和速度都相当好
+
+至此关于ov2640 的大体调试已经完成!!
+小结:
+	在linux上加载一个摄像头,其实加载多个驱动!!!
+	首先是 摄像头由 i2c控制,所以加载一个i2c的从设备驱动 和一个isi的图像流接受设备驱动
+	此外,涉嫌头芯片需要的有时钟源才能工作,然而这个设置时钟源的事情并不是让isi驱动做,
+		而是让12c从设备驱动加载时,间接加载上,关系写得有点乱,
+		而且加载时调用的函数名字意义与实际操作意义不一致,造成很多误会和追溯难题
+
+
+
+
+
+
+
+20170317
+重新移植 ov7670 ,取到了一块原厂的模块!!!
+我去,原厂的模块也不能i2c读取!!!
+好吧,接下来就是不强求读内容了,只完成写内容调试
+	调试过程中不要在执行任何读操作!!!
+	(搁置待续)
+
+
+
+
+
+
+
+
+20170321
+今天做一个qt摄像头嵌入式程序!!!
+而且确认只使用qt5来做,而非qt4.7
+qt5摄像头使用qtmultimedia 模块, 所以根文件系统要添加这个模块!!
+buildroot 添加这个模块,在make menuconfig 的qt5 里有这个选项!!!
+在qt5.6.2 使用的编译库也要添加这个模块
+都加载后 ,执行一例子显示:
+defaultServiceProvider::requestService(): no service found for - "org.qt-project.qt.camera"
+据网络, 给profile文件添加qtdebug项得到调试信息
+	export QT_DEBUG_PLUGINS=1
+后来发现 程序好像这的是在找什么库似的,.没找到!!
+网上说要添加 gstreamer补丁!! 
+	root@wandboard-quad:/usr/local/Qt-5.1.1/plugins/mediaservice# ls
+	libgstaudiodecoder.so  libgstmediacapture.so
+	libgstcamerabin.so     libgstmediaplayer.so
+首先,我们要建立的使用qt5 的摄像头程序,而国内多数是qt4.7的摄像头程序!!!
+使用qt5 写摄像头,需要 使用qtmultimedia
+还需要gstreamer补丁,补丁与gstreamer原程序不一样,
+我们使用buildroot来集成qt到文件系统,buildroot默认集成qt5.6
+我们查看 qtmultimedia.pro 发现是有编译gstreamer补丁的情况的 如果读取到 GST_VERSION 的信息!!
+查看 /home/infortech-ubuntu-1404/SAMA5D4/sources/buildroot/buildroot1/buildroot/package/qt5/qt5multimedia/qt5multimedia.mk
+发现builroot集成的qt5.6只支持 gstreamer1.0 ?? 不支持0.1???
+所以还是要线测试 gstreamer1.0可用(暂时不可用,先不管)
+出现问题:
+ERROR: from element /GstPipeline:pipeline0/GstVov2640 0-0030: ov2640_hw_power: DISABLE the camera
+4atmel_isi f0008000.isi: Atmel ISI Camera driver detached from camera 0
+l2soc-camera-pdrv soc-camera-pdrv.0: camera device close
+Src:v4l2src0: Internal data flow error.
+Additional debug info:
+gstbasesrc.c(2948): gst_base_src_loop (): /GstPipeline:pipeline0/GstV4l2Src:v4l2src0:
+streaming task paused, reason not-negotiated (-4)
+Execution ended after 0:00:00.511633760
+Setting pipeline to PAUSED ...
+Setting pipeline to READY ...
+Setting pipeline to NULL ...
+Freeing pipeline ...
+
+gstreamer1.0 已经编译好,先假设可用,然后重新编译集成的qt5.6.2
+先把 ouput/build里关于qt5的删掉,再重新make,不然却显示缺东西的错误
+例如:libqgsttools 就是qtbase生成的,而不是qtmultimedia这个模块生成
+	而libqgsttools 是否生成,还得跟 buildroot 是否集成编译了gstreamer1.0 有关系...
+总之,编译通过了, 测试qt5 的camera 例程 可以打开dev/video0了可以执行i2c传输了!!!!
+qt里也有gstreamer 的补丁了:libgstcamerabin.so 
+
+接下来就是解决 gstreamer1.0 与摄像头的接口问题!!!!
+先看回以前 gstreamer0.1 正常启动,正常输出log:
+soc-camera-pdrv soc-camera-pdrv.0: set width: 640 height: 480
+atmel_isi f0008000.isi: Flags cam: 0x175 host: 0x1fd common: 0x175
+atmel_isi f0008000.isi: vsync active high, hsync active high, sampling on pix clock rising edge
+atmel_isi f0008000.isi: queue_setup, count=2, size=614400
+soc-camera-pdrv soc-camera-pdrv.0: mmap called, vma=0xd40a14a8
+soc-camera-pdrv soc-camera-pdrv.0: vma start=0xb68a4000, size=614400, ret=0
+soc-camera-pdrv soc-camera-pdrv.0: mmap called, vma=0xd40a1500
+soc-camera-pdrv soc-camera-pdrv.0: vma start=0xb680e000, size=614400, ret=0
+clk_sam9x5_peripheral_enable
+Pipeline is live and does not need PREROLL ...
+Setting pipeline to PLAYING ...
+New clock: GstSystemClock
+
+另外,
+意外地找到了一个鼠标应用examples 官方可用,插入usb鼠标可以看到鼠标移动的实现!!!
+
+
+
+
+
+
+
+
+
+20170322
+研究gstreamer1.0 为何不行!!!
+网络一参考调试gstreamer1.0的:
+If you see a "streaming task paused, reason not-negotiated (-4)" then you've tried to link incompatible elements or some of the involved elements is not handling the caps correctly.
+When using gst-launch, I would just do:
+GST_DEBUG_DUMP_DOT_DIR=$PWD gst-launch-1.0 ...
+and when it failed take the last generated *.dot file and render it
+dot -Tsvg xxx.dot -o graph.svg
+Open the svg and look at the connections and check where the caps are not negotiated. In your case I would get it is "fbdevsink".
+Finally when posting logs, use GST_DEBUG_NO_COLOR=1 to have logs without color codes.
+的确得到调试信息文件dot,但是暂时不会看
+usb摄像头刚到,先尝试在 pc端上实现qt摄像头!!!再移植到开发板
+	先安装gstreamer1.0到机子上:
+	sudo apt-get install gstreamer1.0  gstreamer1.0-plugins-base gstreamer1.0-plugins-bad gstreamer1.0-plugins-good
+	遇到失效的地址,使用
+	sudo apt-get install ubuntu-restricted-extras
+	安装了,也也成功代替和跳过一些失效的链接和包
+	然而命令行的测试是失败的!!!!
+	后来发现,输出端的设备不能是fbdevsink 因为fb0设备已经用作做桌面操作系统了,所以是ximagesink会模拟出一个图片窗口供显示!!
+	gst-launch-1.0 v4l2src device="/dev/video0" ! video/x-raw,width=640,height=480 ! videoconvert ! ximagesink
+重新编译QT5.6 (注意是针对pc版的):
+./configure -release -opensource -prefix /home/infortech-ubuntu-1404/SAMA5D4/sources/qt/qt-5.6.2/linux-x86_64_2 -gstreamer 1.0
+//-prefix  安装地址
+//-gstreamer 1.0  表示将构建与 gstreamer 1.0 接口的qt功能模块 所以一定要checking for GStreamer 1.0, 如果检查到没有,就出错,
+//-opensource 注册为开源用户
+结果checking for GStreamer 1.0... no 直接出错!!,但明明把必要的模块都用上了
+网上参考:
+	安装所有gstreamer相关包
+	gstreamer0.10-alsa                     gstreamer1.0-clutter                   gstreamer1.0-plugins-base-dbg
+	gstreamer0.10-doc                      gstreamer1.0-clutter-3.0               gstreamer1.0-plugins-base-doc
+	gstreamer0.10-ffmpeg                   gstreamer1.0-crystalhd                 gstreamer1.0-plugins-good
+	gstreamer0.10-ffmpeg-dbg               gstreamer1.0-doc                       gstreamer1.0-plugins-good-dbg
+	gstreamer0.10-gconf                    gstreamer1.0-dvswitch                  gstreamer1.0-plugins-good-doc
+	gstreamer0.10-gnomevfs                 gstreamer1.0-espeak                    gstreamer1.0-plugins-ugly
+	gstreamer0.10-nice                     gstreamer1.0-fluendo-mp3               gstreamer1.0-plugins-ugly-amr
+	gstreamer0.10-plugins-base             gstreamer1.0-hybris                    gstreamer1.0-plugins-ugly-dbg
+	gstreamer0.10-plugins-base-apps        gstreamer1.0-libav                     gstreamer1.0-plugins-ugly-doc
+	gstreamer0.10-plugins-base-dbg         gstreamer1.0-libav-dbg                 gstreamer1.0-pocketsphinx
+	gstreamer0.10-plugins-base-doc         gstreamer1.0-nice                      gstreamer1.0-pulseaudio
+	gstreamer0.10-plugins-good             gstreamer1.0-packagekit                gstreamer1.0-tools
+	gstreamer0.10-plugins-good-dbg         gstreamer1.0-plugins-bad               gstreamer1.0-vaapi
+	gstreamer0.10-plugins-good-doc         gstreamer1.0-plugins-bad-dbg           gstreamer1.0-vaapi-doc
+	gstreamer0.10-pulseaudio               gstreamer1.0-plugins-bad-doc           gstreamer1.0-x
+	gstreamer0.10-qapt                     gstreamer1.0-plugins-bad-faad          gstreamer-qapt
+	gstreamer0.10-tools                    gstreamer1.0-plugins-bad-videoparsers  gstreamer-tools
+	gstreamer0.10-x                        gstreamer1.0-plugins-base              
+	gstreamer1.0-alsa                      gstreamer1.0-plugins-base-apps         
+	除了 gstreamer1.0-hybris有依赖问题无法安装外，都安装了，问题依然	
+	又安装如下包	
+	libgstreamer0.10-0                 libgstreamer1.0-dev                libgstreamer-ocaml-dev             
+	libgstreamer-plugins-	base1.0-0
+	libgstreamer0.10-0-dbg             libgstreamermm-1.0-0v5             libgstreamer-plugins-bad1.0-0      
+	libgstreamer-plugins-	base1.0-dev
+	libgstreamer0.10-dev               libgstreamermm-1.0-dev             libgstreamer-plugins-bad1.0-dev    
+	libgstreamer-plugins-	good1.0-0
+	libgstreamer1.0-0                  libgstreamermm-1.0-doc             libgstreamer-plugins-base0.10-0    
+	libgstreamer-plugins-	good1.0-dev
+	libgstreamer1.0-0-dbg              libgstreamer-ocaml                 libgstreamer-plugins-base0.10-dev  
+	问题依然，搜索了好久
+	./configure -gstreamer 1.0 -qt-xcb 问题依然
+	 pkg-config gstreamer-1.0 --cflags 结果正常
+	-pthread -I/usr/include/gstreamer-1.0 -I/usr/lib/x86_64-linux-gnu/gstreamer-1.0/include -I/usr/include/glib-2.0 
+		-I/usr/lib/x86_64-	linux-gnu/glib-2.0/include
+	pkg-config gstreamer-1.0 --libs 结果正常
+	-lgstreamer-1.0 -lgobject-2.0 -lglib-2.0
+	经过这篇文章提示，http://askubuntu.com/questions/384059/error-compiling-a-package-configure-error-no-gstreamer-1-0-1-0-0	
+	仔细检查，果然是漏掉了 sudo apt install libgstreamer-plugins-base1.0-dev 安装
+	安装完后，rm config.cache，重新./configure 终于检测结果正常开启 GStreamer 1.0
+根据网上参考,添加
+sudo apt install libgstreamer-plugins-base1.0-dev 
+重新 ./configure 
+成功检测到 checking for GStreamer 1.0... yes,最终成功配置
+然后make -j8.....make install
+然后配置qtcreator 添加一个新的配置,使用这个新编译qmake版本
+重新编译 官方自带例子 multimediawidgets的camera 成功显示图像!!!!
+
+另外,补充关于qt的./configure 的使用!!!
+./configure -release -opensource -xplatform linux-arm-gnueabi-g++ -prefix /home/infortech-ubuntu-1404/SAMA5D4/sources/qt/qt-5.6.2/armv7-a -no-c++11 -qreal float
+//-release 不明
+//-opensource 开源
+//-xplatfrom 选择编译器,默认不选,是系统安装的gcc g++,出来的文件是针对x86_64_pc,例如这里选了linux-arm-gnueabi-g++ 就是针对 arm架构的
+//-prefix 安装路径
+//-no-c++11 相反的是 -c++11 表示是否应用c++11的标准编译
+//-gstreamer 1.0  表示会用到 gstreamer 的1.0 版本
+另外在ubuntu部署 gstreamer
+sudo apt-get install libgstreamer0.10-dev gstreamer-tools gstreamer0.10-tools gstreamer0.10-doc
+sudo apt-get install gstreamer0.10-plugins-base gstreamer0.10-plugins-good gstreamer0.10-plugins-ugly gstreamer0.10-plugins-bad gstreamer0.10-plugins-bad-multiverse
+apt-get install libgstreamer* // 该命令的目的是安装头文件；注意’*’
+
+
+
+
+
+
+
+
+
+20170323
+为了了解是不是streamer 的问题,给内核加上了usb 摄像头模块UVC
+make ARCH=arm menuconfig:
+	Device Drivers -> Multimedia support -> Media USB adapters -> USB Video Class (UVC) -> UVC input events device support
+make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf-
+然后烧录,把ov2640 去掉, 挂上usb摄像头 ,开启板子,然后执行命令行
+gst-launch-1.0 v4l2src device="/dev/video0" ! video/x-raw,width=640,height=480 ! videoconvert ! fbdevsink
+成功显示!!虽然帧率比较低
+然后绕到文件系统qt里自带的camera例子执行,也成功显示图像!!!!
+
+这么说,问题应该就出在ov2640的驱动上!!!!
+每次搜都是设置好后就主动关闭摄像头!!!你妹
+然后把 ov2640 的的开关函数关于硬件关闭摄像头的部分关闭了!!!!
+但是没用,查看log:
+soc-camera-pdrv soc-camera-pdrv.0: set width: 800 height: 600
+atmel_isi f0008000.isi: Flags cam: 0x175 host: 0x1fd common: 0x175
+atmel_isi f0008000.isi: vsync active high, hsync active high, sampling on pix clock rising edge //至此完成soc_camera_set_fmt而且正确设置
+soc-camera-pdrv soc-camera-pdrv.0: camera device open	//至此,完成了打开ov2640的步骤
+//后来莫名其妙调动了soc_camera_close
+ov2640 0-0030: ov2640_hw_power: DISABLE the camera
+atmel_isi f0008000.isi: Atmel ISI Camera driver detached from camera 0	//soc_camera_close->soc_camera_remove_device->ops->remove(icd)
+soc-camera-pdrv soc-camera-pdrv.0: camera device close			//至此soc_camera_close 完毕
+//然后又是soc_camera_open
+atmel_isi f0008000.isi: Atmel ISI Camera driver attached to camera 0 //soc_camera_add_device
+ov2640 0-0030: ov2640_hw_power: ENABLE the camera
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(YUYV, 800x600)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 800x600)
+ov2640 0-0030: ov2640_set_params: Selected cfmt YUYV (YUV422)
+
+gstreamer1.0 失败log:
+//soc_camera_open 
+atmel_isi f0008000.isi: Atmel ISI Camera driver attached to camera 0	//soc_camera_add_device
+clk_system_prepare 
+ov2640 0-0030: ov2640_hw_power: ENABLE the camera	//__soc_camera_power_on
+//soc_camera_open 里的 soc_camera_set_fmt
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(YUYV, 800x600)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 800x600)
+ov2640 0-0030: ov2640_set_params: Selected cfmt YUYV (YUV422)
+//...i2c通讯
+soc-camera-pdrv soc-camera-pdrv.0: set width: 800 height: 600
+atmel_isi f0008000.isi: Flags cam: 0x175 host: 0x1fd common: 0x175
+atmel_isi f0008000.isi: vsync active high, hsync active high, sampling on pix clock rising edge //至此完成soc_camera_set_fmt
+soc-camera-pdrv soc-camera-pdrv.0: camera device open 	//至此,完成了 soc_camera_open 打开ov2640的步骤
+//很突然执行了 soc_camera_close
+ov2640 0-0030: ov2640_hw_power: DISABLE the camera	//__soc_camera_power_off
+atmel_isi f0008000.isi: Atmel ISI Camera driver detached from camera 0 //soc_camera_remove_device
+soc-camera-pdrv soc-camera-pdrv.0: camera device close  //至此,完成了 soc_camera_close
+//很突然又执行了 soc_camera_open
+atmel_isi f0008000.isi: Atmel ISI Camera driver attached to camera 0
+clk_system_prepare 
+ov2640 0-0030: ov2640_hw_power: ENABLE the camera
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(YUYV, 800x600)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 800x600)
+ov2640 0-0030: ov2640_set_params: Selected cfmt YUYV (YUV422)
+//...i2c通讯
+soc-camera-pdrv soc-camera-pdrv.0: set width: 800 height: 600
+atmel_isi f0008000.isi: Flags cam: 0x175 host: 0x1fd common: 0x175
+atmel_isi f0008000.isi: vsync active high, hsync active high, sampling on pix clock rising edge
+soc-camera-pdrv soc-camera-pdrv.0: camera device open	//至此,完成了 soc_camera_open 打开ov2640的步骤
+//很突然执行了 soc_camera_close
+ov2640 0-0030: ov2640_hw_power: DISABLE the camera
+atmel_isi f0008000.isi: Atmel ISI Camera driver detached from camera 0
+soc-camera-pdrv soc-camera-pdrv.0: camera device close	//至此,完成了 soc_camera_close
+//暂停pipeline
+Setting pipeline to PAUSED ...
+//很突然又执行了 soc_camera_open
+atmel_isi f0008000.isi: Atmel ISI Camera driver attached to camera 0
+clk_system_prepare 
+ov2640 0-0030: ov2640_hw_power: ENABLE the camera
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(YUYV, 800x600)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 800x600)
+ov2640 0-0030: ov2640_set_params: Selected cfmt YUYV (YUV422)
+//...i2c通讯
+soc-camera-pdrv soc-camera-pdrv.0: set width: 800 height: 600
+atmel_isi f0008000.isi: Flags cam: 0x175 host: 0x1fd common: 0x175
+atmel_isi f0008000.isi: vsync active high, hsync active high, sampling on pix clock rising edge
+soc-camera-pdrv soc-camera-pdrv.0: camera device open	//至此,完成了 soc_camera_open 打开ov2640的步骤
+//???
+Pipeline is live and does not need PREROLL ...
+Setting pipeline to PLAYING ...
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 1x1)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+New clock: GstSysoc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+stsoc-camera-pdrv soc-camera-pdrv.0: S_FMT(YUYV, 32768x32768)
+esoc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+mClock
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 1x1)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 1x1)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(UYVY, 1x1)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(UYVY, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(UYVY, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(UYVY, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(UYVY, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(UYVY, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(UYVY, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(UYVY, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(UYVY, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(UYVY, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(UYVY, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(UYVY, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(UYVY, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 1x1)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 1x1)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 1x1)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 32768x32768)
+ERROR: from element /GstPipeline:pipeline0/GstV4l2Src:v4l2src0: Iov2640 0-0030: ov2640_hw_power: DISABLE the camera
+natmel_isi f0008000.isi: Atmel ISI Camera driver detached from camera 0
+tsoc-camera-pdrv soc-camera-pdrv.0: camera device close
+ernal data flow error.
+Additional debug info:
+gstbasesrc.c(2948): gst_base_src_loop (): /GstPipeline:pipeline0/GstV4l2Src:v4l2src0:
+streaming task paused, reason not-negotiated (-4)
+Execution ended after 0:00:00.455205440
+Setting pipeline to PAUSED ...
+Setting pipeline to READY ...
+Setting pipeline to NULL ...
+Freeing pipeline ...
+
+gstreamer0.1 成功log:
+Setting pipeline to PAUSED ...
+//soc_camera_open 
+atmel_isi f0008000.isi: Atmel ISI Camera driver attached to camera 0
+clk_system_prepare //打开时钟输出开关
+ov2640 0-0030: ov2640_hw_power: ENABLE the camera
+//soc_camera_open 里的 soc_camera_set_fmt
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(YUYV, 800x600)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 800x600)
+ov2640 0-0030: ov2640_set_params: Selected cfmt YUYV (YUV422)
+//...i2c通讯
+soc-camera-pdrv soc-camera-pdrv.0: set width: 800 height: 600
+atmel_isi f0008000.isi: Flags cam: 0x175 host: 0x1fd common: 0x175
+atmel_isi f0008000.isi: vsync active high, hsync active high, sampling on pix clock rising edge //至此完成soc_camera_set_fmt
+soc-camera-pdrv soc-camera-pdrv.0: camera device open	//至此,完成了 soc_camera_open 打开ov2640的步骤
+//然后就是不断地 ops->vidioc_try_fmt_vid_cap : soc_camera_try_fmt_vid_cap -> soc_camera_try_fmt -> TRY_FMT
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 1x1)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+......
+//然后 ops-> vidioc_g_fmt_vid_cap : soc_camera_g_fmt_vid_cap->"current_fmt->fourcc"
+soc-camera-pdrv soc-camera-pdrv.0: current_fmt->fourcc: 0x56595559
+//然后 ops-> vidioc_s_fmt_vid_cap : soc_camera_s_fmt_vid_cap -> soc_camera_set_fmt
+//...i2c通讯
+soc-camera-pdrv soc-camera-pdrv.0: set width: 640 height: 480
+atmel_isi f0008000.isi: Flags cam: 0x175 host: 0x1fd common: 0x175
+atmel_isi f0008000.isi: vsync active high, hsync active high, sampling on pix clock rising edge//至此第二次完成soc_camera_set_fmt
+//然后是 vb2_ops->queue_setup : queue_setup
+atmel_isi f0008000.isi: queue_setup, count=2, size=614400
+//v4l2_file_operations->mmap : soc_camera_mmap
+soc-camera-pdrv soc-camera-pdrv.0: mmap called, vma=0xd42423a0
+soc-camera-pdrv soc-camera-pdrv.0: vma start=0xb68c4000, size=614400, ret=0
+//v4l2_file_operations->mmap : soc_camera_mmap
+soc-camera-pdrv soc-camera-pdrv.0: mmap called, vma=0xd4242500
+soc-camera-pdrv soc-camera-pdrv.0: vma start=0xb682e000, size=614400, ret=0
+//pmc开启计时器??反正不重要的
+clk_sam9x5_peripheral_enable
+Pipeline is live and does not need PREROLL ...
+Setting pipeline to PLAYING ...
+New clock: GstSystemClock
+
+对比成功log 和不成功log 发现 gstreamer1.0 应该是多线程工作的,所以发现虽然开始时是无尽的关闭重启,重启关闭,但是最后还是看到一些端倪,
+发现gstreamer1.0可能真的需要多次重启关闭重启关闭,然而在程序使用的时候,因为i2c初始化的log占据大量时间,
+	导致,gstreamer1.0工作时,摄像头还是没有初始化好!!!
+所以先尝试关闭内核i2c调试信息!!!
+make ARCHarm menuconfig: Device Driver -> I2C upport -> 不选 I2C core debugging message 和 i2c Bus debugging messages 
+编译和烧录测试, 没有用!!!
+但是发现了,除去i2clog后, 在Setting pipeline to PAUSED ... 只有一回合开了又关
+	在i2clog未去前,有两回合,开了又关
+终于,感觉 摄像头打开和软件初始化采集工作并不是顺序进行而是并行进行的,以至于,软件开始采集时,摄像头其实还没有初始化完!!!
+
+
+
+
+
+
+
+
+
+20170324
+dunp_stack soc_camera_open 和 soc_camera_close 
+发现只能跟踪到内核态里的调用,上不去用户态的调用关系!
+soc_camera_close
+[<c0013814>] (unwind_backtrace) from [<c00117f4>] (show_stack+0x10/0x14)
+[<c00117f4>] (show_stack) from [<c033ffcc>] (soc_camera_close+0x18/0xc8)
+[<c033ffcc>] (soc_camera_close) from [<c0324840>] (v4l2_release+0x34/0x74)
+[<c0324840>] (v4l2_release) from [<c0096500>] (__fput+0x80/0x1b0)
+[<c0096500>] (__fput) from [<c003068c>] (task_work_run+0x88/0xbc)
+[<c003068c>] (task_work_run) from [<c0011464>] (do_work_pending+0x94/0xb4)
+[<c0011464>] (do_work_pending) from [<c000f3ac>] (work_pending+0xc/0x20)
+soc_camera_open
+[<c0013814>] (unwind_backtrace) from [<c00117f4>] (show_stack+0x10/0x14)
+[<c00117f4>] (show_stack) from [<c0340094>] (soc_camera_open+0x18/0x2d4)
+[<c0340094>] (soc_camera_open) from [<c0324920>] (v4l2_open+0xa0/0xe0)
+[<c0324920>] (v4l2_open) from [<c0098958>] (chrdev_open+0xa0/0x140)
+[<c0098958>] (chrdev_open) from [<c0093858>] (do_dentry_open.isra.11+0xe8/0x2e8)
+[<c0093858>] (do_dentry_open.isra.11) from [<c009f460>] (do_last.isra.43+0x4cc/0xb9c)
+[<c009f460>] (do_last.isra.43) from [<c00a0f48>] (path_openat+0x7c/0x520)
+[<c00a0f48>] (path_openat) from [<c00a2140>] (do_filp_open+0x2c/0x80)
+[<c00a2140>] (do_filp_open) from [<c009495c>] (do_sys_open+0x110/0x1cc)
+[<c009495c>] (do_sys_open) from [<c000f360>] (ret_fast_syscall+0x0/0x3c)
+感觉,open和close是两个独立的线程或者是进程并行工作的,而不是在同一个线程里顺序工作!!!
+使用 meld 来观察 gst-launch-1.0.c 和 gst-lanuch-0.1.c 的区别!!
+共同特点是 Setting pipeline to PAUSED ... 后都启动 soc_camera_open
+但是1.0 在之前也来了一回合开关 soc_camera_open
+0.1版,在Pipeline is live and does not need PREROLL ... 之前完成了 ov2640 整个初始化,
+1.0版,在Pipeline is live and does not need PREROLL ... 之前未完成 ov2640 整个初始化,
+Setting pipeline to PAUSED ... 与 Pipeline is live and does not need PREROLL ... 间
+	隔着一个 ret = gst_element_set_state (pipeline, GST_STATE_PAUSED); 函数!!
+无意中怀疑一个gst打开/dev/video0的函数:
+	gst_v4l2_object_open()->gst_v4l2_open
+无意中习得一种 gstreamer 的调试手段!!!
+在 gst-launch 命令前 加上 GST_DEBUG=...
+例如: GST_DEBUG=6 gst-launch-1.0 ....		//这里是把所有6级及以下的调试信息都打印出来
+例如: GST_DEBUG=GST_ELEMENT_*:6 gst-launch-1.0 ...	//这是把所有 GST_ELEMENT_*组别的 6级及以下的调试信息都打印出来
+
+
+
+
+
+
+
+
+
+
+
+
+20170327
+由于gstreamer1.0 与ov2640 的冲突实在是太明显了,所以就尝试使用 qt4 避开gsreamer1.0
+所以先在buildroot里移植qt4
+	使用buildroot1 make menuconfig:选qt
+	除了要勾上例程外,还要注意pixel depths 的设置,例如,开发板只支持24位的rgb888模式, 
+		不然运行测试程序会显示blit_setup(): Screen depth 24 not supported! 之类的错误
+	还有 graphic driver 选 linux framebuffer mouse driver选 linux input 或者 tslib
+	最后虽然成功显示,但是似乎并没有打开触摸屏未知原因!!
+还有 qt4程序的执行  一定要加 -qws 参数才可以
+	例如 : ./fingerpaint -qws &		//& 表示进程后台运行,不占据 tty串口控制台console,不后台进行可以不加&	
+结果,发现例程都没有打开触摸屏!!!,(如果打开了,会有消息显示)不知到为啥!!
+然后再编译pc上的qt4 环境:
+首先擦哈坎buildroot 发现使用的是qt-4.8.7,所以移植qt-4.8.7
+从官网下载了qt4.8.7并解压,然后开始编译安装:
+首先修改mkspecs/qws/linux-arm-gnueabi-g++:
+#
+# qmake configuration for building with arm-none-linux-gnueabi-g++
+#
+
+include(../../common/linux.conf)
+include(../../common/gcc-base-unix.conf)
+include(../../common/g++-unix.conf)
+include(../../common/qws.conf)
+
+# modifications to g++.conf
+QMAKE_CC                = arm-linux-gnueabihf-gcc
+QMAKE_CXX               = arm-linux-gnueabihf-g++
+QMAKE_LINK              = arm-linux-gnueabihf-g++
+QMAKE_LINK_SHLIB        = arm-linux-gnueabihf-g++
+
+# modifications to linux.conf
+QMAKE_AR                = arm-linux-gnueabihf-ar cqs
+QMAKE_OBJCOPY           = arm-linux-gnueabihf-objcopy
+QMAKE_STRIP             = arm-linux-gnueabihf-strip
+
+load(qt_config)
+然后执行:./configure -force-pkg-config -release -opensource -v -embedded arm -xplatform qws/linux-arm-gnueabi-g++ -prefix /home/infortech-ubuntu-1404/SAMA5D4/sources/qt/qt-4.8.7/armv7-a -no-fast
+//-force-pkg-config 不加上会出现 关于 pkg-config 的错误,此外mkspecs/qws/linux-arm-gnueabi-g++ 不修改过来也出现这种错误,
+//-no-fast 表示编译所有模块!!!
+然后make -j8 & make install
+然后配置qtcreator 再编译一个例子程序和 camera程序烧到开发板,成功运行
+然而还是有些问题未能解决:
+	都没有打开触摸屏驱动
+	camera2例子中,ov2640成功打开,但图像错乱,USB摄像头不能打开,直接出现段错误!!!
+	(问题暂时搁置)
+勉强成功安装测试了 qt4.8.7
+另外,如果程序出现这种错误!!
+‘close’ was not declared in this scope
+没有包含头文件 unistd.h 造成的。
+加上'
+#include <unistd.h>
+
+
+
+
+
+
+
+
+
+
+
+20170328
+今天暂时不弄摄像头问题,直接处理sam9x35的板子
+板子预装了linux系统,开机截取log:
+RomBOOT
+Start AT91Bootstrap...
+Init DDR... Done!
+Loading 1-Wire info...
+Enumerate all roms:
+Rom#0x0: 0xad 0x0 0x0 0x2 0xab 0xbb 0x1 0x2d 
+Rom#0x1: 0x78 0x0 0x0 0x3 0x21 0xaf 0x93 0x2d 
+Rom#0x2: 0x7a 0x0 0x0 0x1 0x2 0xb3 0x1f 0x23 
+Done, 0x3 1-wire chips found!
+
+Board name: SAM9X35-CM [B2]; Vendor name: RONETIX
+Board name: SAM9x5-EK [B0]; Vendor name: FLEX
+Board name: SAM9x5-DM [B0]; Vendor name: FLEX
+sn: 0x4010466;   rev: 0x10421
+Downloading image...
+chip id: 0xadda
+Copy 0x50000 bytes from 0x40000 to 0x26f00000
+Done!
+
+
+U-Boot 2010.06 (Jun 23 2011 - 10:51:37)
+
+DRAM:  128 MiB
+NAND:  256 MiB
+In:    serial
+Out:   serial
+Err:   serial
+Net:   macb0
+macb0: Starting autonegotiation...
+macb0: Autonegotiation complete
+macb0: link up, 100Mbps full-duplex (lpa: 0x4de1)
+Hit any key to stop autoboot:  0 
+
+NAND read: device 0 offset 0x200000, size 0x250000
+ 2424832 bytes read: OK
+## Booting kernel from Legacy Image at 22000000 ...
+   Image Name:   Angstrom/2.6.39/at91sam9x5ek
+   Image Type:   ARM Linux Kernel Image (uncompressed)
+   Data Size:    2351680 Bytes = 2.2 MiB
+   Load Address: 20008000
+   Entry Point:  20008000
+   Verifying Checksum ... OK
+   Loading Kernel Image ... OK
+OK
+
+Starting kernel ...
+
+Uncompressing Linux... done, booting the kernel.
+Linux version 2.6.39 (nferre@RFOLXTS02.rfo.atmel.com) (gcc version 4.5.3 20110223 (prerelease) (GCC) ) #1 Thu Jun 23 09:29:18 CEST 2011
+CPU: ARM926EJ-S [41069265] revision 5 (ARMv5TEJ), cr=00053177
+CPU: VIVT data cache, VIVT instruction cache
+Machine: Atmel AT91SAM9X5-EK
+Memory policy: ECC disabled, Data cache writeback
+Clocks: CPU 400 MHz, master 133 MHz, main 12.000 MHz
+Built 1 zonelists in Zone order, mobility grouping on.  Total pages: 32512
+Kernel command line: mem=128M console=ttyS0,115200 mtdparts=atmel_nand:8M(bootstrap/uboot/kernel)ro,-(rootfs) root=/dev/mtdblock1 rw rootfstype=ubifs ubi.mtd=1 root=ubi0:root
+PID hash table entries: 512 (order: -1, 2048 bytes)
+Dentry cache hash table entries: 16384 (order: 4, 65536 bytes)
+Inode-cache hash table entries: 8192 (order: 3, 32768 bytes)
+Memory: 128MB = 128MB total
+Memory: 124972k/124972k available, 6100k reserved, 0K highmem
+Virtual kernel memory layout:
+    vector  : 0xffff0000 - 0xffff1000   (   4 kB)
+    fixmap  : 0xfff00000 - 0xfffe0000   ( 896 kB)
+    DMA     : 0xff000000 - 0xffe00000   (  14 MB)
+    vmalloc : 0xc8800000 - 0xfee00000   ( 870 MB)
+    lowmem  : 0xc0000000 - 0xc8000000   ( 128 MB)
+    modules : 0xbf000000 - 0xc0000000   (  16 MB)
+      .init : 0xc0008000 - 0xc002a000   ( 136 kB)
+      .text : 0xc002a000 - 0xc0489d68   (4480 kB)
+      .data : 0xc048a000 - 0xc04baee0   ( 196 kB)
+NR_IRQS:192
+AT91: 128 gpio irqs in 4 banks
+Console: colour dummy device 80x30
+console [ttyS0] enabled
+Calibrating delay loop... 199.06 BogoMIPS (lpj=995328)
+pid_max: default: 32768 minimum: 301
+Mount-cache hash table entries: 512
+CPU: Testing write buffer coherency: ok
+devtmpfs: initialized
+NET: Registered protocol family 16
+AT91: CM rev B and higher
+AT91: EK rev B and higher
+AT91: Power Management (with slow clock mode)
+AT91: Starting after user reset
+bio: create slab <bio-0> at 0
+SCSI subsystem initialized
+usbcore: registered new interface driver usbfs
+usbcore: registered new interface driver hub
+usbcore: registered new device driver usb
+i2c-gpio i2c-gpio.0: using pins 62 (SDA) and 63 (SCL)
+at_hdmac at_hdmac.0: Atmel AHB DMA Controller ( cpy slave ), 8 channels
+at_hdmac at_hdmac.1: Atmel AHB DMA Controller ( cpy slave ), 8 channels
+Advanced Linux Sound Architecture Driver Version 1.0.24.
+Switching to clocksource tcb_clksrc
+NET: Registered protocol family 2
+IP route cache hash table entries: 1024 (order: 0, 4096 bytes)
+TCP established hash table entries: 4096 (order: 3, 32768 bytes)
+TCP bind hash table entries: 4096 (order: 2, 16384 bytes)
+TCP: Hash tables configured (established 4096 bind 4096)
+TCP reno registered
+UDP hash table entries: 256 (order: 0, 4096 bytes)
+UDP-Lite hash table entries: 256 (order: 0, 4096 bytes)
+NET: Registered protocol family 1
+RPC: Registered udp transport module.
+RPC: Registered tcp transport module.
+RPC: Registered tcp NFSv4.1 backchannel transport module.
+JFFS2 version 2.2. (NAND) (SUMMARY)  © 2001-2006 Red Hat, Inc.
+msgmni has been set to 244
+Block layer SCSI generic (bsg) driver version 0.4 loaded (major 253)
+io scheduler noop registered (default)
+atmel_hlcdfb atmel_hlcdfb_base.0: 1500KiB frame buffer at 27a00000 (mapped at ffc00000)
+cfg80211: Calling CRDA to update world regulatory domain
+atmel_hlcdfb atmel_hlcdfb_base.0: fb0: Atmel LCDC at 0xf8038000 (mapped at c8864000), irq 25
+atmel_hlcdfb atmel_hlcdfb_ovl.0: 1500KiB frame buffer at 27000000 (mapped at ffa00000)
+atmel_hlcdfb atmel_hlcdfb_ovl.0: fb1: Atmel LCDC at 0xf8038100 (mapped at c886c100), irq -6
+atmel_usart.0: ttyS0 at MMIO 0xfefff200 (irq = 1) is a ATMEL_SERIAL
+atmel_usart.1: ttyS1 at MMIO 0xf801c000 (irq = 5) is a ATMEL_SERIAL
+brd: module loaded
+loop: module loaded
+ssc ssc.0: Atmel SSC device at 0xc8880000 (irq 28)
+atmel_nand atmel_nand: Using dma0chan0 for DMA transfers.
+ONFI flash detected
+NAND device: Manufacturer ID: 0xad, Chip ID: 0xda (Hynix NAND 256MiB 3,3V 8-bit)
+atmel_pmecc_init_params
+Scanning device for bad blocks
+Bad eraseblock 147 at 0x000001260000
+2 cmdlinepart partitions found on MTD device atmel_nand
+Creating 2 MTD partitions on "atmel_nand":
+0x000000000000-0x000000800000 : "bootstrap/uboot/kernel"
+0x000000800000-0x000010000000 : "rootfs"
+UBI: attaching mtd1 to ubi0
+UBI: physical eraseblock size:   131072 bytes (128 KiB)
+UBI: logical eraseblock size:    126976 bytes
+UBI: smallest flash I/O unit:    2048
+UBI: VID header offset:          2048 (aligned 2048)
+UBI: data offset:                4096
+UBI: max. sequence number:       11
+UBI: attached mtd1 to ubi0
+UBI: MTD device name:            "rootfs"
+UBI: MTD device size:            248 MiB
+UBI: number of good PEBs:        1983
+UBI: number of bad PEBs:         1
+UBI: number of corrupted PEBs:   0
+UBI: max. allowed volumes:       128
+UBI: wear-leveling threshold:    4096
+UBI: number of internal volumes: 1
+UBI: number of user volumes:     1
+UBI: available PEBs:             0
+UBI: total number of reserved PEBs: 1983
+UBI: number of PEBs reserved for bad PEB handling: 19
+UBI: max/mean erase counter: 2/0
+UBI: image sequence number:  46740637
+CAN device driver interface
+at91_can at91sam9x5_can.1: can0: Features changed: 0x00004804 -> 0x00004004
+at91_can at91sam9x5_can.1: device registered (reg_base=c88e0000, irq=30)
+macb macb.0: invalid hw address, using random
+macb macb.0: eth0: Features changed: 0x00004800 -> 0x00004000
+MACB_mii_bus: probed
+eth0: Atmel MACB at 0xf802c000 irq 24 (1a:61:4a:e7:06:84)
+eth0: attached PHY driver [Davicom DM9161A] (mii_bus:phy_addr=0:00, irq=-1)
+ehci_hcd: USB 2.0 'Enhanced' Host Controller (EHCI) Driver
+atmel-ehci atmel-ehci: Atmel EHCI UHP HS
+atmel-ehci atmel-ehci: new USB bus registered, assigned bus number 1
+atmel-ehci atmel-ehci: irq 22, io mem 0x00700000
+UBI: background thread "ubi_bgt0d" started, PID 29
+atmel-ehci atmel-ehci: USB 2.0 started, EHCI 1.00
+hub 1-0:1.0: USB hub found
+hub 1-0:1.0: 3 ports detected
+ohci_hcd: USB 1.1 'Open' Host Controller (OHCI) Driver
+at91_ohci at91_ohci: AT91 OHCI
+at91_ohci at91_ohci: new USB bus registered, assigned bus number 2
+at91_ohci at91_ohci: irq 22, io mem 0x00600000
+hub 2-0:1.0: USB hub found
+hub 2-0:1.0: 3 ports detected
+Initializing USB Mass Storage driver...
+usbcore: registered new interface driver usb-storage
+USB Mass Storage support registered.
+usbcore: registered new interface driver libusual
+atmel_usba_udc atmel_usba_udc: MMIO registers at 0xf803c000 mapped at c88ee000
+atmel_usba_udc atmel_usba_udc: FIFO at 0x00500000 mapped at c8900000
+qt1070 0-001b: AT42QT1070 firmware version 15
+input: AT42QT1070 QTouch Sensor as /devices/platform/i2c-gpio.0/i2c-0/0-001b/input/input0
+atmel_tsadcc atmel_tsadcc: Master clock is set at: 133333333 Hz
+atmel_tsadcc atmel_tsadcc: Prescaler is set at: 221
+input: atmel touch screen controller as /devices/platform/atmel_tsadcc/input/input1
+at91_rtc at91_rtc: rtc core: registered at91_rtc as rtc0
+AT91 Real Time Clock driver.
+i2c /dev entries driver
+Linux media interface: v0.10
+lirc_dev: IR Remote Control driver registered, major 249 
+IR NEC protocol handler initialized
+IR RC5(x) protocol handler initialized
+IR RC6 protocol handler initialized
+IR JVC protocol handler initialized
+IR Sony protocol handler initialized
+IR RC5 (streamzap) protocol handler initialized
+IR LIRC bridge handler initialized
+Linux video capture interface: v2.00
+usbcore: registered new interface driver usbhid
+usbhid: USB HID core driver
+asoc: wm8731-hifi <-> atmel-ssc-dai.0 mapping ok
+ASoC: at91sam9x5ek_init ok
+ALSA device list:
+  #0: AT91SAM9X5
+nf_conntrack version 0.5.0 (1952 buckets, 7808 max)
+ip_tables: (C) 2000-2006 Netfilter Core Team
+TCP cubic registered
+NET: Registered protocol family 17
+can: controller area network core (rev 20090105 abi 8)
+NET: Registered protocol family 29
+can: raw protocol (rev 20090105)
+lib80211: common routines for IEEE802.11 drivers
+Registering the dns_resolver key type
+at91_rtc at91_rtc: setting system clock to 2007-01-01 00:41:58 UTC (1167612118)
+atmel_mci atmel_mci.0: Using dma0chan1 for DMA transfers
+atmel_mci atmel_mci.0: Atmel MCI controller at 0xf0008000 irq 12, 1 slots
+atmel_mci atmel_mci.1: Using dma1chan0 for DMA transfers
+atmel_mci atmel_mci.1: Atmel MCI controller at 0xf000c000 irq 26, 1 slots
+UBIFS: recovery needed
+UBIFS: recovery completed
+UBIFS: mounted UBI device 0, volume 0, name "root"
+UBIFS: file system size:   247476224 bytes (241676 KiB, 236 MiB, 1949 LEBs)
+UBIFS: journal size:       9023488 bytes (8812 KiB, 8 MiB, 72 LEBs)
+UBIFS: media format:       w4/r0 (latest is w4/r0)
+UBIFS: default compressor: lzo
+UBIFS: reserved for root:  0 bytes (0 KiB)
+VFS: Mounted root (ubifs filesystem) on device 0:13.
+devtmpfs: mounted
+Freeing init memory: 136K
+init started: BusyBox v1.17.1 (2011-06-15 05:54:27 CEST)
+starting pid 35, tty '/dev/console': '/etc/init.d/rcS'
+mounting filesystems...done.
+running rc.d services...
+starting atmel-qml...done
+starting udev
+mounting tmpfs at /dev
+creating static nodes
+starting udevd...done
+waiting for devices...done
+Starting telnetd...
+restoring mixer state...no /etc/asound.state, aborting
+starting network interfaces...
+udhcpc (v1.17.1) started
+Sending discover...
+eth0: link up (100/Full)
+Sending discover...
+Sending select for 200.200.200.110...
+Lease of 200.200.200.110 obtained, lease time 7200
+deleting routers
+route: SIOCDELRT: No such process
+adding dns 114.114.114.114
+adding dns 200.200.200.1
+loading modules
+
+OSELAS(R)-SAM9-master (ptxdist-2011.06.0/2011-06-15T08:38:53+0200)
+
+    _   _                  _ 
+   / \ | |_ _ __ ___   ___| |
+  / _ \| __| '_ ` _ \ / _ \ |
+ / ___ \ |_| | | | | |  __/ |
+/_/   \_\__|_| |_| |_|\___|_|
+                             
+ ____    _    __  __  ___  
+/ ___|  / \  |  \/  |/ _ \ 
+\___ \ / _ \ | |\/| | (_) |
+ ___) / ___ \| |  | |\__, |
+|____/_/   \_\_|  |_|  /_/ 
+                           
+
+
+starting pid 148, tty '/dev/console': '/sbin/getty -L 115200 ttyS0 vt100'
+
+SAM9 login: root
+login[148]: root login on 'ttyS0'
+running /etc/profile.local
+root@SAM9:~ 
+经过观察,这板子是cpu ARM926EJ-S, 也属于Atmel AT91SAM9X5-EK
+测试 sam-ba 的连接
+先把核心板的 J1 跳线断开, 按nrst (reset)按钮,然后再闭合跳线
+官网下载的 sam-ba2.16 窗口版本: 需要 sudo ./sam-ba 才能正常打开工作
+用已装好的sam-ba3 命令行版本: 
+	sudo sam-ba -p serial:ttyACM0:115200 -b sam9xx5-ek -a lowlevel	//测试连接
+	//然而使用sam-ba3来烧录还是不行，未深入探究如何人使用
+成功使用sam-ba2.16把demo烧录到到开发板并运行!!!
+	//直接使用demo 的 .sh 执行文件实现的，修改 .tcl 文件，可以把自己编译的文件烧入系统
+	//比起打开sam-ba2的窗口界面，以上命令行方式更快捷
+想把现成的buildroot rootfs 拷入sam9x35的，但是由于flash不一样的，编译成ubi的参数也应该不一样
+	make at91sam9x5ek_defconfig  //配置buildroot
+还有ubi参数貌似调对了有又出现这种问题！！
+Kernel panic - not syncing: Attempted to kill init! exitcode=0x0000000b
+	终于发现了， sam9x35终究不是contex-a5 架构的，所以在编译根文件系统时也要有所设置的，不只是ubi的设置要改，target options的设置也要改
+	Target Architecture (ARM (little endian))  ---> 	
+	Target Binary Format (ELF)  --->
+	Target Architecture Variant (arm926t)  --->	//cpu类型
+	[*] Enable VFP extension support
+	Target ABI (EABI)  ---> 			//一定不能错 否则Kernel panic - not syncing:。。。。
+	Floating point strategy (Soft float)  --->	//一定不能错 否则Kernel panic - not syncing:。。。。
+	ARM instruction set (ARM)  --->  	
+最后成功启动并能打开lcd 关于 touchscreen 的启动情况未得知
+	但是，预装系统的触摸屏运行得非常溜！！！！
+sam9x35的编译环境基本建立！！！
+补充:核心板 J2跳线: 断开 nandflash启动 ， 闭合 sdcard启动
+	   J1跳线： 断开 烧录模式， 闭合 常规启动模式，并接到nandflash /sdcard
+ 
+
+
+
+
+
+
+
+
+
+
+
+20170330
+接下来处理sam5d35 的板子！！！
+预装系统log：
+AT91Bootstrap 3.6.1-00079-gf8860d8 (Wed Feb 19 15:25:13 CST 2014)
+1-Wire: Loading 1-Wire information ...
+1-Wire: ROM Searching ... Done, 0x3 1-Wire chips found
+
+1-Wire: BoardName | [Revid] | VendorName
+  #0x0  SAMA5D35-CM [BB2]      RONETIX
+  #0x1  SAMA5D3x-MB [EE5]      FLEX
+  #0x2  SAM9x5-DM [B0]      FLEX
+
+1-Wire: SYS_GPBR2: 0x481046d, SYS_GPBR3: 0xa11021
+
+NAND: ONFI flash detected
+NAND: Manufacturer ID: 0x2c Chip ID: 0x32
+NAND: Disable On-Die ECC
+NAND: Initialize PMECC params, cap: 0x4, sector: 0x200
+NAND: Image: Copy 0x80000 bytes from 0x40000 to 0x26f00000
+PMECC: sector bits = 0x4, bit 1 means corrupted sector, Now correcting...
+Correct error bit @[#Byte 0x1a6,Bit# 0x7] 0xd0 -> 0x50
+PMECC: sector bits = 0x8, bit 1 means corrupted sector, Now correcting...
+Correct error bit @[#Byte 0x1f,Bit# 0x1] 0xe3 -> 0xe1
+PMECC: sector bits = 0x4, bit 1 means corrupted sector, Now correcting...
+Correct error bit @[#Byte 0x2e,Bit# 0x4] 0x7e -> 0x6e
+PMECC: sector bits = 0x4, bit 1 means corrupted sector, Now correcting...
+Correct error bit @[#Byte 0x4e,Bit# 0x6] 0x6d -> 0x2d
+NAND: Done to load image
+
+
+U-Boot 2013.07-00053-g40cc764 (Feb 19 2014 - 17:53:17)
+
+CPU: SAMA5D35
+Crystal frequency:       12 MHz
+CPU clock        :      528 MHz
+Master clock     :      132 MHz
+DRAM:  512 MiB
+NAND:  256 MiB
+MMC:   mci: 0
+In:    serial
+Out:   serial
+Err:   serial
+Net:   macb0
+Warning: failed to set MAC address
+, gmac0
+Warning: failed to set MAC address
+
+Hit any key to stop autoboot:  0 
+
+NAND read: device 0 offset 0x200000, size 0x37be94
+Bit flip in data area, byte_pos: 1173, bit_pos: 1, 0x02 -> 0x00
+Bit flip in data area, byte_pos: 839, bit_pos: 2, 0x07 -> 0x03
+Bit flip in data area, byte_pos: 1060, bit_pos: 7, 0x80 -> 0x00
+Bit flip in data area, byte_pos: 1082, bit_pos: 1, 0x02 -> 0x00
+Bit flip in data area, byte_pos: 494, bit_pos: 5, 0x61 -> 0x41
+Bit flip in data area, byte_pos: 1833, bit_pos: 1, 0xa6 -> 0xa4
+Bit flip in data area, byte_pos: 184, bit_pos: 6, 0xf1 -> 0xb1
+Bit flip in data area, byte_pos: 1918, bit_pos: 4, 0xb6 -> 0xa6
+Bit flip in data area, byte_pos: 180, bit_pos: 1, 0x7e -> 0x7c
+Bit flip in data area, byte_pos: 161, bit_pos: 3, 0xfc -> 0xf4
+Bit flip in data area, byte_pos: 27, bit_pos: 2, 0x8d -> 0x89
+Bit flip in data area, byte_pos: 625, bit_pos: 7, 0xb1 -> 0x31
+Bit flip in data area, byte_pos: 1066, bit_pos: 3, 0xfc -> 0xf4
+Bit flip in data area, byte_pos: 140, bit_pos: 0, 0xe7 -> 0xe6
+Bit flip in data area, byte_pos: 1507, bit_pos: 7, 0xf3 -> 0x73
+Bit flip in data area, byte_pos: 1974, bit_pos: 4, 0xf9 -> 0xe9
+Bit flip in data area, byte_pos: 656, bit_pos: 6, 0x54 -> 0x14
+Bit flip in data area, byte_pos: 1888, bit_pos: 7, 0x80 -> 0x00
+Bit flip in data area, byte_pos: 1072, bit_pos: 6, 0x40 -> 0x00
+ 3653268 bytes read: OK
+## Loading kernel from FIT Image at 22000000 ...
+   Using 'conf@sama5d35ek' configuration
+   Trying 'kernel@1' kernel subimage
+     Description:  AT91 SAMA5D3 Linux kernel
+     Type:         Kernel Image
+     Compression:  uncompressed
+     Data Start:   0x22055a00
+     Data Size:    3081320 Bytes = 2.9 MiB
+     Architecture: ARM
+     OS:           Linux
+     Load Address: 0x20008000
+     Entry Point:  0x20008000
+     Hash algo:    crc32
+     Hash value:   59f12b41
+   Verifying Hash Integrity ... crc32+ OK
+## Loading fdt from FIT Image at 22000000 ...
+   Using 'conf@sama5d35ek' configuration
+   Trying 'fdt_sama5d35ek@1' fdt subimage
+     Description:  Flattened Device Tree blob for SAMA5D35EK
+     Type:         Flat Device Tree
+     Compression:  uncompressed
+     Data Start:   0x22355e30
+     Data Size:    21292 Bytes = 20.8 KiB
+     Architecture: ARM
+     Hash algo:    crc32
+     Hash value:   0d0af010
+   Verifying Hash Integrity ... crc32+ OK
+   Booting using the fdt blob at 0x22355e30
+   Loading Kernel Image ... OK
+   Loading Device Tree to 3ba4a000, end 3ba5232b ... OK
+
+Starting kernel ...
+
+Uncompressing Linux... done, booting the kernel.
+Booting Linux on physical CPU 0x0
+Linux version 3.10.0-00354-gdf700c9 (josh@shaarm01) (gcc version 4.7.3 (Sourcery CodeBench Lite 2013.05-24) ) #1 Wed Feb 19 15:28:48 CST 2014
+CPU: ARMv7 Processor [410fc051] revision 1 (ARMv7), cr=10c53c7d
+CPU: PIPT / VIPT nonaliasing data cache, VIPT aliasing instruction cache
+Machine: Atmel SAMA5 (Device Tree), model: Atmel SAMA5D35-EK
+Memory policy: ECC disabled, Data cache writeback
+AT91: Detected soc type: sama5d3
+AT91: Detected soc subtype: sama5d35
+AT91: sram at 0x300000 of 0x20000 mapped at 0xfef58000
+CPU: All CPU(s) started in SVC mode.
+Clocks: CPU 528 MHz, master 132 MHz, main 12.000 MHz
+Built 1 zonelists in Zone order, mobility grouping on.  Total pages: 130048
+Kernel command line: console=ttyS0,115200 mtdparts=atmel_nand:8M(bootstrap/uboot/kernel)ro,-(rootfs) rw rootfstype=ubifs ubi.mtd=1 root=ubi0:rootfs
+PID hash table entries: 2048 (order: 1, 8192 bytes)
+Dentry cache hash table entries: 65536 (order: 6, 262144 bytes)
+Inode-cache hash table entries: 32768 (order: 5, 131072 bytes)
+Memory: 512MB = 512MB total
+Memory: 513644k/513644k available, 10644k reserved, 0K highmem
+Virtual kernel memory layout:
+    vector  : 0xffff0000 - 0xffff1000   (   4 kB)
+    fixmap  : 0xfff00000 - 0xfffe0000   ( 896 kB)
+    vmalloc : 0xe0800000 - 0xff000000   ( 488 MB)
+    lowmem  : 0xc0000000 - 0xe0000000   ( 512 MB)
+    modules : 0xbf000000 - 0xc0000000   (  16 MB)
+      .text : 0xc0008000 - 0xc0563598   (5486 kB)
+      .init : 0xc0564000 - 0xc058dc64   ( 168 kB)
+      .data : 0xc058e000 - 0xc05c8cc0   ( 236 kB)
+       .bss : 0xc05c8cc0 - 0xc05e6298   ( 118 kB)
+NR_IRQS:16 nr_irqs:16 16
+sched_clock: 32 bits at 100 Hz, resolution 10000000ns, wraps every 4294967286ms
+Console: colour dummy device 80x30
+Calibrating delay loop... 262.96 BogoMIPS (lpj=1314816)
+pid_max: default: 32768 minimum: 301
+Mount-cache hash table entries: 512
+CPU: Testing write buffer coherency: ok
+Setting up static identity map for 0xc0408878 - 0xc04088d0
+devtmpfs: initialized
+pinctrl core: initialized pinctrl subsystem
+NET: Registered protocol family 16
+DMA: preallocated 256 KiB pool for atomic coherent allocations
+No ATAGs?
+AT91: Power Management
+gpio-at91 fffff200.gpio: at address fefff200
+gpio-at91 fffff400.gpio: at address fefff400
+gpio-at91 fffff600.gpio: at address fefff600
+gpio-at91 fffff800.gpio: at address fefff800
+gpio-at91 fffffa00.gpio: at address fefffa00
+pinctrl-at91 pinctrl.2: initialized AT91 pinctrl driver
+bio: create slab <bio-0> at 0
+at_hdmac ffffe600.dma-controller: Atmel AHB DMA Controller ( cpy slave ), 8 channels
+at_hdmac ffffe800.dma-controller: Atmel AHB DMA Controller ( cpy slave ), 8 channels
+SCSI subsystem initialized
+usbcore: registered new interface driver usbfs
+usbcore: registered new interface driver hub
+usbcore: registered new device driver usb
+at91_i2c f0018000.i2c: using dma0chan0 (tx) and dma0chan1 (rx) for DMA transfers
+at91_i2c f0018000.i2c: AT91 i2c bus driver.
+Linux video capture interface: v2.00
+Advanced Linux Sound Architecture Driver Initialized.
+cfg80211: Calling CRDA to update world regulatory domain
+Switching to clocksource tcb_clksrc
+NET: Registered protocol family 2
+TCP established hash table entries: 4096 (order: 3, 32768 bytes)
+TCP bind hash table entries: 4096 (order: 2, 16384 bytes)
+TCP: Hash tables configured (established 4096 bind 4096)
+TCP: reno registered
+UDP hash table entries: 256 (order: 0, 4096 bytes)
+UDP-Lite hash table entries: 256 (order: 0, 4096 bytes)
+NET: Registered protocol family 1
+RPC: Registered named UNIX socket transport module.
+RPC: Registered udp transport module.
+RPC: Registered tcp transport module.
+RPC: Registered tcp NFSv4.1 backchannel transport module.
+msgmni has been set to 1003
+io scheduler noop registered (default)
+f0020000.serial: ttyS2 at MMIO 0xf0020000 (irq = 23) is a ATMEL_SERIAL
+ffffee00.serial: ttyS0 at MMIO 0xffffee00 (irq = 36) is a ATMEL_SERIAL
+console [ttyS0] enabled
+brd: module loaded
+loop: module loaded
+ssc f0008000.ssc: Atmel SSC device at 0xe0858000 (irq 19)
+atmel_nand_nfc 70000000.nfc: NFC is probed.
+atmel_nand: Use On Flash BBT
+atmel_nand 60000000.nand: Using dma0chan2 for DMA transfers.
+ONFI param page 0 valid
+ONFI flash detected
+NAND device: Manufacturer ID: 0x2c, Chip ID: 0xda (Micron MT29F2G08ABAEAWP), 256MiB, page size: 2048, OOB size: 64
+atmel_nand 60000000.nand: ONFI params, minimum required ECC: 4 bits in 512 bytes
+atmel_nand 60000000.nand: Initialize PMECC params, cap: 4, sector: 512
+atmel_nand 60000000.nand: Using NFC Sram read and write
+Bad block table found at page 131008, version 0x01
+Bad block table found at page 130944, version 0x01
+2 cmdlinepart partitions found on MTD device atmel_nand
+Creating 2 MTD partitions on "atmel_nand":
+0x000000000000-0x000000800000 : "bootstrap/uboot/kernel"
+0x000000800000-0x000010000000 : "rootfs"
+atmel_spi f0004000.spi: version: 0x213
+atmel_spi f0004000.spi: Using dma0chan3 (tx) and dma0chan4 (rx) for DMA transfers
+atmel_spi f0004000.spi: Atmel SPI Controller at 0xf0004000 (irq 18)
+atmel_spi f0004000.spi: master is unqueued, this is deprecated
+m25p80 spi32766.0: unrecognized JEDEC id ffffff
+CAN device driver interface
+at91_can f000c000.can: device registered (reg_base=e0888000, irq=20)
+at91_can f8010000.can: device registered (reg_base=e088a000, irq=27)
+macb f0028000.ethernet (unregistered net_device): invalid hw address, using random
+libphy: MACB_mii_bus: probed
+macb f0028000.ethernet eth0: Cadence GEM at 0xf0028000 irq 24 (96:d9:d4:60:5a:46)
+macb f0028000.ethernet eth0: attached PHY driver [Micrel KSZ9021 Gigabit PHY] (mii_bus:phy_addr=f0028000.etherne:01, irq=-1)
+macb f802c000.ethernet (unregistered net_device): invalid hw address, using random
+libphy: MACB_mii_bus: probed
+macb f802c000.ethernet eth1: Cadence MACB at 0xf802c000 irq 30 (2a:b2:33:8e:32:a4)
+macb f802c000.ethernet eth1: attached PHY driver [Micrel KSZ8031] (mii_bus:phy_addr=f802c000.etherne:00, irq=-1)
+ehci_hcd: USB 2.0 'Enhanced' Host Controller (EHCI) Driver
+ehci-atmel: EHCI Atmel driver
+atmel-ehci 700000.ehci: EHCI Host Controller
+atmel-ehci 700000.ehci: new USB bus registered, assigned bus number 1
+atmel-ehci 700000.ehci: irq 44, io mem 0x00700000
+atmel-ehci 700000.ehci: USB 2.0 started, EHCI 1.00
+usb usb1: New USB device found, idVendor=1d6b, idProduct=0002
+usb usb1: New USB device strings: Mfr=3, Product=2, SerialNumber=1
+usb usb1: Product: EHCI Host Controller
+usb usb1: Manufacturer: Linux 3.10.0-00354-gdf700c9 ehci_hcd
+usb usb1: SerialNumber: 700000.ehci
+hub 1-0:1.0: USB hub found
+hub 1-0:1.0: 3 ports detected
+ohci_hcd: USB 1.1 'Open' Host Controller (OHCI) Driver
+at91_ohci 600000.ohci: AT91 OHCI
+at91_ohci 600000.ohci: new USB bus registered, assigned bus number 2
+at91_ohci 600000.ohci: irq 44, io mem 0x00600000
+usb usb2: New USB device found, idVendor=1d6b, idProduct=0001
+usb usb2: New USB device strings: Mfr=3, Product=2, SerialNumber=1
+usb usb2: Product: AT91 OHCI
+usb usb2: Manufacturer: Linux 3.10.0-00354-gdf700c9 ohci_hcd
+usb usb2: SerialNumber: at91
+hub 2-0:1.0: USB hub found
+hub 2-0:1.0: 3 ports detected
+usbcore: registered new interface driver cdc_acm
+cdc_acm: USB Abstract Control Model driver for USB modems and ISDN adapters
+usbcore: registered new interface driver usb-storage
+usbcore: registered new interface driver usbserial
+usbcore: registered new interface driver usbserial_generic
+usbserial: USB Serial support registered for generic
+usbcore: registered new interface driver ftdi_sio
+usbserial: USB Serial support registered for FTDI USB Serial Device
+usbcore: registered new interface driver pl2303
+usbserial: USB Serial support registered for pl2303
+atmel_usba_udc 500000.gadget: MMIO registers at 0xf8030000 mapped at e0898000
+atmel_usba_udc 500000.gadget: FIFO at 0x00500000 mapped at e2400000
+at91_rtc fffffeb0.rtc: rtc core: registered fffffeb0.rtc as rtc0
+at91_rtc fffffeb0.rtc: AT91 Real Time Clock driver.
+i2c /dev entries driver
+soc-camera-pdrv soc-camera-pdrv.0: Probing soc-camera-pdrv.0
+ov2640 1-0030: Product ID error 87:87
+soc-camera-pdrv soc-camera-pdrv.1: Probing soc-camera-pdrv.1
+ov5642 1-003c: reg_write: i2c write error, reg: 3103
+ov5642: probe of 1-003c failed with error -121
+leds-gpio leds.3: pins are not configured from the driver
+atmel_aes f8038000.aes: version: 0x135
+atmel_aes f8038000.aes: Atmel AES - Using dma1chan0, dma1chan1 for DMA transfers
+atmel_tdes f803c000.tdes: version: 0x701
+atmel_tdes f803c000.tdes: using dma1chan2, dma1chan3 for DMA transfers
+atmel_tdes f803c000.tdes: Atmel DES/TDES
+atmel_sha f8034000.sha: version: 0x410
+atmel_sha f8034000.sha: using dma1chan4 for DMA transfers
+atmel_sha f8034000.sha: Atmel SHA1/SHA256/SHA224/SHA384/SHA512
+usbcore: registered new interface driver usbhid
+usbhid: USB HID core driver
+iio iio:device0: Resolution used: 12 bits
+iio iio:device0: ADC Touch screen is disabled.
+wm8904 1-001a: revision A
+atmel-wm8904-audio sound.4: setting pck0 to 32768Hz
+atmel-wm8904-audio sound.4:  wm8904-hifi <-> f0008000.ssc mapping ok
+TCP: cubic registered
+NET: Registered protocol family 10
+sit: IPv6 over IPv4 tunneling driver
+NET: Registered protocol family 17
+can: controller area network core (rev 20120528 abi 9)
+NET: Registered protocol family 29
+can: raw protocol (rev 20120528)
+can: broadcast manager protocol (rev 20120528 t)
+can: netlink gateway (rev 20130117) max_hops=1
+VFP support v0.3: implementor 41 architecture 2 part 30 variant 5 rev 1
+UBI: attaching mtd1 to ubi0
+UBI: scanning is finished
+UBI: attached mtd1 (name "rootfs", size 248 MiB) to ubi0
+UBI: PEB size: 131072 bytes (128 KiB), LEB size: 126976 bytes
+UBI: min./max. I/O unit sizes: 2048/2048, sub-page size 2048
+UBI: VID header offset: 2048 (aligned 2048), data offset: 4096
+UBI: good PEBs: 1980, bad PEBs: 4, corrupted PEBs: 0
+UBI: user volume: 1, internal volumes: 1, max. volumes count: 128
+UBI: max/mean erase counter: 2/0, WL threshold: 4096, image sequence number: 107862926
+UBI: available PEBs: 0, total reserved PEBs: 1980, PEBs reserved for bad PEB handling: 36
+UBI: background thread "ubi_bgt0d" started, PID 552
+input: gpio_keys.5 as /devices/gpio_keys.5/input/input0
+at91_rtc fffffeb0.rtc: setting system clock to 2007-01-01 04:36:35 UTC (1167626195)
+atmel_mci f0000000.mmc: version: 0x505
+atmel_mci f0000000.mmc: using dma0chan7 for DMA transfers
+atmel_mci f0000000.mmc: Atmel MCI controller at 0xf0000000 irq 17, 1 slots
+atmel_mci f8000000.mmc: version: 0x505
+atmel_mci f8000000.mmc: using dma1chan5 for DMA transfers
+atmel_mci f8000000.mmc: Atmel MCI controller at 0xf8000000 irq 26, 1 slots
+ALSA device list:
+  #0: wm8904 @ SAMA5D3EK
+UBIFS: background thread "ubifs_bgt0_0" started, PID 565
+UBIFS: recovery needed
+atmel_nand 60000000.nand: Bit flip in data area, byte_pos: 1189, bit_pos: 3, 0x0f -> 0x07
+atmel_nand 60000000.nand: Bit flip in data area, byte_pos: 862, bit_pos: 3, 0x58 -> 0x50
+atmel_nand 60000000.nand: Bit flip in data area, byte_pos: 1803, bit_pos: 2, 0x14 -> 0x10
+atmel_nand 60000000.nand: Bit flip in data area, byte_pos: 1149, bit_pos: 7, 0xfe -> 0x7e
+UBIFS: recovery completed
+UBIFS: mounted UBI device 0, volume 0, name "rootfs"(null)
+UBIFS: LEB size: 126976 bytes (124 KiB), min./max. I/O unit sizes: 2048 bytes/2048 bytes
+UBIFS: FS size: 244936704 bytes (233 MiB, 1929 LEBs), journal size 9023488 bytes (8 MiB, 72 LEBs)
+UBIFS: reserved for root: 0 bytes (0 KiB)
+UBIFS: media format: w4/r0 (latest is w4/r0), UUID 061589C3-4114-491C-8ABD-5A0531BE13BA, small LPT model
+VFS: Mounted root (ubifs filesystem) on device 0:11.
+devtmpfs: mounted
+Freeing unused kernel memory: 164K (c0564000 - c058d000)
+atmel_nand 60000000.nand: Bit flip in data area, byte_pos: 51, bit_pos: 1, 0x06 -> 0x04
+atmel_nand 60000000.nand: Bit flip in data area, byte_pos: 51, bit_pos: 1, 0x06 -> 0x04
+Starting logging: OK
+Populating /dev using udev: atmel_nand 60000000.nand: Bit flip in data area, byte_pos: 963, bit_pos: 0, 0x03 -> 0x02
+atmel_nand 60000000.nand: Bit flip in data area, byte_pos: 963, bit_pos: 0, 0x03 -> 0x02
+atmel_nand 60000000.nand: Bit flip in data area, byte_pos: 963, bit_pos: 0, 0x03 -> 0x02
+udevd[580]: starting version 182
+done
+Starting portmap: done
+Initializing random number generator... done.
+ALSA: Restoring mixer settings...
+Starting network...
+atmel_nand 60000000.nand: Bit flip in data area, byte_pos: 1836, bit_pos: 2, 0x04 -> 0x00
+atmel_nand 60000000.nand: Bit flip in data area, byte_pos: 1324, bit_pos: 2, 0x0c -> 0x08
+atmel_nand 60000000.nand: Bit flip in data area, byte_pos: 1836, bit_pos: 2, 0x04 -> 0x00
+atmel_nand 60000000.nand: Bit flip in data area, byte_pos: 1836, bit_pos: 2, 0x04 -> 0x00
+atmel_nand 60000000.nand: Bit flip in data area, byte_pos: 1665, bit_pos: 0, 0x5b -> 0x5a
+atmel_nand 60000000.nand: Bit flip in data area, byte_pos: 1836, bit_pos: 2, 0x04 -> 0x00
+Starting sshd: atmel_nand 60000000.nand: Bit flip in data area, byte_pos: 165, bit_pos: 0, 0x0d -> 0x0c
+atmel_nand 60000000.nand: Bit flip in data area, byte_pos: 1875, bit_pos: 0, 0x17 -> 0x16
+OK
+
+Welcome to Buildroot
+buildroot login: atmel_nand 60000000.nand: Bit flip in data area, byte_pos: 1149, bit_pos: 7, 0xfe -> 0x7e
+atmel_nand 60000000.nand: Bit flip in data area, byte_pos: 1149, bit_pos: 7, 0xfe -> 0x7e
+root
+
+官方demo烧录发现并没有lcd的初始化！！
+还有debug串口是J14的usb口
+烧录非常方便：接上USB-a, 先按cs_boot不放，然后按reset，然后再松开cs_boot 然后就可以使用sam-ba烧录了
+
+demo使用的 是uImage镜像，并非zImage,显然这里的uboot也并不合适，所以需要重新编译uboot！！
+先重现编译bootstrap：
+	make sama5d3_xplainednf_uboot_defconfig
+	make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf-
+重新编译uboot：
+	git checkout origin/u-boot-2016.03-at91 -b u-boot-2016.03-at91	//选择分支
+	make sama5d3_xplained_nandflash_defconfig
+	make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf-
+然后编译kernel：
+	观察到由于预装的demo是使用uImage的，所以，我们也假设使用uImage
+	先把uboot的 mkimage 工具，放到 /usr/bin
+	make ARCH=arm sama5_defconfig
+	make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- uImage LOADADDR=0x20008000 -j8
+	撒后烧录时，注意要同时替换 dtb 和uImage，不然uImage对应不是同款内核编译出来的dtb时，启动会失败
+以上都成功通过，
+开始移植lcd！！！
+注意，make ARCH=arm sama5_defconfig 后可不用 make ARCH=arm menuconfig 就已经绑入了lcd驱动
+但是要配置dts，让lcd的驱动真正挂上系统，
+测试过程中，lcd驱动有初始化，但就是没有得到 /dev/fb0
+	原来是 dts没有做很好的配置，后来发现lcd的内容写在 sama5d3_lcd.dtsi，sama5d3xdm.dtsi
+	所以只要sama535ek.dts里include上述两个文件就行！！
+	但是，卡在ubi初始化之前！！
+	经过跟踪实际上是，lcd初始化出问题了？？
+	主要是背光灯处出现问题： 在dts里关于这个选项
+	regulator-name = "backlight-power-supply"; 注释掉的话，系统流畅运行，但是fb0初始化失败，
+		而使用这配置时，系统卡在初始化，跳不过去，具体卡在哪个点还不知道！！
+		原来是 backlight 初始化出问题了！！！，在dts里取消掉backlight 的项的初始化就可以用！！！
+		具体是， 注释掉panel panel：的 backlight = <&backlight>;
+		blacklight：blacklight status = "disabled";
+		然后就可以初始化出 fb0 了，关于 hlcdc 的dts 又有深的了解！！！
+/ {
+	ahb {
+		apb {
+			hlcdc: hlcdc@f0030000 {
+				compatible = "atmel,sama5d3-hlcdc";
+				reg = <0xf0030000 0x2000>;
+				interrupts = <36 IRQ_TYPE_LEVEL_HIGH 0>;
+				clocks = <&lcdc_clk>, <&lcdck>, <&clk32k>;
+				clock-names = "periph_clk","sys_clk", "slow_clk";
+				/* status = "disabled"; */
+				status = "okay";
+
+				hlcdc-display-controller {
+					compatible = "atmel,hlcdc-display-controller";
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					pinctrl-names = "default";
+					pinctrl-0 = <&pinctrl_lcd_base &pinctrl_lcd_rgb888_alt>;
+
+					port@0 {
+						#address-cells = <1>;
+						#size-cells = <0>;
+						reg = <0>;
+
+						hlcdc_panel_output: endpoint@0 {
+							reg = <0>;
+							remote-endpoint = <&panel_input>;
+						};
+					};
+				};
+
+				hlcdc_pwm: hlcdc-pwm {
+					compatible = "atmel,hlcdc-pwm";
+					pinctrl-names = "default";
+					pinctrl-0 = <&pinctrl_lcd_pwm>;
+					#pwm-cells = <3>;
+				};
+			};
+
+			pinctrl@fffff200 {
+				lcd {
+					。。。。。。
+					pinctrl_lcd_pwm: lcd-pwm-0 {
+						atmel,pins = <AT91_PIOA 24 AT91_PERIPH_A AT91_PINCTRL_NONE>;	/* LCDPWM */
+					};
+					。。。。。。
+				};
+			};
+
+		};
+	};
+
+	backlight: backlight {
+		compatible = "pwm-backlight";
+		pwms = <&hlcdc_pwm 0 50000 0>;
+		brightness-levels = <0 4 8 16 32 64 128 255>;
+		default-brightness-level = <6>;
+		power-supply = <&bl_reg>;
+		/* status = "okay"; */
+		status = "disabled";
+	};
+
+	bl_reg: backlight_regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "backlight-power-supply";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		status = "okay";
+		/* status = "disabled"; */
+	};
+
+	panel: panel {
+		compatible = "foxlink,fl500wvr00-a0t", "simple-panel";
+		/* backlight = <&backlight>; */
+		power-supply = <&panel_reg>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "okay";
+
+		port@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			panel_input: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&hlcdc_panel_output>;
+			};
+		};
+	};
+
+	panel_reg: panel_regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "panel-power-supply";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		status = "okay";
+		/* status = "disabled"; */
+	};
+};
+观察上述节dts： 
+	hlcdc 两个节点  hlcdc-display-controller（lcd控制器）  hlcdc_pwm（lcd背光灯控制）
+	lcd初始化时，会初始化 hlcdc-display-controller 里的所有内容，包括远程节点 panel_input: endpoint@0的内容，
+	而初始化远程节点 panel_input: endpoint@0的内容，前提要先初始化 panel: panel 父节点的内容，
+	panel: panel 父节点的内容，包括 backlight: backlight panel_reg: panel_regulator
+	而 backlight: backlight 又绕回去 初始化 与hlcdc-display-controller 同级同属节点 hlcdc_pwm 的内容，
+	当所有的这些都完成了，hlcdc-display-controller 才真正完成初始化，出现fb0！！
+	简单流程图：
+	hlcdc-display-controller（start） -> &panel_input -> panel: panel -> &backlight
+		-> &hlcdc_pwm(hlcdc_pwm: hlcdc-pwm) -> &panel_reg
+		-> hlcdc-display-controller（end）得fb0，
+	也就是说 hlcdc_pwm: hlcdc-pwm 本来是另一个同级同属模块来着，但是现在情况是要求先初始化好了，hlcdc-display-controller才算初始好
+	注意 由于循序初始化节点，所以 hlcdc: hlcdc 初始化好了，后米娜还会重复初始化 backlight: backlight一遍，不过检测到之前已初始化，所以作罢
+	而现在是发现初始化 backlight: backlight 有问题，所以，我们选择初始化 hlcdc-display-controller 期间，不会初始化 backlight: backlight
+		所以，我们 注释掉 backlight = <&backlight>; 这项，于是，成功初始化 hlcdc-display-controller
+		但是，由于循序初始化节点，所以 hlcdc: hlcdc 初始化好了，后米娜还会重复初始化 backlight: backlight一遍，
+		而发现初始化 backlight: backlight 有问题的，所以即使现在 hlcdc-display-controller 已经成功初始化，
+		但是内核还是卡死在初始化backlight: backlight上
+		所以，我们要把 backlight: backlight 配置 status = "disabled";
+		然后，就完美初始化内核和 fb0 了！！！
+然而没有背光的lcd 是无法显示的，所以此刻我们要调查背光初始化失败的原因，首先怀疑是 hlcdc-pwm 针被复用了！！！
+
+还有补充`不知道是不是忘记了的知识 发现zImage是位置无关码！！ 放在0x20008000 或 0x22000000 的位置运行都行
+还有，为方便调试，在内核的Makefile添加 自动拷贝镜像到指定路径的选项：
+	在arch/arm/Makefile：
+dtbs: prepare scripts
+	$(Q)$(MAKE) $(build)=$(boot)/dts
+# by william
+	cp $(boot)/dts/sama5d35ek.dtb /home/infortech-ubuntu-1404/SAMA5D35/demo/DemoV1.1/
+	在arch/arm/boot/Makefile：
+$(obj)/zImage:	$(obj)/compressed/vmlinux FORCE
+	$(call if_changed,objcopy)
+	@$(kecho) '  Kernel: $@ is ready'
+# by william
+	cp $(obj)/zImage /home/infortech-ubuntu-1404/SAMA5D35/demo/DemoV1.1/
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
