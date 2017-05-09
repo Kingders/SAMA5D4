@@ -1546,10 +1546,11 @@ usb_gaget驱动:
 	发现,f_serial.c里的函数暂时也就只有f_serial.c自己调用!!很奇怪,作为一个中间模块.里面的函数绝对被放到指针里被调用了
 如果项测试开发板的gaget串口功能!!可以这样:
 	把编译好的内核烧入开发板，加载生成的驱动文件，注意加载顺序，否则会出现错误。
+	先insmod atmel_usba_udc.ko  //添加 udc控制器驱动
 	insmod  u_serial.ko
 	insmod  libcomposite.ko
-	insmod   usb_f_serial.ko
-	insmod  usb_f_obex.ko
+	insmod   usb_f_serial.ko	//atmel 选用acm协议，所以不用加载这个也可以
+	insmod  usb_f_obex.ko		//atmel 选用acm协议，所以不用加载这个也可以
 	insmod  usb_f_acm.ko
 	insmod  g_serial.ko
 	出现内核信息如下：
@@ -5905,7 +5906,7 @@ sam9x35的编译环境基本建立！！！
 
 
 20170330
-接下来处理sam5d35 的板子！！！
+接下来处理sama5d35 的板子！！！
 预装系统log：
 AT91Bootstrap 3.6.1-00079-gf8860d8 (Wed Feb 19 15:25:13 CST 2014)
 1-Wire: Loading 1-Wire information ...
@@ -6434,6 +6435,1720 @@ $(obj)/zImage:	$(obj)/compressed/vmlinux FORCE
 
 
 
+20170407
+关于内核，之后几个重点学习驱动系统：
+Periodic Interval Timer (PIT)
+Power Management Controller (PMC)
+Static Memory Controller (SMC)
+DMA Controller (DMAC)
+USB High Speed Device Port (UDPHS)
+USB Host High Speed Port (UHPHS)
+Gigabit Ethernet MAC (GMAC)
+Ethernet 10/100 MAC (EMAC)
+High Speed Multimedia Card Interface (HSMCI)
+Synchronous Serial Controller (SSC)
+
+先分析 usb 系统
+usb从设备的系统构成
+	最底层 udc 驱动（usb device control ）：atmel_usba_udc.c 底层驱动一般厂商做好，自己并不需要处理
+	usb从设备的上层驱动（也就是 对应的gadget驱动）了：usb串口，u盘，usb网卡 （负责具体从设备功能内容）
+		而这些上层驱动，都通过访问同一个底层驱动实现功能，底层驱动提供给上层驱动的接口
+		但是 某一刻只允许 其中只允许一个上层驱动 访问 底层驱动，如果要使用另一个上层驱动，需要把现在的上层驱动注销
+		方便上层驱动的开发，上层驱动一般都使用一个统一的 usb上层驱动架构 composite
+为了更快理解composite框架的上层驱动的系统 分析，zero.c的内容，这是最简单的 usb上层驱动！！并尝试移植实现
+
+分析 并 实现 zero.c
+使用 sama5d35 板子 和 kernel1 的内核进行测试！
+通过测试 g_zero 的功能 来 学习开发 usb从设备的上层驱动
+为了测试 g_zero pc端也要加载相关的 usb用户驱动 来 实现访问 usb从设备，而我们修改usb_skeleton驱动来作为这个驱动
+而 usb_skeleton 就是我们平常说的 usb设备驱动
+
+usb_skeleton 作为 pc端 的模块 （/test/usb_skeleton_and_g_zero）
+通过 makefile 生成 usb_skeleton.ko
+	make之前,修改usb_skeleton.c 对应宏 与 zero.c里对应的宏一致便于usb识别,
+	需要将USB_SKEL_VENDOR_ID 改成 0x0525，USB_SKEL_PRODUCT_ID改成0xa4a0 //注意usb_skeleton 与 g_zero 模块使用相同的 id 不然出错
+	注意,make一定要添加 KERNEL_DIR 参数,而且参数指向 pc端的源码库/usr/src/linux-headers-3.19.0-25-generic 	//不然make会出错
+
+编译 g_zero.ko
+注意:使用kernel1 执行测试,menuconfig 添加 <M> Gadget Zero  然后重新编译内核
+g_zero 是 composize 架构的 gadgst驱动(usb从设备上层),
+看源码发现 zero.只是初始化的内容,而真正的功能操作是在另外的c文件上,观察编译log证明这假设:
+  CC [M]  drivers/usb/gadget/legacy/zero.o
+  CC [M]  drivers/usb/gadget/function/f_loopback.o
+  CC [M]  drivers/usb/gadget/function/f_sourcesink.o
+  LD [M]  drivers/usb/gadget/legacy/g_zero.o
+  LD [M]  drivers/usb/gadget/function/usb_f_ss_lb.o
+  Building modules, stage 2.
+  Kernel: arch/arm/boot/Image is ready
+  Kernel: arch/arm/boot/zImage is ready
+  MODPOST 41 modules
+  CC      drivers/usb/gadget/function/usb_f_ss_lb.mod.o
+  CC      drivers/usb/gadget/legacy/g_zero.mod.o
+  LD [M]  drivers/usb/gadget/function/usb_f_ss_lb.ko
+  LD [M]  drivers/usb/gadget/legacy/g_zero.ko
+估计,要实现完整的 g_zero 需要加载 usb_f_ss_lb.ko 和 g_zero.ko 两个模块
+
+进行测试：
+	pc端:
+		sudo insmod usb-skeleton.ko	//加载usb-skeleton
+		这时:[3747318.188823] usbcore: registered new interface driver skeleton
+		但是 /dev 未出现 skel0
+	开发板:
+		insmod atmel_usba_udc.ko	//底层 udc驱动
+		insmod libcomposite.ko		//应用于从设备上层驱动 的composite 框架
+		insmod usb_f_ss_lb.ko		//g_zero 的 sourcesink and loopback 具体功能模块
+		insmod g_zero.ko  loopdefault=1	//g_zero 的注册函数, 默认使用 loopback 配置
+	使用usb线连接 usba 与 pc 
+		dmesg_log:
+		[3751198.626811] usb 1-11: new high-speed USB device number 16 using xhci_hcd
+		[3751198.756060] usb 1-11: New USB device found, idVendor=0525, idProduct=a4a0
+		[3751198.756064] usb 1-11: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+		[3751198.756066] usb 1-11: Product: Gadget Zero
+		[3751198.756068] usb 1-11: Manufacturer: Linux 4.1.0-linux4sam_5.3 with atmel_usba_udc
+		[3751198.756069] usb 1-11: SerialNumber: 0123456789.0123456789.0123456789
+		[3751198.761383] skeleton 1-11:2.0: USB Skeleton device now attached to USBSkel-0
+		这时/dev 也出现 skel0 设备点
+	注意 pc端 连接 开发板前 先添加usbtest黑名单，不然出现以下log：
+		[3741856.946750] usb 1-11: new high-speed USB device number 10 using xhci_hcd
+		[3741857.075341] usb 1-11: New USB device found, idVendor=0525, idProduct=a4a0
+		[3741857.075345] usb 1-11: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+		[3741857.075348] usb 1-11: Product: Gadget Zero
+		[3741857.075350] usb 1-11: Manufacturer: Linux 4.1.0-linux4sam_5.3 with atmel_usba_udc
+		[3741857.075351] usb 1-11: SerialNumber: 0123456789.0123456789.0123456789
+		[3741857.146253] usbtest 1-11:3.0: Linux gadget zero
+		[3741857.146257] usbtest 1-11:3.0: high-speed {control in/out bulk-in bulk-out} tests (+alt)	
+			//这条以及以上的都发现和分析接入的usb从设备
+		[3741857.146270] usbcore: registered new interface driver usbtest	
+			//貌似是主机(host)端关于这个usb从设备的主机部分的驱动  
+		pc检测完usb后会自动加载usbtest 这个host端的驱动模块和我们要加载的skeleton冲突，所以需要去掉 usbtest.ko, 
+		由于在现版本ubuntu,usbtest.ko融入到内核,而不是以模块存在,所以不能 rmmod usbtest 就杜绝日后不会自动加载
+		最好的做法是加入黑名单: 
+			sudo echo 'blacklist usbtest' >> /etc/modprobe.d/blacklist.conf		//出错!!
+			原来不是/etc/..的权限问题,而是sudo 与 echo 的问题:
+			因为重定向符号 “>” 和 ">>" 也是 bash 的命令。我们使用 sudo 只是让 echo 命令具有了 root 权限，
+			但是没有让 “>” 和 ">>" 命令也具有 root 权限
+			方法1:
+			echo 'blacklist usbtest' | sudo tee -a /etc/modprobe.d/blacklist.conf
+			方法2:
+			sudo gedit /etc/modprobe.d/blacklist.conf 然后在最后一行添加 blacklist usbtest
+	在pc的terminal上执行测试:
+		echo 'helloworld' | sudo tee -a /dev/skel0	//相当于给从设备输入信息
+		cat /dev/skel0		//由于默认 loopback 配置,所以g_zero 得到信息后会返回给pc的skeleton,所以应该显示 helloworld 	
+	问题:
+		基本实现
+		但是:cat /dev/skel0 并没有得到预期效果,但是显示大量关于开发板的信息,未知问题根结
+通过以上分析：
+如果我们要开发一个usb从设备的驱动，其实开发的从设备的上层驱动，是 gadget驱动，是建立在composite架构上的驱动！！
+例如 g_zero这个gadget驱动 除去composite框架外，由 usb_f_ss_lb.ko 和 g_zero.ko 组成
+由f_loopback.c f_sourcesink.c zero.c共同组成！！
+
+补充：
+Peripheral ID 同时也作为 硬件中断号！！
+
+
+
+
+
+
+
+
+
+20170412
+今天分析 g_zero 的功能实现，
+知道 g_zero 由zero.c 和 f_loopback.c 组成，现在挖掘loopback功能
+loopback_complete() //这里只把内容递给指定端点ep的传送队列，而底层udc才把ep的队列的内容传送给pc端
+		    //同时这里实现了 loopback 的具体操作，把in端点的内容放入out端点队列，把out端点
+处理 cat /dev/skel0 无穷消息输出的问题！！
+目前知道是 enable_endpoint 的 usb_ep_queue 开始往ep队列输送信息，当信息真正被udc送到pc端后，
+就会促发并从loopback_cpmplete()继续usb_ep_queue 往ep队列输送信息
+终于弄清楚问题所在：由于 loopback_complete() 存在的代码bug引起！！！（linux-at91-master 这个源码包出现的bug）
+	在usb从设备上层驱动上，out-ep（out端点） 指的是 从pc机即host端 往usb从设备输入数据的端点 
+			      in-ep（in端点） 指的是 usb从设备 往pc机输出数据的端点
+	所以，in 和 out 是以 pc机（host端）为正参照物的，不是以 usb从设备端
+	当pc机和开发板都挂好对应的驱动，并用usb线连接好后：
+		pc端建立了 skel0 设备节点
+		由于 kernel1 的 g_zero模块的代码不完整，loopback功能已经提交了一些杂乱的数据到 in-ep上
+		而提交到in-ep的数据会组合打包！！组合打包指，数据会按先后顺序打包
+			而且，大数据的request会被分开多个包
+			小数据的request会组合成多个包
+	然后我们 cat /dev/skel0 时， pc端和开发板端的底层驱动才开始工作，把 in-ep端点队列上的内容传递到 pc机上，终端看到数据
+	这时才算完成了数据的传输，然后每个完成传输的request（注意是每个request，不是每个组合打包后的数据包）会触发loopback_complete
+	loopback_comple用于对完成了的request的处理，
+	而这里出现的bug是，把这个在in-ep完成了的 request 由重新放回 in-ep 队列
+	而不是清空请求，所以造成了源源不断的相同消息重新输出！！！
+修改：
+	对 in-ep 完成了的请求，官方建议应该放入 out-ep 的队列，（会清空内容然后，留下来等待收集输入数据么？）
+	对 out-ep 完成了的请求， 是把这个从pc端获得内容的请求重新放入 in-ep 队列，静待时机重新传回到 pc端
+	关键源码：
+	int			status = req->status;
+
+	switch (status) {
+	case 0:				/* normal completion? */
+		if (ep == loop->out_ep) {
+			req->zero = (req->actual < req->length);
+			req->length = req->actual;
+			ep = loop->in_ep;
+
+			//by william  when ep == loop->out_ep
+			DBG(cdev, "receive message!! \n");
+		}
+		else {
+			ep = loop->out_ep;
+
+			//by william  when ep == loop->in_ep
+			DBG(cdev, "send message!! \n");
+		}
+		status = usb_ep_queue(ep, req, GFP_ATOMIC);
+		if (status == 0)
+			return;
+这样。在pc终端： echo “ helloworld ” >> /dev/skel0 输入内容到开发板
+		cat /dev/skel0 读取开发板输出到pc端的内容
+关于usb数据传输还有很多奇怪的内容未通透
+		例如 关于收取数据的 request 会发送数据的request 的产生，使用和注销等等
+		还有 host端的发送数据的request 的内容长度 与 开发板 收取数据的 request 的内容长度不一样的冲突等等！！！
+		这些都后续讨论
+
+g_zero重点处理了，下一步，分析usb_skeleton 的结构框架！！！
+一般我们讨论的 usb驱动 是 pc端（host端）用来访问usb从设备的接口工具，为了仿混淆，我们称为 host端usb驱动
+挂载在 host端usb驱动 和 挂载在 usb从设备的上层驱动 的架构是不一样的，
+usb从设备的上层驱动 是基于 composite 架构的，媒介一般是 端点的 request
+而 host端usb驱动 并不是基于composite 架构的，媒介一般是 urb
+
+
+
+
+
+
+
+
+20170413
+分析 usb_skeleton 这个 host端usb驱动
+1，usb_skeleton模块挂入的函数是，module_usb_driver(skel_driver);然而模块挂入，并没有真正的模块功能挂载到linux上
+   只是注册了一些信息到 usb_core 上
+2，当 usb 接上 设备，会识别 id.table,匹配好，就执行skel_probe ，然后才是初始化设备等一系列工作，并建立访问的设备节点 /dev/skel0
+3，设备操作集：写函数：
+   写入/dev/skel0 的一段内容，会先根据内容多少而分别存入多个 user_buffer
+   对每个user_buffer都会执行一次skel_write，传递内容
+   skel_write 流程：
+	检测 /dev/skel0是不是已经被其他操作占用，不是则继续操作
+	检测 /dev/skel0是否有错误在身，不是则继续
+	分配一个urb 分配一个dma_bufer空间，把user_buffer数据放入
+	检测，连接是否断开，不是则继续 （当usb线断开，系统自动执行 skel_disconnect）
+	把 dma_buffer 装入urb usb_fill_bulk_urb（把dma_buffer地址加载到urb）
+	关联 anchor锚点 和 urb ，方便跟踪urb 不知如何去跟踪使用！具体操作是list_add_tail(&urb->anchor_list, &anchor->urb_list);
+	提交urb 
+	最后就可以释放urb（注意，提交urb是把整个urb包“复制”到usb_core,所以提交后，这时的urb就没有用了又占大量空间，所以要释放掉）
+			（更加注意的是，并不会等usb_core执行了这次提交的urb后，才释放，而是提交了就释放）
+   skel_write_bulk_callback:
+	当usb_core执行了提交的urb后，就会触发中断执行这个函数
+	释放我们在skel_write 分配的dma_buffer 空间
+	然而并不没有释放这个被复制到usb_core的urb，可能在skel_write_bulk_callback之外释放吧。
+4，设备操作集：读函数：
+   当usb连接后，只有当host端发送读数据请求到 usb从设备时，usb从设备才会把数据发向host端
+   否则即使，usb从设备 已经主动把数据放到 in-ep 端点队列，usb总线也不会执行数据传输！！
+   当 usb连接好，skel0设备节点也就设立了，cat /dev/skel0 也就执行读 skel0设备了的操作了
+   注意 cat 打开了skel0后，不是只读一次设备然后显示，而是循环不断，读一次显示一次！！！
+   假设当usb从设备 已经主动把数据放到 in-ep 端点队列，cat打开了skel0，开始读设备，开始执行skel_read，
+   然而此刻usb线还未开始传输数据，以下分析skel_read：
+	检查，设备skel0有没有拥有读入数据的功能，有则继续
+		即检查host端驱动初始化时有没有预设了一个 申请从usb从设备获得数据的urb，dev->bulk_in_urb
+		这个urb跟host端驱动生命周期相同，即同时存活，这个urb在probe分配得到，
+		在disconnect调用的kref_put的skel_delete里释放！！！		
+	检查，有没有其他操作占用设备skel0，没有则继续
+	设置循环点retry
+	检查，IO传输是不是正在执行（即usb总线是不是正在执行数据传输），还没有开始执行，于是继续
+	检测 /dev/skel0是否有错误在身，不是则继续
+	检查 skel0 有没有收到数据， usb总线还未曾执行数据传输，所以没有，于是继续
+	执行 skel_do_read_io 即提交 获得usb从设备到host端数据 的urb，如果没有出错（这时usb总线才开始执行数据传输）
+	然后跳回循环点retry执行
+	检查，IO传输是不是正在执行（即usb总线是不是正在执行数据传输），这时正在执行
+		检查skel0是不是阻塞设备，如果是，就结束skel_read,不再困在这个函数里，就是一时间读不到数据，但结束不在读。
+		如果不是阻塞设备，就开始wait_event_interruptible 开始睡眠进程，直到时间到，或者被中断
+	睡眠后，
+	检测 是否有错误在身，不是则继续
+	检查 skel0 有没有收到数据， 假如已经有！！
+	检查available，由于是第一次循环读数据，而不是多次后，所以没有到数据末尾，所以是available。
+	于是把dev->bulk_in_buffer + dev->bulk_in_copied地址的内容拷到 user 的 buffer
+	最后，如果这时，我想读出count数据量，大于，我们实际收到的，我们会 再次skel_do_read_io，
+	但不打算等待下次 usb从设备发来的数据，带着我们已经读到的数据，直接离开函数，
+   skel_read()读函数比较麻烦，但是还是遵从一个规则，就是，他提交了读取数据的urb后，usb总线才开始传输数据！！！
+   skel_read_bulk_callback：
+	当 usb_core 执行好读取数据的urb后，即执行了 skel_do_read_io 提交的urb后
+	数据已经从usb从设备处传到host端后，触发中断执行
+	并没有特别操作 
+5，其他操作函数：
+	skel_open：打开设备节点
+	skel_release：关闭设备节点，注意这执行了kref_put(&dev->kref, skel_delete)，但是kref并没有到0，所以不执行skel_delete
+	skel_flush： flush一般是把内存的内容刷入硬盘的操作，而这里函数里只是完成并停止 usb总线的传输
+		    （通知usb_core,通过删除未处理urb，或完成正在处理的urb），并不知道是为什么情况存在，
+6，skelton驱动函数集，（与/dev设备点的函数集是不一样的）
+	skel_probe： 如上述，
+	skel_disconnect： 当人为或意外断开了usb总线连接，就会触发的卸载 skel0设备的函数
+	skel_suspend： 完成并尽快停止 usb总线的传输，（通知usb_core,通过删除未处理urb，或完成正在处理的urb）
+	skel_resume： 并无操作， 因为暂停skel只是处理urb，并不是从硬件或时钟处暂停usb，所以resume并不会有什么操作
+	skel_pre_reset： 相当于skel_suspend pre_reset表示设备复位前做的工作
+	skel_post_reset：重置error发flag post_reset表示设备复位后做的工作
+
+（补充）linux 的常见api学习：
+spin_lock的调用关系
+	spin_lock
+		-> raw_spin_lock
+			-> _raw_spin_lock
+				-> __raw_spin_lock
+					->>preempt_disable();  
+  					-spin_acquire(&lock->dep_map, 0, 0, _RET_IP_);  
+					->LOCK_CONTENDED(lock, do_raw_spin_trylock, do_raw_spin_lock);
+spin_lock_irq的调用关系
+	spin_lock_irq
+		-> raw_spin_lock_irq
+			-> _raw_spin_lock_irq
+				-> __raw_spin_lock_irq
+					->local_irq_disable();  
+					->preempt_disable();  
+					->spin_acquire(&lock->dep_map, 0, 0, _RET_IP_);  
+					->LOCK_CONTENDED(lock, do_raw_spin_trylock, do_raw_spin_lock);
+spin_lock 是上spin锁，而spin_lock_irq是上spin锁前先禁止linux中断
+usb_alloc_coherent：分配dma 缓存空间给urb存放要传输的内容
+usb_anchor_urb：关联 anchor锚点 和 urb ，方便跟踪urb 不知如何去跟踪使用！
+wait_event_interruptible（）：暂时睡眠进程，然后得到中断后再重新执行进程
+usb_alloc_urb 和 usb_free_urb 是对立，一个是分配一个空间给urb，一个是释放占用的空间
+kerf模块：
+	kerf是镶嵌在模块里记录模块生命周期的计数器，
+	probe 模块时，一般初始化一个kref计数器：kref_init设1，或 kref_set设一个自定义值
+	在模块操作时会使用 kref_get kref_put 来记录生命周期变化情况
+	例如，open一个设备，kref_get 加1，release一个设备，kref_put 减1，
+	当模块出错，或者退出模块，或者意外断开，执行处理函数也要执行kref_put,继续减1，此刻计数器一般回到0，
+	当计数器回到0时，就执行kref_put绑定的 自定义的处理函数来释放空间，删除初始化，删除模块
+	
+
+
+
+
+
+
+
+
+
+
+20170414
+显然 usb_skelton是主机端usb系统 里的一个上层驱动，提供与再上一层的用户程序的接口，也通过usb系统提供的接口与usb主机控制器交互！！
+主机端的usb驱动实际的构成如下
+	上层驱动（具体功能驱动） --> usb_core服务架构 -->底层驱动（usb主机控制器驱动）
+	上层驱动：如我们研究的 usb_skelton，是关于访问一个 usb从设备的驱动，通过usb_core服务架构最终控制主机控制器的数据传输达到访问目的
+	usb_core服务架构: 源码/drivers/usb/core/×
+	底层驱动： 例如ehci（usb2.0）的控制器驱动：ehci_atmel_hc_driver.c ehci_hcd.c
+hcd（host control driver）：
+	usb_core服务里关于主机控制器的操作是 hcd.c
+	而ehci_atmel_hc_driver.c 是一个具体的底层hcd驱动，只提取特征初始化了一个通用的hcd控制器，指定了硬件寄存器指定访问地址
+	而ehci_hcd.c 提供通用的hcd控制器，访问硬件寄存器，从而实现对主机控制器的访问
+关于usb的大概框架已经了解，而详细细节需要看书补充
+
+usb-core服务框架：
+/drivers/usb/core/usb.c是服务框架初始化的开始
+/drivers/usb/core/driver.c用作匹配 usb设备，和设备驱动的，匹配成功就会probe初始化设备驱动 
+USB四大描述符：设备描述符，配置描述符，接口描述符，端点描述符
+usb协议上说的接口interface 即是代表一个功能，例如一个usb从设备，扬声器是一个功能，u盘是一个功能，摄像头是一个功能
+	而这些功能在linux系统上看来，这个扬声器属于声音这类主设备，的一个次设备，其他同理推
+usb协议上说的配置configure 即是代表被激活可使用的一组功能，例如一个usb从设备，扬声器和u盘同时使用属于一个配置，
+	摄像头与键盘与扬声器能同时使用是另一个配置
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+20170417
+python 学习！！ 详见kingders/home/python_study
+进入python命令行界面 $ python3.4
+
+脚本编写：
+#! /usr/bin/python3.4	//开头一定要表明翻译器
+# -*- coding : UTF-8 -*-	//指定了使用 UTF-8 编码
+在脚本里 if语法的执行句可以使用tab间隔，也可以多个空格间隔，在命令行界面上，只能用空格
+
+开启翻译器时，先执行预执行脚本
+命令行模式下得知放置预执行脚本位置：
+	>>> import site
+	>>> site. getusersitepackages ()
+	'/home/kingders/.local/lib/python3.4/site-packages'
+然后在/home/kingders/.local/lib/python3.4/site-packages目录下创建名为usercustomize.py 的文件
+把预执行的内容加入到这个脚本文件里即可
+下次开启翻译器时，先执行预执行脚本
+
+python数值 与 数学运算 注意点：
+>>> # 整 数 相 除 返 回 地 板 数 :此外“#”是注释符
+... 7//3
+2
+>>> 7//-3
+-3
+>>> 8/5 # 整 数 相 除 时 并 不 会 丢 失 小 数 部 分 此外“#注释段”可与代码段同行
+1.6
+等号 ( '=' ) 用于把一个值分配给一个变量
+>>> width = 20
+>>> height = 5*9
+>>> width * height
+900
+变量在使用之前必须要被“定义”(分配一个值), 否则会产生一个错误
+>>>  n
+Traceback (most recent call last):
+File "<stdin >", line 1, in < module >
+NameError : name 'n' is not defined
+支持复数，虚数部分使用符号j
+>>> a=1.5+0.5j
+>>> a.real
+1.5
+>>> a.imag
+0.5
+>>> abs(a)  # 求出虚数的模
+1.5811388300841898
+
+python 字符 字符串注意点：
+
+单双引号标出字符串变量
+>>> 'kj\"'  
+'kj"'
+>>> "kj\""
+'kj"'
+
+字符串变量赋值还有 \ 的应用，换行时代表逻辑延续，不换行时代表表示特殊符号
+>>> hello = "我爱你\n\
+... kjkjikjii你\
+... 你好吗"
+>>> print(hello)
+我爱你
+kjkjikjii你你好吗
+
+三对双引号，可以简单初始化一个充满各种特殊符号的字符串
+>>> hello = """ haha\
+... 你是谁
+... 我不知道      {真的}
+... """
+>>> print(hello)
+ haha你是谁
+我不知道      {真的}
+
+字符串的加乘操作，没有减除法
+>>> a ="iam"
+>>> b ='kkk'
+>>> c = a + b
+>>> print(c)
+iamkkk
+>>> d = 4*a + b
+>>> print(d)
+iamiamiamiamkkk
+
+字符自动粘连
+>>> 'str ' 'ing '
+'string '
+>>> 'str '.strip() + 'ing '
+'string '
+
+字符串切片
+>>> w = "abcdef"
+>>> w[-6]
+'a'
+>>> w[2]
+'c'
+>>> w[0:2]
+'ab'
+>>> w[1:2]
+'b'
+>>> w[1:3]
+'bc'
+>>> w[0:]
+'abcdef'
+>>> w[1:]
+'bcdef'
+>>> w[2:2]
+''
+>>> w[-1:]
+'f'
+>>> w[-6:]
+'abcdef'
+>>> w[-6:3]
+'abc'
+>>> w[-6:-4]
+'ab'
+>>> 
+理解图
++---+---+---+---+---+---+
+| a | b | c | d | e | f |
++---+---+---+---+---+---+
+0   1   2   3   4   5   6
+-6  -5  -4  -3  -2  -1
+
+字符串长度
+>>> s = 'supercalifragilisticexpialidocious '
+>>> len(s)
+34
+
+字符串数组，及其切片，长度
+>>> a = ['spam ', 'eggs ', 100 , 1234]
+>>> a
+['spam ', 'eggs ', 100 , 1234]
+>>> a[0]
+'spam '
+>>> a[3]
+1234
+>>> a[-2]
+100
+>>> a[1:-1]
+['eggs ', 100]
+>>> a[:2] + ['bacon ', 2*2]
+['spam ', 'eggs ', 'bacon ', 4]
+>>> 3*a[:3] + ['Boo!']
+['spam ', 'eggs ', 100 , 'spam ', 'eggs ', 100 , 'spam ', 'eggs ',
+100 , 'Boo!']
+>>> a[:]	#浅复制
+['spam ', 'eggs ', 100 , 1234]
+>>> a
+['spam ', 'eggs ', 100 , 1234]
+>>> a[2] = a[2] + 23
+>>> a
+['spam ', 'eggs ', 123 , 1234]
+>>> # 替 代 一 些 项 :
+... a[0:2] = [1, 12]
+>>> a
+[1, 12 , 123 , 1234]
+>>> # 移 除 一 些 :
+... a[0:2] = []
+>>> a
+[123 , 1234]
+>>> # 插 入 一 些 :
+... a[1:1] = ['bletch ', 'xyzzy ']
+>>> a
+[123 , 'bletch ', 'xyzzy ', 1234]
+>>> # 在 开 始 处 插 入 自 身 ( 的 一 个 拷 贝 )
+>>> a[:0] = a
+>>> a
+[123 , 'bletch ', 'xyzzy ', 1234 , 123 , 'bletch ', 'xyzzy ', 1234]
+>>> # 清 除 列 表 : 用 空 列 表 替 代 所 有 的 项
+>>> a[:] = []
+>>> a
+[]
+>>> a = ['a', 'b', 'c', 'd']
+>>> len(a)
+4
+
+嵌套列表
+>>> q = [2, 3]
+>>> p = [1, q, 4]
+>>> len(p)
+3
+>>> p[1]
+[2,3]
+>>> p[1][0]
+2
+>>> p[1]. append ('xtra ')
+>>> p
+[1, [2, 3, 'xtra '], 4]
+>>> q
+[2, 3, 'xtra ']
+
+多重赋值 (注意第二段赋值，先算a=b，但b=a+b时的a依然是1)
+>>> a, b = 1, 2
+>>> a, b = b, a+b
+>>> a
+2
+>>> b
+3
+
+特别注意python的数据结构 元祖 列表 集合与字典的区别
+元祖一般与()有关
+列表一般与[]有关
+字典一般与:有关
+集合一般与{}有关
+关于这些数据结构的内容日后再讨论
+
+现在讨论函数包与函数模块的内容
+导入模块/包：
+inport ddd
+from xxx import ×	//与 xxx 包里的__init__.py的 __all__ 参数一并使用，把__all__的指向的模块/子包全导入
+
+文件操作集
+>>> f = open('/home/kingders/python_study/test','r')	//打开文件，赋予读权限
+>>> f.read()			//读出所有内容
+'i am boy\nyou are girl\nlet marry \n'
+>>> f.read()			//接着上次内容指针继续读，然而已经到文件结尾，并没有什么可以读出
+''
+>>> f = open('/home/kingders/python_study/test','r')	//重新打开文件，赋予读权限，所有状态复位
+>>> f.readline()	//读出第一行内容
+'i am boy\n'
+>>> f.readline()	//读出第二行内容
+'you are girl\n'
+>>> f.readline()	//读出第三行内容
+'let marry \n'
+>>> f.readline()	//读出第四行内容，然而并没有内容了
+''
+>>> f = open('/home/kingders/python_study/test','r')	//重新打开文件，赋予读权限，所有状态复位
+>>> f.readlines()	//分别读出所有行的内容并打印
+['i am boy\n', 'you are girl\n', 'let marry \n']
+>>> f.close()		//关闭文件
+此外不不细说的内容有：
+	open r读权限 w写权限 r+读写权限 a末尾追加写权限 b以binary mode 打开文件，可组合rb，wb，ab，rb+ 默认不填权限为读权限
+	f.write()		//写文件
+	f.seek()		//文件寻位置
+	还有pickle模块：方便把python各种数据结构变量 与 字符串 的相互转换，方便把数据写到文件里，和从文件里取出数据来处理
+
+异常发生剂处理，一般使用 try和expect组合
+>>> while True:
+...    try:
+...        x = int(input (" Please ␣ enter ␣a␣ number :␣"))
+...        break
+...    except ValueError :
+...        print ("Oops!  That was no valid number.  Try again ...")
+先执行try段，正常运行时，不跑except段，当出现异常时，判断是不是except段指明的异常再执行expect段
+还有一个 try，expect，final组合，不管是否有异常，try段后都会执行final段的内容
+
+域和命名空间例子
+>>>def scope_test ():
+...    def do_local ():
+...        spam = " local ␣spam"
+...    def do_nonlocal ():
+...        nonlocal spam
+...        spam = " nonlocal ␣spam"
+...    def do_global ():
+...        global spam
+...        spam = " global ␣spam"
+...
+...    spam = "test␣spam"
+...    do_local ()
+...    print(" After ␣ local ␣ assignment :", spam)
+...    do_nonlocal ()
+...    print(" After ␣ nonlocal ␣ assignment :", spam)
+...    do_global ()
+...    print(" After ␣ global ␣ assignment :", spam)
+...
+>>>scope_test ()
+>>>print("In␣ global ␣ scope :", spam)
+After local assignment: test spam
+After nonlocal assignment: nonlocal spam
+After global assignment: nonlocal spam
+In global scope: global spam
+这里同名spam应该有4个，但是分贝属于不同空间，而且优先权也不一样
+def 是定义内容的句柄，这里就定义了4个函数，而且出现的镶嵌定义的情况
+
+类
+>>> class Complex :
+...    def __init__ (self , realpart , imagpart ):
+...    self.r = realpart
+...    self.i = imagpart
+...
+>>> x = Complex (3.0, -4.5)
+>>> x.r, x.i
+(3.0, -4.5)
+这是一个典型的类例子！！！上述关于类的初始化，特别注意，self指一个类变量他自己本身
+
+关于python编程已经入门书了一遍，更多细节通过实践细节掌握！！
+
+附加1：快速寻找文件路径命令which，例如： which python3.4
+附加2：python的函数api
+input（“please enter ”）	//输入内容函数，双括号只是显示出来的作为提示字符串，双括号的内容不计入为输入的内容
+				//输入的内容纯记做为字符串
+int（f）	//把检查f变量，如果是纯数字字符串，就转变为对应的数字变量，
+		//如果是数字变量，变成是正整数数字变量
+
+附加3：关于计算机的小数，浮点问题
+计算机里小数是浮点数据表示，但是根据 IEEE-754估计标准和硬件结构，浮点是以二进制形式表示的，而精度只有53位（二进制的精度）
+这么说 0.1 在计算机里的存在就不是完全的0.1，只能是近似的0.1！！
+0.1 = 1/10 ～= J / 2^N
+最近似的结果就是 7205759403792794 / 2^56
+j为7205759403792794，N为56
+做一个实验：
+>>> a = 0.1+0.1+0.1
+>>> a
+0.30000000000000004
+由于0.1在计算机上不能是完全的 0.1，只是近似值，所以3个连加也得不到真正的0.3！只能是有偏差的0.3！！！
+
+
+
+
+
+
+
+
+
+
+
+20170418
+bash学习：
+
+引号内内容不被解释器解释
+
+注意使用正则表达式
+
+注意数组和数组字符串的操作
+
+case用法，类似c语言的switch
+case `basename $0` in
+"name1" ) do_something;;
+"name2" ) do_something_else;;
+"name3" ) do_yet_another_thing;;
+*	) bail_out;;
+esac
+
+函数 函数的参数 声明 和 include 有待深究
+function function_name {
+command...
+}
+或
+function_name () {
+command...
+}
+参数直接在函数里使用以$1,$2,$3代表，并不需要在函数名开头就声明
+
+
+
+附加1：
+shell控制符
+Ctl-B	光标后退,这应该依赖于 bash 输入的风格,默认是 emacs 风格的.
+Ctl-C	Break,终止前台工作.
+Ctl-D	从当前 shell 登出(和 exit 很像)
+	"EOF"(文件结束符).这也能从 stdin 中终止输入.
+	在 console 或者在 xterm window 中输入的时候,Ctl-D 将删除光标下字符.
+	当没有字符时,Ctrl-D 将退出当前会话.在 xterm window 也有关闭窗口的效果.
+Ctl-G	beep.在一些老的终端,将响铃.
+Ctl-H	backspace,删除光标前边的字符.
+Ctl-I	就是 tab 键.
+Ctl-J	新行.
+Ctl-K	垂直 tab.(垂直 tab?新颖,没听过)
+	作用就是删除光标到行尾的字符
+Ctl-L	clear,清屏.
+Ctl-M	回车
+Ctl-Q	继续(等价于 XON 字符),这个继续的标准输入在一个终端里
+Ctl-S	挂起(等价于 XOFF 字符),这个被挂起的 stdin 在一个终端里,用 Ctl-Q 恢复
+Ctl-U	删除光标到行首的所有字符,在某些设置下,删除全行.
+Ctl-V	当输入字符时,Ctl-V 允许插入控制字符.比如,下边 2 个例子是等价的
+	echo -e '\x0a'
+	echo <Ctl-V><Ctl-J>
+Ctl-V 在文本编辑器中十分有用,在 vim 中一样.
+Ctl-W	删除当前光标到前边的最近一个空格之间的字符.
+	在某些设置下,删除到第一个非字母或数字的字符.
+Ctl-Z	终止前台工作.
+附加2：
+转义字符
+\n	意味着新的一行
+\r	回车
+\t	tab 键
+\v	vertical tab(垂直 tab),查前边的 Ctl-K
+\b	backspace,查前边的 Ctl-H
+\a	"alert"(如 beep 或 flash)
+\0xx 转换成 8 进制 ASCII 解码,等价于 oxx
+
+
+
+
+
+
+
+
+
+
+20170423
+学习 mysql 数据库：
+ubuntu 部署 mysql：（以下自家pc部署实践，不是公司机子部署）
+sudo apt-get install mysql-server 
+	//安装 mysql 服务器程序 会提示设置root 用户的 密码，我设为362951847
+	//可能提示404  Not Found 错误，更新软件库：sudo apt-get update
+	//过程中其实安装了以下包了：
+		mysql-common all 5.5.54-0ubuntu0.14.04.1 [13.0 kB]
+		mysql-client-core-5.5 amd64 5.5.54-0ubuntu0.14.04.1 [709 kB]
+		mysql-client-5.5 amd64 5.5.54-0ubuntu0.14.04.1 [1,603 kB]
+		mysql-server-core-5.5 amd64 5.5.54-0ubuntu0.14.04.1 [3,763 kB]
+		mysql-server-5.5 amd64 5.5.54-0ubuntu0.14.04.1 [1,849 kB]
+		mysql-server all 5.5.54-0ubuntu0.14.04.1 [11.3 kB]
+	//新版此命令也安装了 mysql-client，
+	//所以不用再 sudo apt-get isntall mysql-client，否则出错：E: Invalid operation isntall
+sudo apt-get install libmysqlclient-dev 
+	//安装 第三方软件 调用 mysql客户端 的接口库，有以下包：
+		libmysqlclient18 amd64 5.5.54-0ubuntu0.14.04.1 [597 kB]
+		libmysqlclient-dev amd64 5.5.54-0ubuntu0.14.04.1 [869 kB]
+sudo netstat -tap | grep mysql
+	//安装完后，此命令检查 server是否安装成功并开启：（出现listen，表示成功并开启，安装成功后默认开启）
+tcp        0      0 localhost:mysql         *:*                     LISTEN      10611/mysqld 
+sudo service mysql stop		//关闭mysql服务：一定要加sudo，否则出错：stop: Unknown job: mysql
+sudo service mysql start	//打开mysql服务：一定要加sudo，否则出错：start: Unknown job: mysql
+sudo service mysql restart	//重启mysql服务：一定要加sudo，否则出错
+mysql -u root -p 	
+	//还有一个参数是 -h xxx 表示数据库服务器所在主机名，这里由于与客户端登陆程序同在一个机子，即访问本地机子的数据库，可忽略	
+	//登陆mysql数据库，-u 表示数据库开放给的用户对象的用户名， -p 表示登陆的用户密码，上面命令输入之后会提示输入密码
+	//注意，登陆命令是打开了client端，通过客户端与后台运行的服务端交互
+	//而操作人员直接与客户端的命令行界面交互	
+登陆mysql数据库，进入命令行交互后：	
+mysql>		//是这样的，每条命令结尾都要加；号，才表示执行一条完整命令
+至此，基础部署完成，
+执行 show databases; 查看当前构建了的数据库
+
+mysql客户端快捷键：
+Up 箭头,Ctrl-p 		调前面的行
+Down 箭头,Ctrl-N 	调下一行
+Left 箭头,Ctrl-B 	光标左移(向后)
+Right 箭头,Ctrl-F	光标右移(向前)
+Escape Ctrl-B 		向后移一个词
+Escape Ctrl-F 		向前移一个词
+Ctrl-A 			将光标移到行头
+Ctrl-E 			将光标移到行尾
+Ctrl-D 			删除光标下的字符
+Delete 			删除光标左边的字符
+Escape D 		删词
+Escape Backspace 	删除光标左边的词
+Ctrl-K 			删除光标到行尾的所有字符
+Ctrl-_ 			撤消最后的更改;可以重复
+
+mysql客户端批处理：
+导入命令脚本实行批处理，
+mysql -u root -p < file1	//执行 file1 批处理命令文件
+导入命令脚本实行批处理，并把处理log输出到一个文本里记录下来
+mysql -u root -p < file1 > file2	//把操作log输出到file2文件里记录下来
+
+mysql客户端重要命令集：
+show databases like ‘my%’;	//列出名称包含关字 my 的数据库
+show databases;			//显示服务器里已经存在的数据库
+create database xxx;		//创建数据库 xxx
+drop database xxx;		//删除数据库
+CREATE TABLE xxx.xxx1(id int, name TEXT);	//给xxx 创建一个表单xxx1
+use xxx；			//转到 xxx 数据库
+CREATE TABLE xxx2(sex TEXT, age int);		//同样给 xxx 创建一个表单xxx2 由于之前使用了use xxx；命令，所以不用指定数据库
+insert into xxx1 values(1,"janice_vidal");	//给表 插入一条 完整数据内容，由于之前使用了use xxx；而不用指定数据库
+insert into xxx.xxx1 values(2,"wingkidng_wong"),(3,"heddi_lee");//插入多条完整数据内容的做法，假如之前没有使用use xxx；要指定数据库
+insert into xxx.xxx1(name) values("gem0816"),("dilirba");	//插入部分数据内容，列表中未给出名称的列都将赋予缺省值
+select* from xxx.xxx1;		//查看xxx1数据表内容，显示内容例子如下：
+				//+------+----------------+
+				//| id   | name           |
+				//+------+----------------+
+				//|    1 | janice_vidal   |
+				//|    2 | wingkidng_wong |
+				//|    3 | heddi_lee      |
+				//| NULL | gem0816        |
+				//| NULL | dilirba        |
+				//+------+----------------+
+				//5 rows in set (0.00 sec)
+select* from xxx.xxx1 where name="janice_vidal";	//查看特定行，显示内容例子如下：
+							//+------+--------------+
+							//| id   | name         |
+							//+------+--------------+
+							//|    1 | janice_vidal |
+							//+------+--------------+
+							//1 row in set (0.00 sec)
+select name from xxx.xxx1;	//查看特定列，显示例子如下 
+				//+----------------+
+				//| name           |
+				//+----------------+
+				//| janice_vidal   |
+				//| wingkidng_wong |
+				//| heddi_lee      |
+				//| gem0816        |
+				//| dilirba        |
+				//+----------------+
+				//5 rows in set (0.00 sec)
+				//（注意同时查看多列的格式示范，假如我们也建立了这些列，譬如：select name，birth，sex from xxx.xxx1;)	
+select name from xxx.xxx1 where id=1;		//查看有筛选条件的特定列内容 显示例子如下
+						//+--------------+
+						//| name         |
+						//+--------------+
+						//| janice_vidal |
+						//+--------------+
+						//1 row in set (0.00 sec)
+delete from xxx.xxx1				//删除xxx1表里的全部数据内容
+delete from xxx.xxx1 from name=“gem0816”	//删除xxx1表里的某条（即某列）数据内容
+alter table xxx1 add column money int;		//给数据表添加一列属性 columns（列项） money是这属性的名字，int是数据格式
+						//mysql> select* from xxx1;
+						//+----------------+------+-------+
+						//| name           | id   | money |
+						//+----------------+------+-------+
+						//| janice_vidal   |    1 |  NULL |
+						//| wingkidng_wong |    2 |  NULL |
+						//| heddi_lee      |    3 |  NULL |
+						//| gem0816        | NULL |  NULL |
+						//| dilirba        | NULL |  NULL |
+						//| a              |   41 |  NULL |
+						//| b              |   20 |  NULL |
+						//| c              |    6 |  NULL |
+						//+----------------+------+-------+
+						//8 rows in set (0.00 sec)
+						//alter table xxx1 drop money;  删除一列属性及储存的数据内容
+update xxx1 set id=39,money=1000 where name="wingkidng_wong";	//修改 数据表的 其中一条数据内容
+								//mysql> select* from xxx1;
+								//+----------------+------+-------+
+								//| name           | id   | money |
+								//+----------------+------+-------+
+								//| janice_vidal   |    1 |  NULL |
+								//| wingkidng_wong |   39 |  1000 |
+								//| heddi_lee      |    3 |  NULL |
+								//| gem0816        | NULL |  NULL |
+								//| dilirba        | NULL |  NULL |
+								//| a              |   41 |  NULL |
+								//| b              |   20 |  NULL |
+								//| c              |    6 |  NULL |
+								//+----------------+------+-------+
+								//8 rows in set (0.00 sec)
+关于索引的功能探索，以及与数据表的关系：
+alter table xxx.xxx1 add index(id)；	//添加一条索引信息（key）到 默认索引文件里
+show keys from xxx1;			//显示添加的索引信息（key）
+show index from xxx1;			//显示默认索引文件内容，
+alter table xxx1 drop index id;		//删除添加了的 索引信息（key）：id
+关于索引与数据表数据检索的操作与关系，理解后详细补充
+
+以下是未细致认证的典型命令实例
+mysql> CREATE TABLE pet1
+    -> SELECT name AS animal,owner AS child
+    -> FROM pet;	//把pet数据表的 name 和 owner 两列数据内容，拷到新建的数据表 pet1 的animal 和 child 列去
+
+终端命令集：
+mysql -u root -p 		//客户端登陆到服务器，并转到mysql客户端命令行终端 ，要按提示输入访问用户root的密码
+mysqlshow -u root -p xxx	//显示本地数据库服务器上的 xxx 数据库，要按提示输入访问用户root的密码
+
+mysql数据库知识
+数据库里的每个数据表都是由三个文件组成一个格式(描述)文件.frm、一个数据文件.ISD/.MYD 和 一个索引文件.ISD/.MYI
+
+
+
+
+
+
+
+
+
+
+20170424
+python3.4 访问 mysql
+安装链接库包;
+1，mysql官网的 mysql-connector
+先到mysql官网下载 python插件包：mysql-connector-python-cext-py3_2.1.6-1ubuntu14.04_amd64.deb
+https://dev.mysql.com/downloads/connector/python/
+针对ubuntu14.04 x64 使用deb软件包
+成功安装针对python3的包，使用失败，在python3.4的命令行交互端里输入：import mysql.connector，出错：
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+ImportError: No module named 'mysql'
+成功安装针对python2的包，使用失败，在python2.7的命令行交互端里输入：import mysql.connector，出错：
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+ImportError: No module named mysql.connector
+2，MySQLdb
+网上也说 这个第三方包不支持python3
+3，PyMySQL ptyhon官方推荐的python3 的mysql接口
+下载源码： https://github.com/PyMySQL/PyMySQL
+解压安装，安装时一定要转到root用户安装
+root@kingders-ThinkPad-T420:/home/kingders/smart210/study/python_study/thirdpart_pack/PyMySQL/PyMySQL-master# python3 setup.py install
+running install
+Checking .pth file support in /usr/local/lib/python3.4/dist-packages/
+/usr/bin/python3 -E -c pass
+TEST PASSED: /usr/local/lib/python3.4/dist-packages/ appears to support .pth files
+running bdist_egg
+running egg_info
+creating PyMySQL.egg-info
+writing PyMySQL.egg-info/PKG-INFO
+writing dependency_links to PyMySQL.egg-info/dependency_links.txt
+writing top-level names to PyMySQL.egg-info/top_level.txt
+writing manifest file 'PyMySQL.egg-info/SOURCES.txt'
+reading manifest file 'PyMySQL.egg-info/SOURCES.txt'
+reading manifest template 'MANIFEST.in'
+writing manifest file 'PyMySQL.egg-info/SOURCES.txt'
+installing library code to build/bdist.linux-x86_64/egg
+running install_lib
+running build_py
+creating build
+creating build/lib
+creating build/lib/pymysql
+copying pymysql/cursors.py -> build/lib/pymysql
+copying pymysql/charset.py -> build/lib/pymysql
+copying pymysql/connections.py -> build/lib/pymysql
+copying pymysql/optionfile.py -> build/lib/pymysql
+copying pymysql/times.py -> build/lib/pymysql
+copying pymysql/err.py -> build/lib/pymysql
+copying pymysql/__init__.py -> build/lib/pymysql
+copying pymysql/_socketio.py -> build/lib/pymysql
+copying pymysql/_compat.py -> build/lib/pymysql
+copying pymysql/converters.py -> build/lib/pymysql
+copying pymysql/util.py -> build/lib/pymysql
+creating build/lib/pymysql/tests
+copying pymysql/tests/test_issues.py -> build/lib/pymysql/tests
+copying pymysql/tests/test_connection.py -> build/lib/pymysql/tests
+copying pymysql/tests/test_DictCursor.py -> build/lib/pymysql/tests
+copying pymysql/tests/test_optionfile.py -> build/lib/pymysql/tests
+copying pymysql/tests/test_nextset.py -> build/lib/pymysql/tests
+copying pymysql/tests/test_load_local.py -> build/lib/pymysql/tests
+copying pymysql/tests/test_err.py -> build/lib/pymysql/tests
+copying pymysql/tests/test_converters.py -> build/lib/pymysql/tests
+copying pymysql/tests/test_SSCursor.py -> build/lib/pymysql/tests
+copying pymysql/tests/base.py -> build/lib/pymysql/tests
+copying pymysql/tests/__init__.py -> build/lib/pymysql/tests
+copying pymysql/tests/test_cursor.py -> build/lib/pymysql/tests
+copying pymysql/tests/test_basic.py -> build/lib/pymysql/tests
+creating build/lib/pymysql/constants
+copying pymysql/constants/SERVER_STATUS.py -> build/lib/pymysql/constants
+copying pymysql/constants/ER.py -> build/lib/pymysql/constants
+copying pymysql/constants/CR.py -> build/lib/pymysql/constants
+copying pymysql/constants/FIELD_TYPE.py -> build/lib/pymysql/constants
+copying pymysql/constants/__init__.py -> build/lib/pymysql/constants
+copying pymysql/constants/FLAG.py -> build/lib/pymysql/constants
+copying pymysql/constants/COMMAND.py -> build/lib/pymysql/constants
+copying pymysql/constants/CLIENT.py -> build/lib/pymysql/constants
+creating build/lib/pymysql/tests/thirdparty
+copying pymysql/tests/thirdparty/__init__.py -> build/lib/pymysql/tests/thirdparty
+creating build/lib/pymysql/tests/thirdparty/test_MySQLdb
+copying pymysql/tests/thirdparty/test_MySQLdb/dbapi20.py -> build/lib/pymysql/tests/thirdparty/test_MySQLdb
+copying pymysql/tests/thirdparty/test_MySQLdb/test_MySQLdb_nonstandard.py -> build/lib/pymysql/tests/thirdparty/test_MySQLdb
+copying pymysql/tests/thirdparty/test_MySQLdb/capabilities.py -> build/lib/pymysql/tests/thirdparty/test_MySQLdb
+copying pymysql/tests/thirdparty/test_MySQLdb/__init__.py -> build/lib/pymysql/tests/thirdparty/test_MySQLdb
+copying pymysql/tests/thirdparty/test_MySQLdb/test_MySQLdb_dbapi20.py -> build/lib/pymysql/tests/thirdparty/test_MySQLdb
+copying pymysql/tests/thirdparty/test_MySQLdb/test_MySQLdb_capabilities.py -> build/lib/pymysql/tests/thirdparty/test_MySQLdb
+creating build/bdist.linux-x86_64
+creating build/bdist.linux-x86_64/egg
+creating build/bdist.linux-x86_64/egg/pymysql
+copying build/lib/pymysql/cursors.py -> build/bdist.linux-x86_64/egg/pymysql
+copying build/lib/pymysql/charset.py -> build/bdist.linux-x86_64/egg/pymysql
+copying build/lib/pymysql/connections.py -> build/bdist.linux-x86_64/egg/pymysql
+copying build/lib/pymysql/optionfile.py -> build/bdist.linux-x86_64/egg/pymysql
+creating build/bdist.linux-x86_64/egg/pymysql/tests
+copying build/lib/pymysql/tests/test_issues.py -> build/bdist.linux-x86_64/egg/pymysql/tests
+copying build/lib/pymysql/tests/test_connection.py -> build/bdist.linux-x86_64/egg/pymysql/tests
+copying build/lib/pymysql/tests/test_DictCursor.py -> build/bdist.linux-x86_64/egg/pymysql/tests
+copying build/lib/pymysql/tests/test_optionfile.py -> build/bdist.linux-x86_64/egg/pymysql/tests
+copying build/lib/pymysql/tests/test_nextset.py -> build/bdist.linux-x86_64/egg/pymysql/tests
+copying build/lib/pymysql/tests/test_load_local.py -> build/bdist.linux-x86_64/egg/pymysql/tests
+copying build/lib/pymysql/tests/test_err.py -> build/bdist.linux-x86_64/egg/pymysql/tests
+copying build/lib/pymysql/tests/test_converters.py -> build/bdist.linux-x86_64/egg/pymysql/tests
+copying build/lib/pymysql/tests/test_SSCursor.py -> build/bdist.linux-x86_64/egg/pymysql/tests
+copying build/lib/pymysql/tests/base.py -> build/bdist.linux-x86_64/egg/pymysql/tests
+copying build/lib/pymysql/tests/__init__.py -> build/bdist.linux-x86_64/egg/pymysql/tests
+copying build/lib/pymysql/tests/test_cursor.py -> build/bdist.linux-x86_64/egg/pymysql/tests
+copying build/lib/pymysql/tests/test_basic.py -> build/bdist.linux-x86_64/egg/pymysql/tests
+creating build/bdist.linux-x86_64/egg/pymysql/tests/thirdparty
+creating build/bdist.linux-x86_64/egg/pymysql/tests/thirdparty/test_MySQLdb
+copying build/lib/pymysql/tests/thirdparty/test_MySQLdb/dbapi20.py -> build/bdist.linux-x86_64/egg/pymysql/tests/thirdparty/test_MySQLdb
+copying build/lib/pymysql/tests/thirdparty/test_MySQLdb/test_MySQLdb_nonstandard.py -> build/bdist.linux-x86_64/egg/pymysql/tests/thirdparty/test_MySQLdb
+copying build/lib/pymysql/tests/thirdparty/test_MySQLdb/capabilities.py -> build/bdist.linux-x86_64/egg/pymysql/tests/thirdparty/test_MySQLdb
+copying build/lib/pymysql/tests/thirdparty/test_MySQLdb/__init__.py -> build/bdist.linux-x86_64/egg/pymysql/tests/thirdparty/test_MySQLdb
+copying build/lib/pymysql/tests/thirdparty/test_MySQLdb/test_MySQLdb_dbapi20.py -> build/bdist.linux-x86_64/egg/pymysql/tests/thirdparty/test_MySQLdb
+copying build/lib/pymysql/tests/thirdparty/test_MySQLdb/test_MySQLdb_capabilities.py -> build/bdist.linux-x86_64/egg/pymysql/tests/thirdparty/test_MySQLdb
+copying build/lib/pymysql/tests/thirdparty/__init__.py -> build/bdist.linux-x86_64/egg/pymysql/tests/thirdparty
+creating build/bdist.linux-x86_64/egg/pymysql/constants
+copying build/lib/pymysql/constants/SERVER_STATUS.py -> build/bdist.linux-x86_64/egg/pymysql/constants
+copying build/lib/pymysql/constants/ER.py -> build/bdist.linux-x86_64/egg/pymysql/constants
+copying build/lib/pymysql/constants/CR.py -> build/bdist.linux-x86_64/egg/pymysql/constants
+copying build/lib/pymysql/constants/FIELD_TYPE.py -> build/bdist.linux-x86_64/egg/pymysql/constants
+copying build/lib/pymysql/constants/__init__.py -> build/bdist.linux-x86_64/egg/pymysql/constants
+copying build/lib/pymysql/constants/FLAG.py -> build/bdist.linux-x86_64/egg/pymysql/constants
+copying build/lib/pymysql/constants/COMMAND.py -> build/bdist.linux-x86_64/egg/pymysql/constants
+copying build/lib/pymysql/constants/CLIENT.py -> build/bdist.linux-x86_64/egg/pymysql/constants
+copying build/lib/pymysql/times.py -> build/bdist.linux-x86_64/egg/pymysql
+copying build/lib/pymysql/err.py -> build/bdist.linux-x86_64/egg/pymysql
+copying build/lib/pymysql/__init__.py -> build/bdist.linux-x86_64/egg/pymysql
+copying build/lib/pymysql/_socketio.py -> build/bdist.linux-x86_64/egg/pymysql
+copying build/lib/pymysql/_compat.py -> build/bdist.linux-x86_64/egg/pymysql
+copying build/lib/pymysql/converters.py -> build/bdist.linux-x86_64/egg/pymysql
+copying build/lib/pymysql/util.py -> build/bdist.linux-x86_64/egg/pymysql
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/cursors.py to cursors.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/charset.py to charset.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/connections.py to connections.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/optionfile.py to optionfile.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/tests/test_issues.py to test_issues.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/tests/test_connection.py to test_connection.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/tests/test_DictCursor.py to test_DictCursor.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/tests/test_optionfile.py to test_optionfile.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/tests/test_nextset.py to test_nextset.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/tests/test_load_local.py to test_load_local.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/tests/test_err.py to test_err.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/tests/test_converters.py to test_converters.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/tests/test_SSCursor.py to test_SSCursor.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/tests/base.py to base.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/tests/__init__.py to __init__.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/tests/test_cursor.py to test_cursor.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/tests/test_basic.py to test_basic.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/tests/thirdparty/test_MySQLdb/dbapi20.py to dbapi20.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/tests/thirdparty/test_MySQLdb/test_MySQLdb_nonstandard.py to test_MySQLdb_nonstandard.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/tests/thirdparty/test_MySQLdb/capabilities.py to capabilities.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/tests/thirdparty/test_MySQLdb/__init__.py to __init__.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/tests/thirdparty/test_MySQLdb/test_MySQLdb_dbapi20.py to test_MySQLdb_dbapi20.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/tests/thirdparty/test_MySQLdb/test_MySQLdb_capabilities.py to test_MySQLdb_capabilities.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/tests/thirdparty/__init__.py to __init__.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/constants/SERVER_STATUS.py to SERVER_STATUS.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/constants/ER.py to ER.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/constants/CR.py to CR.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/constants/FIELD_TYPE.py to FIELD_TYPE.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/constants/__init__.py to __init__.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/constants/FLAG.py to FLAG.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/constants/COMMAND.py to COMMAND.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/constants/CLIENT.py to CLIENT.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/times.py to times.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/err.py to err.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/__init__.py to __init__.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/_socketio.py to _socketio.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/_compat.py to _compat.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/converters.py to converters.cpython-34.pyc
+byte-compiling build/bdist.linux-x86_64/egg/pymysql/util.py to util.cpython-34.pyc
+creating build/bdist.linux-x86_64/egg/EGG-INFO
+copying PyMySQL.egg-info/PKG-INFO -> build/bdist.linux-x86_64/egg/EGG-INFO
+copying PyMySQL.egg-info/SOURCES.txt -> build/bdist.linux-x86_64/egg/EGG-INFO
+copying PyMySQL.egg-info/dependency_links.txt -> build/bdist.linux-x86_64/egg/EGG-INFO
+copying PyMySQL.egg-info/top_level.txt -> build/bdist.linux-x86_64/egg/EGG-INFO
+zip_safe flag not set; analyzing archive contents...
+pymysql.tests.__pycache__.base.cpython-34: module references __file__
+pymysql.tests.__pycache__.test_load_local.cpython-34: module references __file__
+creating dist
+creating 'dist/PyMySQL-0.7.11-py3.4.egg' and adding 'build/bdist.linux-x86_64/egg' to it
+removing 'build/bdist.linux-x86_64/egg' (and everything under it)
+Processing PyMySQL-0.7.11-py3.4.egg
+creating /usr/local/lib/python3.4/dist-packages/PyMySQL-0.7.11-py3.4.egg
+Extracting PyMySQL-0.7.11-py3.4.egg to /usr/local/lib/python3.4/dist-packages
+Adding PyMySQL 0.7.11 to easy-install.pth file
+
+Installed /usr/local/lib/python3.4/dist-packages/PyMySQL-0.7.11-py3.4.egg
+Processing dependencies for PyMySQL==0.7.11
+Finished processing dependencies for PyMySQL==0.7.11
+成功安装，python3.4交互界面输入：import pymysql.cursors 成功使用
+详细的api使用介绍和例子在 github 下载页有！！
+
+
+
+
+
+
+
+
+
+
+
+
+20170425
+python爬虫学习：
+简单扒下百度例子：
+import urllib2
+response = urllib2.urlopen("http://www.baidu.com")	//urlopen的函数完整格式 urlopen(url, data, timeout)
+print response.read()		//显示扒下所有内容 即网页的所有内容
+print response			//显示内容的属性，显示如下：
+				//<addinfourl at 139764017715104 whose fp = <socket._fileobject object at 0x7f1d5b1a2bd0>>
+也可以这样
+import urllib2
+request = urllib2.Request("http://www.baidu.com")	//实际操作中修改request参数比，一次次修改urlopen里的内容有效率多
+response = urllib2.urlopen(request)	
+print response.read()
+
+post方式例子：给网站输入用户名和密码然后的骚登陆后数据的例子
+import urllib
+import urllib2
+values = {"username":"1016903103@qq.com","password":"XXXX"}
+data = urllib.urlencode(values) 
+url = "https://passport.csdn.net/account/login?from=http://my.csdn.net/my/mycsdn"
+request = urllib2.Request(url,data)
+response = urllib2.urlopen(request)
+print response.read()
+也可以这样
+import urllib
+import urllib2
+values = {}
+values['username'] = "1016903103@qq.com"
+values['password'] = "XXXX"
+data = urllib.urlencode(values) 
+url = "http://passport.csdn.net/account/login?from=http://my.csdn.net/my/mycsdn"
+request = urllib2.Request(url,data)
+response = urllib2.urlopen(request)
+print response.read()
+
+get方式例子：同样给网站输入用户名和密码然后的骚登陆后数据的例子
+import urllib
+import urllib2
+values={}
+values['username'] = "1016903103@qq.com"
+values['password']="XXXX"
+data = urllib.urlencode(values) 
+url = "http://passport.csdn.net/account/login"
+geturl = url + "?"+data
+request = urllib2.Request(geturl)
+response = urllib2.urlopen(request)
+print response.read()
+print geturl		//看看geturl到底变怎样？如下：
+			//http://passport.csdn.net/account/login?username=1016903103%40qq.com&password=XXXX
+更多基础和重点内容http://cuiqingcai.com/1052.html
+正则表达式是重点。
+
+安装PySpider爬虫框架：
+sudo apt-get install python python-dev python-distribute python-pip libcurl4-openssl-dev libxml2-dev libxslt1-dev python-lxml //依赖包
+sudo apt-get install phantomjs		//安装phantomjs 一个无界面的,可脚本编程的WebKit浏览器引擎，可处理网页数据的js脚本
+sudo pip install pyspider		//安装pyspider，注意到pip工具 就是上述python-pip工具 
+pyspider all		//启动pyspider，并启用所有组件，
+firefox浏览器输入 http://localhost:5000 进入pyspider界面
+
+phantomjs：浏览器引擎，一般用于解析js脚本内容
+phantomjs helloworld.js		//直接运行js 脚本是使用方式
+
+selenium： 用于桥接phantomjs到python 	
+sudo pip install selenium
+
+PyQuery：
+sudo pip install pyquery
+
+jQuery：
+
+
+
+
+
+
+
+
+
+
+20170426
+机器学习：（包含）
+	supervised leaning 监督学习 ：根据 输入 预测 输出
+		regression：预测结果
+		classification：分类内容
+	reinforcement leaning 强化学习： 做判断，决策
+	unsupervised leaning 非监督学习：挖据有关输入的规律
+人工智能 = 深度学习+强化学习    
+强化学习 就是 训练最优大脑模型 实时训练 相当于人的最终大脑决策 判断， 
+深度学习 相当于脑皮层 神经 对外部信息的处理。
+	也称 supervised leaning 监督学习，
+所以人工智能就是强化学习 加上深度学习 ，
+比如alphaGo就是强化学习来负责决策，CNN来负责处理棋子 下棋位置的范围确定,MCTS树最后结合来搜索
+这里讨论的是xxNN模型例子都是，深度学习的模型：
+原理缥缈，直接学习使用 tensorflow 框架（做过alphago） 
+下载安装 （只使用cpu，针对python2.7的版本）
+sudo pip2 install --upgrade https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.8.0-cp27-none-linux_x86_64.whl
+教程：
+https://my.oschina.net/yilian/blog/664632
+教程的范例都会在tensorflow_test里示范学习一遍
+1,入门，线性拟合实验，linear_fitting_test.py
+2,CNN卷积神经网络： CNN_test.py 
+3,自修改的卷积神经网络： CNN_test2.py
+4,使用可视化界面观察训练情况tensorboard，（安装tensorflow时就已经安装了）
+	tensorboard --logdir=/tmp/logs
+	Starting TensorBoard 16 on port 6006
+	(You can navigate to http://0.0.0.0:6006)	//浏览器打开 http://0.0.0.0:6006 就可以开始监测
+	但是要使用tensorboard监测，代码里也要做相对应的设置 CNN_test3_with_tensorboard.py
+	出错，是关于tensorboard的api 的调用出现了问题，以后再处理！！
+5，
+9，RNN/LSTM循环神经网络长短期记忆网络使用 RNN_test.py
+10,最强网络 RSNN深度残差网络 平均准确率96-99% RSNN_test.py 卡死出错
+
+
+
+
+
+
+
+
+
+
+
+
+20170428
+从最基本的例子 CNN_test.py 深入 深度学习的 基础原理和概念
+import input_data	//下载了一个例子数据包，分成两部分：60000行的训练数据集（mnist.train）和10000行的测试数据集（mnist.test）。
+			//是一个 用于识别阿拉伯数字图片 的例子数据包 （0~9十个阿拉伯数字） 
+			//训练数据用于训练模型，测试数据和训练数据其实是相同内容，
+			//但独立出来是避免使用曾经用于训练模型的数据来检测模型，更公平得到模型的准确性
+mnist = input_data.read_data_sets("/tmp/data/", one_hot=True)
+			//这里是读取这个数据包的数据
+			//每个数据包有两个数据集，
+			//每个数据集都有两部分组成，一个是图片包，一个是对应的标签包
+			//训练数据集有一个含60000张图片的图片包，和对应一个含60000行便签的标签包
+			//测试数据集有一个含10000张图片的图片包，和对应一个含10000行便签的标签包		
+			//每张图片对应一个 10维向量的便签，比如说：
+			//图片包第200张图片显示”5“，便签包第200条10维向量对应为 ([0,0,0,0,0,1,0,0,0,0])
+最基础的学习原理（卷积方程）：
+使用线性回归的方法，就是通过提供的样本来训练出一个可以描述样本行为的 卷积方程，也叫训练出一种合理的特定”思维“
+例子数据包每张图片是 28X28 分辨率的黑白图片，那每张图片可以表示为 28x28 = 784 维向量 x，对应的标签为 y
+我们引入一个可以用于描述特征的 10×784 矩阵W， 和偏移向量量b  还引入一个特征标签10维向量 Y 
+执行矩阵乘法（卷积）： Y = W × x + b  （经过多样本训练，得到合理的卷积方程，最终W 和b稳定到一定区域，这个过程也称拟合，）
+	Y1      W11x1  + W12x2  + W13x3  + ..... W1784x784  + b1
+	Y2      W21x1  + W22x2  + W23x3  + ..... W2784x784  + b2
+	Y3      W31x1  + W32x2  + W33x3  + ..... W3784x784  + b3
+	Y4      W41x1  + W42x2  + W43x3  + ..... W4784x784  + b4
+	Y5   =  W51x1  + W52x2  + W53x3  + ..... W5784x784  + b5
+	Y6      W61x1  + W62x2  + W63x3  + ..... W6784x784  + b6
+	Y7      W71x1  + W72x2  + W73x3  + ..... W7784x784  + b7
+	Y8      W81x1  + W82x2  + W83x3  + ..... W8784x784  + b8
+	Y8      W91x1  + W92x2  + W93x3  + ..... W9784x784  + b9
+	Y10     W101x1 + W102x2 + W103x3 + ..... W10784x784 + b10		
+即一张图片 x 通过特征矩阵 W 处理后，提取到特征便签 Y
+再把特征便签归一化的预测标签 y_ = softmax（Y）
+假如模型不断训练，特征矩阵 W 稳定到不需要改变，那么预测标签 y_ 与 x 对应的真实标签 y 应该一致！！！
+如果不一致，y与y_就有误差，
+通过统计误差，然后运用交叉熵等数学方法，得到修正量，反馈更新特征矩阵W和偏移向量b，
+模型又进化成长了点，
+通过不同图片 x 的训练 ，模型最终成长到一个接近完美的状态，这时，算出的y_与y极大多数一致，即表示模型基本能识别每一个图片上的数字
+但仅仅y_与y一致，并不百分百认为识别对图片，
+训练好的模型识别一张图片的过程是：
+	得到图片的y_,y_与十中y中的一个吻合，基本确认图片数字与y对应的数字一样，
+	然后模型继续取出 y 对应的那张暂存在模型里参照图片， 与正在识别的图片 执行布尔运算 （就是对俩个784维向量执行按维与运算）
+	吻合程度超过75%，那么就完全确认正确图片上的数字！！！
+
+欠拟合：训练出来的卷积方程，与样本不能很好地吻合，不能很好形成合适的”思维“
+过拟合：训练出来的的卷积方程，只与已知的训练样本完全吻合，也不能形成合理的”思维“
+
+加权回归：
+	与线性回归的区别是，线性回归会考虑每一个样本，为训练出合适的卷积方程做贡献，
+	而加权回归是，重视某部分样品对训练方程时的贡献，而忽略或减少某些样本对训练方程时的影响，所以训练的是变种卷积方程
+
+卷积神经网络概念 （CNN）：
+	上述学习原理中，我们讲述是训练拟合一个合理的卷积方程（思维） Y = W × x + b，
+		当这个 思维 被训练得相当成熟了，给机器 一个”信息：x“，根据 思维，机器做出一个”行为：y“
+	这种思维只是一个 卷积方程，往往被视为思维简单，不管被训练得多久，最后应用时，做出的行为准确程度都不会太高！！
+	如果现在改成以下方式：
+	a1 = Wa1 × x + ba1，训练一个卷积方程提取抽象信息a1，即训练更新特征矩阵Wa1，和偏移向量ba1
+	a2 = Wa2 × x + ba2，训练一个卷积方程提取抽象信息a2，即训练更新特征矩阵Wa2，和偏移向量ba2
+	a3 = Wa3 × x + ba3，训练一个卷积方程提取抽象信息a3，即训练更新特征矩阵Wa3，和偏移向量ba3
+	a4 = Wa4 × x + ba4，训练一个卷积方程提取抽象信息a4，即训练更新特征矩阵Wa4，和偏移向量ba4
+	a5 = Wa5 × x + ba5，训练一个卷积方程提取抽象信息a5，即训练更新特征矩阵Wa5，和偏移向量ba5
+	可以看出，每个信息x 都会得到5个抽样信息a（a1,a2,a3,a4，a5）
+	接着上述例子，一个样本信息集有60000个信息x，就有60000个抽像信息集，即有60000X5=300000个抽样信息a
+	然后继续：
+	c1 = Wc1 × a + bc1，训练一个卷积方程提取抽象信息c1，即训练更新特征矩阵Wc1，和偏移向量bc1
+	c2 = Wc2 × a + bc2，训练一个卷积方程提取抽象信息c2，即训练更新特征矩阵Wc2，和偏移向量bc2
+	可以看出，每个抽样信息a 都会得到2个抽样信息c（c1,c2）
+	一个样本信息集有60000个信息x，就有60000个抽像信息集，即有60000X5=300000个抽样信息a，就有300000x2=600000个抽样信息c
+	然后继续：
+	Y = Wd × c + bd，训练一个卷积方程做出行为Y，即训练更新特征矩阵Wd，和偏移向量bd
+	最终通过抽象信息c做出行为Y
+	比起简单的 x -> Y 思维，这里是 x -> a -> c -> Y 多层思维！
+	每一个 卷积方程 视为一个神经元！
+	那 5个 获取抽象信息a的卷积方程 共同组成第一神经层
+	那 2个 获取抽象信息c的卷积方程 共同组成第二神经层
+	每一条信息x 都处在输入层
+	最后得到的行为Y 处在输出层
+	那么：输入曾x， 第一神经a， 第二神经层b， 输出层Y 组成的就是 一个神经网络
+	由于神经元是 卷积方程，所以叫做卷积神经网络
+	上述是一个典型的神经网络例子，当然，实际的神经网络可以更多层，更复杂。
+	一般卷积神经网络用于机械视觉，机械听觉类工作，例如识别图片内容，分析一首MP3属于什么类型音乐等等
+
+循环神经网络概念 （RNN）：
+	即过去的行为可以影响此刻行为的神经网络结构，以3层CNN讲解简单的3层经典RNN结构
+	3层CNN即：输入层，第一层神经网络（假设只有4个神经元），输出层：从上述知道：
+		第一神经网络对应的卷积方程有：
+		a1 = Wa1 × x + ba1，训练一个卷积方程提取抽象信息a1，即训练更新特征矩阵Wa1，和偏移向量ba1
+		a2 = Wa2 × x + ba2，训练一个卷积方程提取抽象信息a2，即训练更新特征矩阵Wa2，和偏移向量ba2
+		a3 = Wa3 × x + ba3，训练一个卷积方程提取抽象信息a3，即训练更新特征矩阵Wa3，和偏移向量ba3
+		a4 = Wa4 × x + ba4，训练一个卷积方程提取抽象信息a4，即训练更新特征矩阵Wa4，和偏移向量ba4
+		输出层对应的卷积方程有：
+		Y = Wc × a + bc，训练一个卷积方程做出行为Y，即训练更新特征矩阵Wc，和偏移向量bc
+		经过训练后，经过这种传递关系 由x最终得到对应Y
+	而 经典RNN 除了由此刻的x外，还又之前的x，共同得到此刻的 Y 的
+		因此输入层 还是 x 不变
+		第一神经网络对应的方程一般是这样，
+		a1 = Wa1 × |x，<a-| + ba1，训练一个卷积方程提取抽象信息a1，即训练更新特征矩阵Wa1，和偏移向量ba1
+		a2 = Wa2 × |x，<a-| + ba2，训练一个卷积方程提取抽象信息a2，即训练更新特征矩阵Wa2，和偏移向量ba2
+		a3 = Wa3 × |x，<a-| + ba3，训练一个卷积方程提取抽象信息a3，即训练更新特征矩阵Wa3，和偏移向量ba3
+		a4 = Wa4 × |x，<a-| + ba4，训练一个卷积方程提取抽象信息a4，即训练更新特征矩阵Wa4，和偏移向量ba4
+		<a- 我暂且这样表示是 上一次的 x求Y 过程中 得到的的中间量 a（a1,a2,a3,a4）
+		|x，<a-| 表示 x 与上一次的 a 的组成的矩阵
+		也就说，除了输入层的x参数作为输入参数外，还有上次得到的a
+		输出层对应的卷积方程有：
+		Y = Wc × a + bc，训练一个卷积方程做出行为Y，即训练更新特征矩阵Wc，和偏移向量bc
+		输出层的形式保持不变，就是这样子，使得上一次的输入直接影响到此刻行为的结果	 
+	RNN的变种非常多，上述的经典模型并不好应用
+	迄今应用最为广泛是RNN模型是基于 LSTM单元的模型
+	参考：http://colah.github.io/posts/2015-08-Understanding-LSTMs/
+	http://blog.csdn.net/Dark_Scope/article/details/47056361
+	http://blog.csdn.net/u014595019/article/details/52605693
+	重点是，之前的都是一个卷积方程作为一神经元
+	但是lstm 使用多个卷积方程组成特殊神经元，其中有三个卷积方程作为“门”通过归一化后得到的1后0来判断是否输入 x 和 <a- 信息
+		到神经元核的卷积方程，也判断是否传递到下一次的 工作循环去，
+深度神经网络概念 （DNN）：
+	这个概念比较广泛，其实就是各种基础神经网络的混合，还有往往是多层网络！！
+
+
+
+
+
+
+
+
+
+
+
+20170503
+继续搭建安卓环境： （sama5d35ek为例！）
+获取安卓源码：
+$ mkdir android4sam_v4.4
+$ cd android4sam_v4.4
+$ repo init -u git://github.com/Android4SAM/platform_sammanifest.git -b android4sam_v4.4
+$ repo sync
+下了两周 （50GB啊 重点是 .repo 文件夹是重点不能删）！
+配置编译！！
+$ . build/envsetup.sh
+$ lunch sama5d3-eng	//就是这里配置成 sama5d3的， 可能配置成 sama5d4的也在这里
+$ make	//编译
+$ mkubi_image -b sama5d3 	//做成ubi格式系统
+烧录：
+下载了对应的安卓demo镜像测试烧录：
+修改 sama5d3ek_nandflash.sh 的samba命令路径 和 对应烧录usb口ttyACM1
+sudo /home/infortech-ubuntu-1404/SAM9X35/tools/sama2.16/sam-ba_cdc_linux/sam-ba /dev/ttyACM1 AT91SAMa5d3x-EK sama5d3ek_nandflash.tcl > logfile.log 2>&1
+然后执行sh烧录。
+成功运行，
+然后把源码编译出的文件系统代入测试：
+首先，从demo发现有4种文件系统：
+recovery
+systemfs
+datafs
+cachefs
+而源码编译出来的只有 systemfs 和 datafs
+system_ubifs-SAMA5D3-ANDROID-4.2.2_r1.1.img
+userdata_ubifs-SAMA5D3-ANDROID-4.2.2_r1.1.img
+另外，还有两种fs文件并没有编译出来
+替换demo对应的，成功烧录运行！！
+
+编译安卓文件系统问题log;
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D35/sources/android/android4sam_v4.2$ . build/envsetup.sh
+including device/atmel/sama5d3isi/vendorsetup.sh
+including device/atmel/sama5d3/vendorsetup.sh
+including device/generic/armv7-a-neon/vendorsetup.sh
+including device/generic/armv7-a/vendorsetup.sh
+including device/generic/mips/vendorsetup.sh
+including device/generic/x86/vendorsetup.sh
+including sdk/bash_completion/adb.bash
+
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D35/sources/android/android4sam_v4.2$ lunch sama5d3-eng
+/bin/bash: bison: 未找到命令
+build/core/config.mk:344: *** Error: could not find jdk tools.jar, please install JDK6, which you can download from java.sun.com。 停止。
+** Don't have a product spec for: 'sama5d3'
+** Do you have the right repo manifest?
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D35/sources/android/android4sam_v4.2$ sudo apt-get install bison
+
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D35/sources/android/android4sam_v4.2$ lunch sama5d3-eng
+build/core/config.mk:344: *** Error: could not find jdk tools.jar, please install JDK6, which you can download from java.sun.com。 停止。
+** Don't have a product spec for: 'sama5d3'
+** Do you have the right repo manifest?
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D35/sources/android/android4sam_v4.2$ 
+安装java6 http://blog.csdn.net/neuxiang/article/details/41956557
+
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D35/sources/android/android4sam_v4.2$ lunch sama5d3-eng
+============================================
+PLATFORM_VERSION_CODENAME=REL
+PLATFORM_VERSION=4.2.2
+TARGET_PRODUCT=sama5d3
+TARGET_BUILD_VARIANT=eng
+TARGET_BUILD_TYPE=release
+TARGET_BUILD_APPS=
+TARGET_ARCH=arm
+TARGET_ARCH_VARIANT=armv7-a
+HOST_ARCH=x86
+HOST_OS=linux
+HOST_OS_EXTRA=Linux-3.19.0-25-generic-x86_64-with-Ubuntu-14.04-trusty
+HOST_BUILD_TYPE=release
+BUILD_ID=JDQ39B
+OUT_DIR=out
+============================================
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D35/sources/android/android4sam_v4.2$ make
+............................................................
+/bin/bash: flex: 未找到命令
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D35/sources/android/android4sam_v4.2$ sudo apt-get install flex
+
+/usr/include/stdlib.h:760:34: fatal error: bits/stdlib-bsearch.h: No such file or directory
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D35/sources/android/android4sam_v4.2$  sudo apt-get install gcc-multilib
+/bin/bash: xsltproc: 未找到命令
+sudo apt-get install  xsltproc
+
+/bin/bash: xmllint: 未找到命令
+sudo apt-get install libxml2-utils
+
+sh: 1: gperf: not found
+sudo apt-get install gperf
+
+Can't locate Switch.pm in @INC (you may need to install the Switch module) (@INC contains: /etc/perl /usr/local/lib/perl/5.18.2 /usr/local/share/perl/5.18.2 /usr/lib/perl5 /usr/share/perl5 /usr/lib/perl/5.18 /usr/share/perl/5.18 /usr/local/lib/site_perl .) at external/webkit/Source/WebCore/make-hash-tools.pl line 23.
+sudo apt-get install libswitch-perl
+
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D35/sources/android/android4sam_v4.2$ make
+....................................................................
+external/valgrind/tsan/ts_valgrind_intercepts.c:2505:1: warning: unused parameter 'unused_line' [-Wunused-parameter]
+external/valgrind/tsan/ts_valgrind_intercepts.c: In function '_vgw00000ZZ_Za_AnnotateFlushExpectedRaces':
+external/valgrind/tsan/ts_valgrind_intercepts.c:2621:1: warning: unused parameter 'file' [-Wunused-parameter]
+external/valgrind/tsan/ts_valgrind_intercepts.c:2621:1: warning: unused parameter 'line' [-Wunused-parameter]
+target SharedLib: vgpreload_tsan-arm-linux (out/target/product/sama5d3/obj/SHARED_LIBRARIES/vgpreload_tsan-arm-linux_intermediates/LINKED/vgpreload_tsan-arm-linux.so)
+target Symbolic: vgpreload_tsan-arm-linux (out/target/product/sama5d3/symbols/system/lib/valgrind/vgpreload_tsan-arm-linux.so)
+Export includes file: external/valgrind/tsan/Android.mk -- out/target/product/sama5d3/obj/SHARED_LIBRARIES/vgpreload_tsan-arm-linux_intermediates/export_includes
+target Unstripped: vgpreload_tsan-arm-linux (out/target/product/sama5d3/obj/lib/vgpreload_tsan-arm-linux.so)
+Generated: (out/target/product/sama5d3/android-info.txt)
+Installed file list: out/target/product/sama5d3/installed-files.txt
+Target system fs image: out/target/product/sama5d3/obj/PACKAGING/systemimage_intermediates/system.img
+Running:  mkyaffs2image -f out/target/product/sama5d3/system out/target/product/sama5d3/obj/PACKAGING/systemimage_intermediates/system.img
+Install system fs image: out/target/product/sama5d3/system.img
+Target ram disk: out/target/product/sama5d3/ramdisk.img
+Target userdata fs image: out/target/product/sama5d3/userdata.img
+Running:  mkyaffs2image -f out/target/product/sama5d3/data out/target/product/sama5d3/userdata.img
+
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D35/sources/android/android4sam_v4.2$ mkubi_image -b sama5d3
+==============================
+Board chip:sama5d3
+==============================
+Generate android ubifs file, please wait for about 2-3 minutes ...
+Success:you can get system_ubifs-SAMA5D3-ANDROID-4.2.2_r1.1.img and userdata_ubifs-SAMA5D3-ANDROID-4.2.2_r1.1.img under current directory!
+infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/SAMA5D35/sources/android/android4sam_v4.2$ 
+
+接下来编译android 的linuxkernel
+之前git clone下的linux-at91不能用，后来发现，匹配android的linux是另外的linux，需要重新下载
+关于编译安卓内核，暂时搁置
+
+ubuntu使用adb调试安卓设备(进入android shell) :
+	lsusb
+		Bus 001 Device 023: ID 0e8d:201d MediaTek Inc. 
+	sudo gedit /etc/udev/rules.d/51-Android.rules
+		添加一条: SUBSYSTEM=="usb", ATTR{idVendor}=="0e8d", ATTR{idProduct}=="201d", MODE="0600" , OWNER=="infortech-ubuntu-1404"
+		sudo chmod a+rx /etc/udev/rules.d/51-Android.rules
+	mkdir ~/.android
+		gedit ~/.android/adb_usb.ini
+		添加一条: 0x0e8d
+	infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~$ adb kill-server
+	infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~$ adb devices
+		* daemon not running. starting it now on port 5037 *
+		* daemon started successfully *
+		List of devices attached 
+		V101172401901	device		//然后就看到了已经这册好的android 设备在列表里
+	adb shell //进入到安卓设备的shell假设只连接了一台安卓设备，可以直接这么干，进入安卓设备的shell终端
+二、 adb 的常见指令：
+    adb devices                  # 列出所有的设备
+    reset adb                      # 若重启 adb。若 DDMS 中设备连接失败等故障时，可以重启来解决
+    adb kill-server               # 杀死 adb 调试桥
+    adb start-server            # 启动 adb 调试桥
+    adb shell                       # 若电脑只有一个模拟器或只有一个手机，则进入该设备的 shell，此时可以执行 linux 命令
+    adb shell [command]                  # 执行 linux 命令，如 adb shell ls  就是列出连接设备下的所有文件
+    adb bugreport                            # 查看 bug 报告
+    adb install <apk文件路径>        # 这个命令将指定的apk文件安装到设备上
+    adb uninstall <软件名>              # 卸载软件
+    adb uninstall -k <软件名>         # 如果加 -k 参数,为卸载软件但是保留配置和缓存文件
+    adb push <本地路径> <远程路径>                  # 用push命令可以把本机电脑上的文件或者文件夹复制到设备(手机)
+    adb pull <远程路径> <本地路径>                    # 用pull命令可以把设备(手机)上的文件或者文件夹复制到本机电脑
+
+git补充，版本分支处理：
+	git checkout -b linux-at91 Android4sam_v4.4 //转向某个分支
+	假如操作了分支文件后,
+	git checkout //展示那些文件被更改/删除/新添加
+	git checkout -- xxx   //假如原来分支版本有文件xxx,但被删掉/更改了,这样可以恢复文件
+
+
+
+
+
+
+
+
+
+
+
+
+
+20170508
+编译android_kernel:
+安卓的内核构造基于一般linux内核,但又很不一样,所以是另一套内核源码!!
+编译安卓内核前先要完成安卓文件系统的编译!!!
+下载源码:
+	git clone git://github.com/Android4SAM/linux-at91.git
+	cd linux-at91
+	git checkout -b linux-at91 Android4sam_v4.4
+把之前编译好了安卓文件系统的生成内容中的 root文件夹(<android_working_dir> /out/target/product/sama5d3/root)
+	复制到安卓内核源码的根目录里
+编译:
+	make mrproper
+	make ARCH=arm sama5_android_defconfig
+	make ARCH=arm CROSS_COMPILE=arm-linux-gneabihf- uImage
+利用开发板安卓demo的.sh文件烧录到开发板进行测试:
+开机log:
+.....
+demo_fs with made_kernel
+ALSA device list:
+  #0: wm8904 @ SAMA5D3EK
+Warning: unable to open an initial console.
+Freeing unused kernel memory: 524K (c0686000 - c0709000)
+init: skipping insecure file '/default.prop'
+init: skipping insecure file '/init.rc'
+init: Timed out waiting for /dev/.coldboot_done
+init: Unable to open persistent property directory /data/property errno: 2
+	卡死在这里!!!
+经资料搜索,先系统分析了安卓系统的构成:
+	安卓系统主要构成:安卓linux内核,systemfs,userfs.
+	传统linux系统主要构成:内核,rootfs
+	其实安卓系统是把rootfs分成的三部分,一部分systemfs,一部分userfs,还有一部分合并到安卓内核镜像里
+	上述编译内核前得把编译好的安卓文件系统的root文件放入安卓内核源码根目录上的原因是,
+		root里的内容 就是要合并到安卓内核镜像里的,属于rootfs一部分的内容,最后这些内容会出现在开发板的 / 根目录符上
+上述初始化出错文件 init.rc 还有default.prop 就是那个root文件夹里的文件,编译内核时,会合并到 安卓内核镜像的
+init: skipping insecure file 的原因是,因为出于安全性,default.prop, init.rc 等,这些文件是不可以出现用户写的模式的,
+	当安卓内核初始化来到要执行default.prop, init.rc 等文件时,会检测文件是否存在允许文件写的模式,若存在就不会执行,然后初始化就卡死这了
+	所以在编译内核前,还要去除 这些文件的写模式:
+		sudo chmod a-w init.rc
+		sudo chmod a-w default.prop
+最后重行编译,成功运行!!!
+
+新问题:
+init: critical process 'servicemanager' exited 4 times in 4 minutes; rebooting into recovery mode
+RomBOOTing system with command 'recovery'.
+根据google,初步认为没有选上 buinder IPC : 
+	make menuconfig: ->device driver ->staging drivers ->android ->android binder ipc driver
+	但发现,其实已经选上
+学习使用 logcat命令 观察错误log,却出错不能用:
+	Unable to open log device '/dev/log/main': Permission denied
+	初以为logcat 没达到 root权限,需要学习使用 android 的 su 命令:
+尝试绕过su,用回 demo 的uimage 发现 logcat 可行,,怀疑并不是logcat命令的权限问题,而是/dev/log/main 的问题
+	/dev/log/main 的问题,可能不是取不到权限,而是还未完全初始化!!,回过开机log:
+		..................
+		Warning: unable to open an initial console.
+		Freeing unused kernel memory: 524K (c0686000 - c0709000)
+		init: skipping insecure file '/init.usb.rc'
+		init: could not import file '/init.usb.rc' from '/init.rc'
+		init: could not import file '/init..rc' from '/init.rc'
+		init: skipping insecure file '/init.trace.rc'
+		init: could not import file '/init.trace.rc' from '/init.rc'
+		init (1): /proc/1/oom_adj is deprecated, please use /proc/1/oom_score_adj instead.
+		init: skipping insecure file '/ueventd.rc'
+		init: cannot open '/initlogo.rle'
+		UBIFS: mounted UBI device 0, volume 0, name "system", R/O mode
+		UBIFS: LEB size: 126976 bytes (124 KiB), min./max. I/O unit sizes: 2048 bytes/2048 bytes
+		UBIFS: FS size: 123039744 bytes (117 MiB, 969 LEBs), journal size 9023488 bytes (8 MiB, 72 LEBs)
+		UBIFS: reserved for root: 0 bytes (0 KiB)
+		UBIFS: media format: w4/r0 (latest is w4/r0), UUID 93D922B5-68F5-4DEC-9B37-A21E28B434FC, small LPT model
+		UBIFS: background thread "ubifs_bgt1_0" started, PID 966
+		UBIFS: mounted UBI device 1, volume 0, name "userdata"(null)
+		UBIFS: LEB size: 126976 bytes (124 KiB), min./max. I/O unit sizes: 2048 bytes/2048 bytes
+		UBIFS: FS size: 90533888 bytes (86 MiB, 713 LEBs), journal size 9023488 bytes (8 MiB, 72 LEBs)
+		UBIFS: reserved for root: 0 bytes (0 KiB)
+		UBIFS: media format: w4/r0 (latest is w4/r0), UUID BF841DE4-C845-435B-B3BF-AD516A1726E0, small LPT model
+		init: cannot find '/system/bin/rild', disabling 'ril-daemon'
+		init: cannot find '/system/etc/install-recovery.sh', disabling 'flash_recovery'
+		/system/bin/sh: No controlling tty: open /dev/tty: Permission denied
+		/system/bin/sh: warning: won't have full job control
+		shell@android:/ $ init: untracked pid 971 exited
+	发现可能是没有正确执行,init.usb.rc init.trace.rc /ueventd.rc 初始化,
+	所以如上述处理 init.rc 的方法,处理这三个文件 init.usb.rc init.trace.rc /ueventd.rc
+最后成功烧录运行,不再自动重启!!!!!
+
+补充:
+权限问题:
+一般我们在Linux的console下输入 ls -l 会列出所有文件的权限。
+	比如：-rwxr-xr-x，用过Linux的人都知道r代表该文件可读，w代表可写，x代表可执行，-就代表没有该权限。
+		第一个rwx代表文件所有者的权限，
+		第二个rwx代表和所有者同组人的权限，
+		第三个rwx代表其他用户对该文件的权限
+	再如：-rwsr-xr-x，它的执行权限标志位是一个s，s代表当任何一个用户执行该文件的时候都拥有文件所有者的权限，
+		这文件的所有者是root，简单点说就是不管谁执行这个文件，他执行的时候都是以root身份执行的
+android 里的 su 和 rooted 知识:(https://www.zhihu.com/question/21074979/answer/18176410)
+	一般Linux下su以后输入密码就可以切换到root了，但Android里的su和Linux里的su是不一样的，
+	Android里的su不是靠验证密码的，而是看你原来的权限是什么。
+	意思就是如果你是root，那你可以通过su切换到别的用户，比如说shell,wifi,audio什么的。
+	但如果你是root之外的其他用户，就不能切换回root了，会提示你permission denied
+	那么我就把一个所有者是root的su程序权限标志位置成-rwsr-xr-x，那么不管谁执行它，都是root身份执行，
+		su就可以顺利执行成功了，执行成功之后我就是root身份了。
+	问题都清楚了，就是你需要把一个所有者是root的su拷贝到Android手机上，
+		并且把su的权限标志位置成-rwsr-xr-x。能把这个事情搞定你就成功root了一个手机。
+		大概意思就是两行代码
+	 	cp /data/tmp/su /system/bin/                  
+	 	#copy su 到/system/分区chown root:root su                                
+		#su的所有者置成rootchmod 4755 /system/bin/su                   #把su置成-rwsr-xr-x
+	但是,熟悉Android的同学都知道，执行上面的每一行代码都需要root权限才能成功。
+		意思就是说，你只有有root权限的情况下才能执行上面两行代码，
+		而这两行代码就是为了让你获得root权限的，这是一个逻辑闭环，
+		那么如何打破这个逻辑闭环呢？
+			一个办法就是找一个本身已经有root权限的进程来启动我上面的两行代码，那我这两行代码一启动就是root权限，就可以顺利执行了。
+			但是已经有root权限的进程都是出厂时候就装到手机上的，代码写死了，你没法控制它执行你自己的代码啊。
+			这个时候就需要你找漏洞了，比如用来破解Android2.3 root权限的zergRush漏洞就是利用一个拥有root权限的进程栈溢出漏洞。
+	但是,上述是建立在不重新刷写系统的情况,
+		假如文件系统是自己编译的,那么,我们可以尝试着在已构造好文件系统,但编译出镜像文件之前,
+		先给 su chmod成-rwsr-xr-x,再编译出烧录镜像
+	为什么su一定要放到/system/bin/或者/system/xbin/,而不能放在data分区?
+		因为data分区在mount时就指定了不能给可执行程序加s位。在adb shell里执行mount就可以看到.
+		即data分区的可执行程序都不可以有 s 这个执行模式,只能是 x 这个执行模式
+		下面是google越来的解释:
+		/*
+		 * 首先，你当然可以把su这个程序copy到/data/分区，但你adb push进去的时候，su有这个程序的所有者肯定不是root，
+		 * 一般是shell什么的(记不清了，应该是和adbd这个进程的所有者一样)，
+		 * 这个时候即使你把它权限置为-rwsr-xr-x，哪你运行它的时候也是shell身份运行的，su会提示你输入密码的。
+		 * 第二,我们root手机的目的是为了运行需要root权限的APP，比如goagent或者什么的。 
+		 * 这些APP里代码需要获得root的时候是这么写的：
+		 * 	Process p = Runtime.getRuntime().exec("su");
+		 * 也就是它们在代码里调用了一下su这个程序，哪可以写成下面这个样子吗？
+		 * 	Process p = Runtime.getRuntime().exec("./data/tmp/su");
+		 * 我没写过APP，不太清楚，估计是不行的。换句话说你必须把su放到环境变量PATH所有的目录里，APP才能调用到它。
+		 * 如果你不想放到bin或者xbin下，你就必须给PATH增加一个目录。PATH是root权限才能修改的，
+		 * 你如果能修改PATH，说明你已经有root权限了，修改PATH就没必要了，还不如直接放到bin下面。
+		 */
+		关于sudoandroid的工程里没有sudo这个东西。sudo是为了给普通用户临时分配root权限的，
+		Android里建立了很多用户，比如wifi,shell等等，
+		这些用户可以访问那个文件，不可以访问那个文件，代码里已经写死了，权限也分配的很分明。
+		它们在运行的过程中不需要临时获得root权限。所以Android不需要sudo这个程序。
+android基础1:
+	Android对标准的Linux内核代码做了大量的剪裁和优化，并且添加了许多特有的代码，主要包括：
+		自定义UI系统，采用Bionic Libc库代替glibc库，添加Gold-Fish平台，编写专有的驱动程序，如Binder、Logger、PowerManager等等。
+		由于版权分歧等原因，这些修改并没有merge到Linux主分支中去，
+		因此，我们不能直接从Linux Kernel的官网（kernel.org）去下载适用于Android源码的Linux内核代码，
+		而是要到Google官网提供的kernel网址去下载经过修改后的Linux内核代码。
+		Google提供了多个版本的Linux Kernel，分别对应不同的设备或者厂商版本.
+		安卓版本信息:https://en.wikipedia.org/wiki/Android_version_history
+安卓系统的组成:(google得到的参考资料)
+	1. MLO, u-boot.img (bootloader)
+	u-boot编译输出文件有2个，一个是MLO，另一个是u-boot.img，
+	因此，对于很多Android开发板而言，一定存在一个boot分区（通常是fat32格式），该分区里存放有MLO和u-boot.img这两个重要的文件。
+	2. uImage
+	由于Android系统是基于Linux内核的，因此，与嵌入式Linux启动过程一样，“bootloader”完成硬件检测和初始化配置后，
+	第一步要做的也是加载并运行Linux内核镜像，因此，在Android设备启动过程中，除了MLO和u-boot.img文件外，
+	另一个最重要的文件就是内核镜像uImage文件了。
+	注：Linux内核编译成功后，会在arch/arm/boot/目录下生成zImage文件，通过mkimage命令，
+	给zImage文件加上了64个字节的数据头得到uImage文件，这样才能被u-boot识别并正确引导。
+	3. ramdisk.img
+	在Linux内核启动时，首先去创建虚拟的根文件系统，然后在指定位置寻址真正的根文件系统镜像并加载到内存中，
+	然后执行init可执行程序完成系统启动过程。
+	对于嵌入式Linux系统而言，一般需要用busybox等工具专门创建一个根文件系统镜像，而Android源码中已经实现了一个根文件系统，
+	即ramdisk.img，Android内核系统启动时会首先加载ramdisk.img作为根文件系统，然后再执行init程序，解析init.rc脚本，
+	挂载系统其他分区、开启各个进程和服务等。
+	因此，Android系统启动第三个必不可少的文件即ramdisk.img文件，它是Android系统的根文件系统镜像。
+		//注意到,我们编译内核时需要的 安卓文件系统靠过来的root文件夹里包含的就是 ramdisk.img 一样的内容
+	4. boot.img
+	Android系统中，通常会把zImage和ramdisk.img打包到一起，生成一个boot.img镜像文件，
+	放到boot分区，由bootloader来引导启动，其启动过程本质也是和分开的uImage&ramdisk.img类似，
+	只不过把两个镜像按照一定的格式合并为一个镜像而已。	
+		//注意到,我们sama5系列 最后用到的 uImage镜像 就是kernel和ramdisk.img的合并镜像
+	bootloader如何知道去哪加载Linux内核(zImage)和根文件系统(ramdisk.img)呢？通常是由命令行参数传入bootloader程序，
+	或者在bootloader代码中给出启动参数配置文件的路径，具体的原理可以去参考bootloader启动Linux内核相关的文章分析，这里就不做详细介绍了。
+	5. system.img
+	前面我们提到的镜像如“bootloader”，“Linux Kernel”，“文件系统”都是不包含Android系统的核心文件，
+	那么，真正的Android操作系统核心部分在哪呢？其实就位于system.img中，它包含了Android系统的firmware、用户界面、一系列的预编译应用等等，
+	会在内核启动后被挂载到/system分区。因此，它也是Android系统启动必不可少的镜像之一。
+		//就是systemfs
+	6. userdata.img
+	前面介绍的system.img镜像中包含的都是Android系统级别的数据，而“用户”的“出厂”数据则都被放到了userdata.img镜像中了，
+	它会被挂载到文件系统的/data分区，用户新存储的数据、安装的程序均会被放置到这个分区中，如果擦除这个分区，
+	本质上则等同于手机恢复了出厂设置，它也是Android系统启动必不可少的镜像之一。
+	7. 其他的镜像
+	前面介绍的几个都是Android系统启动涉及到的最重要的几个镜像文件，当然，编译输出还有其他的几个文件包括：
+	用来缓存最频繁访问的数据和应用的cache.img，
+	用来恢复系统时使用的recovery.img等，这里就不详细讲解了。	
+android 磁盘分区:
+	一般有:
+	/boot		->  /dev/mtd/mtd2	//放置 内核 initrd 等执行内容区
+	/system		->  /dev/mtd/mtd3	//android系统软件 api 等 只读区
+	/recovery	->  /dev/mtd/mtd1	//放置 内核 initrd 等执行内容的 备份恢复区
+	/data		->  /dev/mtd/mtd5	//用户数据区
+	/cache		->  /dev/mtd/mtd4	//内存的缓存区
+	/misc		->  /dev/mtd/mtd0	//flags区,记录设备实时状态
+	fastboot: 
+		是google提供的方便 android设备与pc 通过usb 传输数据,烧写镜像的传输协议, 一般移植在 u-boot 上,
+		若使用fastboot,u-boot会自动把镜像中对应的部分烧录到指定的区域,开发板启动时也会自动分配空间和读取内容到内存运行等等,,,
+		当然如果不使用fastboot,工程师就得自己自己编写放置镜像各部分的位置,还有启动时,把哪些内容搬到内存执行,初始化哪些区域等等,,
+android 启动过程:
+	简图:
+	prebootloader -> u-boot(bootloader) -> kernel -> init
+		-->daemons
+		-->zygote ->Dalvik VM ->systemserver ->managers -> applications
+							  |
+		----------------->serviceMagener <--______|
+					 ^
+		-->NativeServices -------|
+	prebootloader 即芯片特有的固化启动程序,然后uboot初始化启动内核的环境,然后开始kernel的初始化,
+	kernel初始化各种软硬件环境，加载驱动程序，挂载根文件系统，最后执行init程序,就开始进入android的世界
+	Android系统以及各大Linux的发行版，他们的Linux内核部分启动过程都是差不多的，他们之间最大的区别就在于init程序的不同，
+	因为init程序决定了系统在启动过程中，究竟会启动哪些守护进程和服务，以及呈现出怎样的一个用户UI界面
+	init程序是分析Android启动过程中最核心的程序:
+
+
 
 
 
@@ -6451,8 +8166,6 @@ $(obj)/zImage:	$(obj)/compressed/vmlinux FORCE
 使用 bitbake 工具链???
 	另外,如何 更改内核配置!!! 而bitbake 又可以通过!!!
 	
-
-
 
 
 
