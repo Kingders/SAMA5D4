@@ -7926,8 +7926,12 @@ git补充，版本分支处理：
 	假如操作了分支文件后,
 	git checkout //展示那些文件被更改/删除/新添加
 	git checkout -- xxx   //假如原来分支版本有文件xxx,但被删掉/更改了,这样可以恢复文件
-
-
+查看网速命令:
+	slurm -i eth0		//监控eth0端的网络实时网速
+限制网速: (repo android4m v4.4 时,常常因为速度爆表而挂掉vpn)
+    	sudo apt-get install wondershaper   
+	示例: $ sudo wondershaper eth0 100 20 （限制ppp0网卡下载速度100K，上传速度20K）
+	示例:  $ sudo wondershaper clear eth0   (清除ppp0网卡的网速限制）
 
 
 
@@ -8137,20 +8141,130 @@ android 启动过程:
 	简图:
 	prebootloader -> u-boot(bootloader) -> kernel -> init
 		-->daemons
-		-->zygote ->Dalvik VM ->systemserver ->managers -> applications
+		-->zygote ->Dalvik VM ->systemserver ->managers -> applications(实际上app是zygote fork出的,但在systemserver以后才允许执行)
 							  |
 		----------------->serviceMagener <--______|
 					 ^
 		-->NativeServices -------|
-	prebootloader 即芯片特有的固化启动程序,然后uboot初始化启动内核的环境,然后开始kernel的初始化,
-	kernel初始化各种软硬件环境，加载驱动程序，挂载根文件系统，最后执行init程序,就开始进入android的世界
-	Android系统以及各大Linux的发行版，他们的Linux内核部分启动过程都是差不多的，他们之间最大的区别就在于init程序的不同，
-	因为init程序决定了系统在启动过程中，究竟会启动哪些守护进程和服务，以及呈现出怎样的一个用户UI界面
-	init程序是分析Android启动过程中最核心的程序:
+		prebootloader 即芯片特有的固化启动程序,然后uboot初始化启动内核的环境,然后开始kernel的初始化,
+		kernel初始化各种软硬件环境，加载驱动程序，挂载根文件系统，最后执行init程序,就开始进入android的世界
+		kernel初始化与一般linux系统初始化无异,android与一般linux 区别就在于init程序的不同，
+		init决定系统启动过程中，会启动哪些守护进程和服务，以及呈现出怎样的一个用户UI界面
+	init程序是分析Android启动过程中最核心的程序主要有3点：
+		创建和挂载一些系统目录/设备节点，设置权限，如：/dev, /proc, and /sys
+		解析 init.rc 和 init.<hardware>.rc，并启动属性服务，以及一系列的服务和进程。
+		显示boot logo，默认是“Android”字样
+		最重要的是第二步，一系列的Android服务在这时被启动起来,
+	本地服务(Native daemons):
+		相当一部分是在 init.rc 和init.<hardware>.rc 里启动:
+			ueventd, servicemanager, debuggerd, rild, mediaserver, app_process 等
+			这些都是 init直接启动的本地服务,都是一个独立的linux进程,可通过top查看进程 
+		另一部是被那些 已启动的服务 启动的,如:
+			mediaserver: AudioFlinger, MediaPlayerService, CameraService
+	Android服务 (system services):
+		init 直接启动的本地服务中有一个 app_process服务,
+		app_process 会创建 Zygote进程,
+		Zygote进程内容是:先打开 Dalvik VM (android java机)虚拟机,然后通过虚拟机执行具体进程内容
+		Zygote进程其中一个具体进程内容,就是,fork 出 systemserver 进程
+		fork出的 systemserver 进程 自然也是需要已打开的java机辅助 才能正常执行的进程
+		systemserver 进程 把所有 android核心服务启动起来,包括:
+			Activity Manager		//管理 activity 生命周期, 和新的 activity 服务
+			Package Manager			//管理 app (安装,卸载,更新,权限)
+			Window Manager			//管理 窗口事件
+			AppWidget Manager		//管理 andriod 插件
+			Backup Manager			//管理 备份
+			status bar			//状态栏 相关
+ 			power Manager 			//管理 电源
+ 			networkManagement Service	//网络 相关
+			notification Manager		//通知栏 相关
+			Location Manager		//位置信息 相关
+			Entropy Mixer			//??
+			Display Manager			//管理 显示
+			Telephony Registry		//电话 相关
+			Scheduling Policy		//管理 进程执行
+			Account Manager			//管理 账户
+			Content Manager			//管理 数据
+			Battery Service			//管理 电池
+			Alarm Service			//预约未来执行 某程序
+			Input Manager			//管理 输入
+			Device Policy			//设备安全策略
+			Clipboard Service		//剪贴板
+			NetworkStats Service		//网络状态
+			NetworkPolicy SEvice		//网络安全策略
+			WIFI p2pservice			//wifi 点对点连接
+			Enternet Service		//万维网 连接
+			WiFI Service			//管理 wifi
+			Connectivity Service		//万罗连接状态
+			Network Service Discovery Service	//网络发现服务
+		systemserver 进程里的这些任务都是systemserver 进程的独立子线程运行的
+		systemserver 进程所有服务启动了以后, Activity Manager服务会开始启动UI界面并发送广播信息"ACTION_BOOT_COMPLETED"
+		Activity Manager服务 启动 luancher, luancher 启动 Home Screen
+android log 输出:
+	配置系统的log输出
+		make menuconfig，勾选："Kernel hacking" -> "Show timing information on printks"
+		将init进程的详细log输出到dmesg文件中,修改/system/core/rootdir/init.rc，把loglevel从3改为7
+	抓取系统启动的log信息
+		Android系统启动的log分为 Linux内核的log 和 Android Logger系统的log，
+		抓取的方法如下：
+			adb shell dmesg > dmesg.txt
+			adb logcat -d -v time -b "main"   >  main.txt
+			adb logcat -d -v time -b "system" >  system.txt
+			adb logcat -d -v time -b "events" >  events.txt
+	dmesg消息:	
+		直到 "Freeing init memory" 消息出现前,都是Linux内核初始化的log,
+		然后就是 init 的的消息,一般都有 "init: starting" 前缀
+	关于Zygote初始化消息:
+	 	init的时候就初始化Zygote, dmesg有 " init: starting 'zygote' "
+		但 Zygote 进程的详细初始化log信息具体放到/dev/log/main文件中了
+		由于后续所有的Android应用程序都是从Zygote进程fork出来的，
+		Android系统为了提高应用程序的启动速度，会在Zygote进程初始化过程中加载一些常用的java class和资源文件到进程的内存中，
+		从而共享常用的class和resourse资源。这个过程我们可以通过检索"preload"标签得到这个过程所消耗的时间，
+	SystemServer初始化消息:
+		Zygote完成了初始化工作后就启动SystemServer进程了，
+		SystemServer进程的log信息被放到了/dev/log/system文件中了
+	最后,整个系统初始化结束的标记 " boot_completed " 出现在dmesg消息里
+android系统优化,裁剪:
+	减少 Zygote初始化时proload 的java class 和 resource 一般操作这些文件
+		frameworks/base/preload-classes
+		frameworks/base/core/res/res/values/arrays.xml
+	减少 不必要的 本地服务 和 android服务 一般操作的文件:
+		system/core/rootdir/init.rc
+		frameworks/base/services/java/com/android/server/SystemServer.java
+	减少预装apk 一般操作的文件:
+		build/target/product/xxxx.mk
+		device/<company>/<product>/xxxx.mk
+		vendor/..../xxxx.mk
+	减少内核log打印级别: 修改system/core/rootdir/init.rc 的loglevel
+	其他例如:
+		优化启动动画，降低帧率和图片尺寸
+		精简系统，减小boot.img文件大小，可以显著减少启动过程中加载和解压boot.img的时间
+		预先创建一些目录和文件，而不是在init过程中创建
+apk安装:
+	android里 apk安装后,apk安装文件还是会被保存起来的:
+		一般的apk安装 默认放在 /data/app里
+		而系统自带apk放在 /system/app, /system/vendor/app, /system/priv-app
+		由于在/system 如果没有rooted,无法删除系统自带app	
+	安装一个xxx.apk(非系统自带apk):
+		xxx.app执行文件dex放在 /data/dalvik-cache (android java机执行的程序是dex)
+		相关数据(数据库,xml,cache,.so动态库)放在 /data/data/com.xxx 的新建目录里
+		注册apk的AndroidManifinest.xml信息到 /data/system/packages.xml
+			这些信息包括：权限、应用包名、APK的安装位置、版本、userID等等
+		部分apk的安装也会向Launcher应用申请添加创建快捷方式
+	删除那些存放在/data/app, /system/app, /system/vendor/app, /system/priv-app 里的apk,相当于卸载app
+	
 
 
 
 
+
+
+
+
+
+20170511
+virtualbox 安装 kaji linux
+virtualbox不能安装64位系统问题:
+	`进入BIOS后，找到Configuration选项，选择Intel Virtual Technology并回车
 
 
 
