@@ -4507,7 +4507,14 @@ xclk 指 pc4 或pc24 或pd31	//没有参考设置输出时钟的!!的例子
 居然还真找到!!!我去, github 的linux源码里 有一个 at91-sama5d4ek_isi.dts 直接就是ov2640模块的!!
 
 ov2640的针口配置:
-	并口数据针共10位 D0-D9,但是我们只使用8位,默认是 D2-D9 对应sama5d4 的 isi_D0 - isi_D7
+	ov2640并口数据针共10位 D0-D9,   ov2640    默认使用   10针高位模式,
+	但是买回来的 waveshare做的模块 只能使用8针高位模式,所以设置0xda寄存器为8针高位模式,
+	8针高位指,工作针为D2-D9的模式 (0xdA的bit0 值为0, bit6 值为1),
+	按道理 ov2640处于8针高位模式, 那么 D2-D9针 应接sama5d4 的 isi_D0 - isi_D7
+	按道理 ov2640处于10针高位模式,那么 D0-D9针 应接sama5d4 的 isi_D0 - isi_D9
+	而现在的奇怪情况是: ov2640处于10针高位模式
+		但是 D2-D9针 接sama5d4 的 isi_D0 - isi_D7 并没有发现出现问题!!!
+		还有的是,这时的linux设置的 isi 是 8位数据针模式
 
 sama5d4对应的针口:
 	AT91_PIOC 19 AT91_PERIPH_A AT91_PINCTRL_NONE	/* ISI_D0 */
@@ -7727,6 +7734,25 @@ feedfroward模型神经网络:(FNN),而不是完整的CNN模型,对于CNN认识�
 	发现每一层都是一个 矩阵方程(多个向量方程组成一个矩阵方程)
 	上述是一个典型的神经网络例子，当然，实际的神经网络可以更多层，更复杂。
 	一般矩阵乘法神经网络用于机械视觉，机械听觉类工作，例如识别图片内容，分析一首MP3属于什么类型音乐等等
+	有一种改进的方法,可以减少计算复杂程度!!!
+		就是对于上述的 所有 向量乘法方程 都加入同一个sigmond算子 或者 同一个tanh算子!!
+		即都加 f(Z) = sigmond(z) 或者都加 f(z) = tanh(z)
+		例如:
+			a2 = f ( Wa2 × x + ba2 )
+			....
+			c5 = f ( Wc5 × a + bc5 )
+			....
+		如果是f()是tanh()这时得到的 a1,a2,....c1,c2,... 大部分要不是深度接近1,要深度接近近-1,即在[-1,1]区间
+			即得到的a和c向量都偏简单比如: 向量a ={1,-0.9,1,0.8,-1},....
+		如果是f()是sigmond这时得到的 a1,a2,....c1,c2,... 大部分要不是深度接近0,要深度接近近1,即在[0,1]区间
+			即得到的a和c向量都偏简单比如: 向量a ={1,0.8,0,0.9,0},....
+		这样再投入下一层网络的计算,计算量变得相当少,
+		而且这种技巧被证明不影响模型的训练!!!
+	还有一种算子叫 softmax() 与归一化相关的算子
+	前向传导:就是上述的 向量x经一层层网络得到y
+	反向传导:就是根据 实际推得y 和 预期y 的方差,往后修正网络中的各个W 和 b 的过程
+				
+			
 
 卷积神经网络概念 （CNN）:
 	参考:	http://blog.csdn.net/zkl99999/article/details/46805453
@@ -7742,6 +7768,7 @@ feedfroward模型神经网络:(FNN),而不是完整的CNN模型,对于CNN认识�
 		卷积核用法:
 			卷积核从样图片左上方开始,nxn卷积核 矩阵乘以 此刻所在nxn像素区域,
 			得到的一个加权平均值,为新特征图的新的一个像素点!!
+			(上述加权平均得到平均值的过程叫 池化)
 			然后卷积核在样图片向右移动一个像素点,重复动作得到新特征图第二个像素点...
 			卷积核移动轨迹从左到右,从上到下
 		使用例子:
@@ -7797,7 +7824,7 @@ feedfroward模型神经网络:(FNN),而不是完整的CNN模型,对于CNN认识�
 		输出层对应的矩阵乘法方程有：
 		Y = Wc × a + bc，训练一个矩阵乘法方程做出行为Y，即训练更新特征矩阵Wc，和偏移向量bc
 		输出层的形式保持不变，就是这样子，使得上一次的输入直接影响到此刻行为的结果	 
-	RNN的变种非常多，上述的经典模型并不好应用
+	RNN的变种非常多，上述是最简单模型也是最没有应用前景的模型
 	迄今应用最为广泛是RNN模型是基于 LSTM单元的模型
 	参考：http://colah.github.io/posts/2015-08-Understanding-LSTMs/
 	http://blog.csdn.net/Dark_Scope/article/details/47056361
@@ -7975,6 +8002,8 @@ git补充，版本分支处理：
 	假如操作了分支文件后,
 	git checkout //展示那些文件被更改/删除/新添加
 	git checkout -- xxx   //假如原来分支版本有文件xxx,但被删掉/更改了,这样可以恢复文件
+	git reset --hard      //有时候人为修改并保存后但做错了,而且没有add和commit,还是想checkout到以前,但这时chenckout会出错,
+			      //这条命令就是强制重置版本,删除已经保存的修改,然后就可以checkout了
 查看网速命令:
 	slurm -i eth0		//监控eth0端的网络实时网速
 限制网速: (repo android4m v4.4 时,常常因为速度爆表而挂掉vpn)
@@ -8013,6 +8042,56 @@ sudo apt-get install 失败后解决方法:
 	export C_INCLUDE_PATH=$C_INCLUDE_PATH:/home/liheyuan/soft/include
 	#增加G++的include文件搜索路径
 	export CPLUS_INCLUDE_PATH=$CPLUS_INCLUDE_PATH:/home/liheyuan/soft/inc
+加入新硬盘:
+	装好然后开机,然后root用户
+	fdisk -l	//查看新插入硬盘信息
+	如果已经格式化过了,系统会加载这个硬盘,所以先fdisk -l 查看到新加入的硬盘是/dev/sdc,他的分区设备符号,如/dev/sdc1,/dev/sdc2
+	如果系统默认加载了,便先卸载
+	umount /dev/sdc1
+	umount /dev/sdc2
+	配置硬盘:
+	fdisk /dev/sdc
+	d	//表示删除分区命令
+	1	//删除分区1
+	2	//删除分区2
+	w	//执行配置	然后 fdisk -l 变发现没了/dev/sdc1,/dev/sdc2
+	fdisk /dev/sdc
+	n	//表示添加分区
+	p	//选择主盘类型 (还有一种是swap类型,即虚拟内存,)
+	1	//分区号
+	xx	//起始地址
+	xxx	//结束地址
+	n	//表示添加分区
+	p	//选择主盘类型
+	2	//分区号
+	xx	//起始地址
+	xxx	//结束地址
+	....
+	w	//执行配置	然后 fdisk -l 变发现出现了/dev/sdc1,/dev/sdc2,...
+	格式化要使用的分区
+	mkfs -t ext4 /dev/sdc1	
+	mkfs -t ext4 /dev/sdc2
+	...
+	最后是设置启动自动挂载:
+		先查看uuid:
+		ls -l /dev/disk/by-uuid/
+		/dev/sdc1  uuid:333333333...
+		/dev/sdc2  uuid:444444444...
+		....
+		建立两个文件目录:
+		mkdir /home/kingders/bb
+		mkdir /home/kingders/nn
+		然后修改fstab
+		sudo gedit /etc/fstab	添加:
+		UUID=333333333... /home/kingders/bb               ext4    defaults     0       2
+		UUID=444444444... /home/kingders/nn               ext4    defaults     0       2
+		....
+		最后重启就会自动加载并映射到制定目录了!!!
+		特别注意:
+			如果多个分区挂到同一文件目录,如 fstab 有这样的,,
+			UUID=333333333... /home/kingders/bb               ext4    defaults     0       2
+			UUID=444444444... /home/kingders/bb               ext4    defaults     0       2
+			系统会出错,也就是说,不能多个分区挂到同一目录上去!!!
 
 清理Linux系统中的孤立、无用的软件包:http://blog.topspeedsnail.com/archives/9992#more-9992
 Ubuntu 安装使用 Krita -专业绘画软件(相当于ps)http://blog.topspeedsnail.com/archives/9816
@@ -8568,7 +8647,7 @@ python虚拟环境:
 		VIRTUALENVWRAPPER_PYTHON=/usr/bin/python and that PATH is
 		set properly.
 		解决:这时候可以将VIRTUALENVWRAPPER_PYTHON路径(python全局路径)加入到~/.bashrc中，
-		sudo gedit ~/.bashrc 	//末尾添加:
+		sudo gedit ~/.bashrc 	//在设置virtualenvwrapper其他内容前先添加:
 			export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python3
 		source ~/.bashrc	//由于我们安装的virtualenvwrapper是针对python3版本,所以需要使用python3开启
 					//而默认的/usr/bin/python虽然指向python3,但是这里不能很好指向python3
@@ -8636,6 +8715,7 @@ python虚拟环境:
 
 
 20170516
+(以下都是个人pc上的)
 安装opencv依赖:
 	升级系统：
 	$ sudo apt-get update
@@ -8653,11 +8733,7 @@ python虚拟环境:
 	$ sudo apt-get install libatlas-base-dev gfortran
 	安装Python2和Python3的开发库：
 	$ sudo apt-get install python2.7-dev python3.4-dev
-创建一个python3 虚拟环境cv3 安装opencv
-	mkvirtualenv cv3 -p python3
-	workon cv3
-	安装numpy
-	pip install numpy
+编译安装opencv3.1.0
 	下载opencv3.1.0源码包,并原地解压
 	$ ~/other/opencv
 	$ wget -O opencv.zip https://github.com/Itseez/opencv/archive/3.1.0.zip
@@ -8690,7 +8766,571 @@ python虚拟环境:
 		方法二:.bashrc 添加对应c,c++ 头文件搜索目录!! 然后 source ~/.bashrc 例如:
 		export C_INCLUDE_PATH=$C_INCLUDE_PATH:/usr/lib/x86_64-linux-gnu/glib-2.0/include:/usr/include/glib-2.0
 		export CPLUS_INCLUDE_PATH=$CPLUS_INCLUDE_PATH:/usr/lib/x86_64-linux-gnu/glib-2.0/include:/usr/include/glib-2.0
-	
+	$ sudo make install
+	$ sudo ldconfig
+创建一个python3 虚拟环境cv3 配置cv3是一个python3,opencv环境!!
+	mkvirtualenv cv3 -p python3
+	workon cv3
+	安装numpy
+	pip install numpy
+	添加opencv库
+	//安装好的opencv对应python3.4的库安装路径和库名称为:/usr/local/lib/python3.5/site-packages/cv2.cpython-34m.so
+	//建立链接文件到虚拟空间指定位置
+	$ cd ~/.local/virtualenvs/cv3/lib/python3.4/site-packages/
+	$ ln -s /usr/local/lib/python3.4/site-packages/cv2.cpython-34m.so cv2.so
+
+训练一个游戏Ai: (DQN)
+	目录:/home/kingders/smart210/study/tensorflow_study/AI_game
+	参考:http://blog.topspeedsnail.com/archives/10459 
+	这里其实是一个 决策模型!! DQN
+	需要不断截取屏幕截图,所以需要opencv库!!
+	workon cv3 使用cv3虚拟环境
+	python3 ai_player.py		
+	出错!!
+	Traceback (most recent call last):
+	  File "ai_player.py", line 203, in <module>
+	    train_neural_network(input_image)
+	  File "ai_player.py", line 179, in train_neural_network
+	    minibatch = random.sample(D, BATCH)
+	  File "/home/kingders/.local/virtualenvs/cv3/lib/python3.4/random.py", line 311, in sample
+	    raise TypeError("Population must be a sequence or set.  For dicts, use list(d).")
+	TypeError: Population must be a sequence or set.  For dicts, use list(d).
+	解决:
+	line179:改为 minibatch = random.sample(list(D), BATCH)
+
+训练一个游戏Ai2: (遗传算法) http://blog.topspeedsnail.com/archives/10952
+	安装图片转换工具:
+	sudo apt-get install imagemagick
+	转换图片到png
+	mogrify -format png plane.jpeg
+	mogrify -format png enemy.gif
+	修改图片分辨率
+	mogrify -resize 50x50 *.png
+	执行游戏Ai2
+	python ai_player2.py`
+		//这类算法模型不需要屏幕截图,不加载需要opencv模块
+		//neuro_evolution.py是支持函数库文件
+
+自动写诗: (RNN) http://blog.topspeedsnail.com/archives/10542
+	python3 training
+	出错1:
+	  File "training.py", line 86, in neural_network
+	    cell_fun = tf.nn.rnn_cell.BasicLSTMCell
+	AttributeError: 'module' object has no attribute 'rnn_cell'
+	解决:
+	tf.nn.rnn_cell.BasicLSTMCell变成tf.contrib.rnn.BasicLSTMCell
+	后续继续出现问题:
+	后来发现,并不是简单替换既可以,新版rnn的框架改变了,所以,并不能很快修改出错问题!!!
+	所以这个例子搁置!!
+
+自动写歌: (RNN) http://blog.topspeedsnail.com/archives/10508
+	先安装midi播放器:
+	sudo apt-get install timidity
+	sudo apt-get install fluidsynth
+	播放:
+	timidity -Od "midi_pkg/HotelCalifornia.mid" 出错,不会用,搁置
+	准备音乐包: 人手下载太慢,将为此练习爬虫!!!!!!
+	所以这个例子也搁置!!
+
+google_deepdream 网络:http://blog.topspeedsnail.com/archives/10667
+	执行时出错
+
+图像分类器 – retrain谷歌Inception模型: http://blog.topspeedsnail.com/archives/10685	
+
+
+
+
+
+
+
+
+
+
+
+
+20170517
+(实在太慢,所以以下都是公司pc上的)
+按上述部署公司pc
+练习了python3 的文件操作 python_basic
+并测试生成妹子图项目:(pixcNN) http://blog.topspeedsnail.com/archives/10660
+	总之先下载图片包...
+docker: 
+	docker用于管理和打包 集成运行环境(虚拟系统,docker容器)
+	集成运行环境(docker容器):就是一个装好了各种库,能够独立运行指定软件的虚拟根文件系统镜像
+		比如说 软件A 可以在一个定制好的 docker容器/虚拟系统 里运行,
+		而不需要为了运行 软件A,往自己系统加装各种乱七八糟库,搞乱自己系统
+	这次 open_nsfw 需要使用一个 caffe模型框架库,这个东西不常用,不需要为了运行他而折腾安装 
+		替代方案是找一个 已经装好 caffe模型框架库 的docker容器就好了
+	docker对系统的要求： Linux 内核3.10+, 64位系统
+		cat /etc/lsb-release	//查看ubuntu版本
+		uname -a		//查看内核版本
+	安装docker: http://blog.topspeedsnail.com/archives/7562
+	sudo apt install docker.io
+	启动/关闭docker后台服务 (与参考链接有别)
+	sudo service docker start
+		docker start/running, process 12723
+	sudo service docker stop 
+		docker stop/waiting
+	版本查看:
+	sudo docker version
+		Client version: 1.6.2
+		Client API version: 1.18
+		Go version (client): go1.2.1
+		Git commit (client): 7c8fca2
+		OS/Arch (client): linux/amd64
+		Server version: 1.6.2
+		Server API version: 1.18
+		Go version (server): go1.2.1
+		Git commit (server): 7c8fca2
+		OS/Arch (server): linux/amd64
+
+使用open_nsfw,一个基于Caffe的成人图片识别模型:
+	启动 docker 服务
+	sudo service docker start
+	下载一个 别人做好的 装有 caffe框架的 docker容器 镜像: http://blog.csdn.net/elaine_bao/article/details/53117676
+	docker pull elezar/caffe:cpu
+	下载完成后，测试是否安装正确
+	docker run -ti elezar/caffe:cpu caffe --version
+		libdc1394 error: Failed to initialize libdc1394 
+		caffe version 1.0.0-rc3
+		//关于libdc1394 error不用理会,只是容器里其他内容没装完整
+		//如果这条消息辣眼睛,可以禁用这个模块: ln -s /dev/null /dev/raw1394
+	在generate_pic项目文件夹里下载 open_nsfw 然后 cd进去
+		git clone https://github.com/yahoo/open_nsfw
+		cd /home/kingders/smart210/study/tensorflow_study/generate_pic/open_nsfw
+	进入 caffe框架的 docker容器,并且以当前路径为镜像系统里的工作目录!!
+		sudo docker run -t -i --volume=$(pwd):/workspace elezar/caffe:cpu /bin/bash
+		root@21882b4bc80c:/workspace# 		//然后命令行变这样了,并是进入成功!!
+		这时/home/kingders/smart210/study/tensorflow_study/generate_pic/open_nsfw,映射到虚拟系统离去了
+		ls /workspace //里面的东西与/home/kingders/smart210/study/tensorflow_study/generate_pic/open_nsfw里一模一样
+	运行 open_nsfw 鉴别图片色情级别!!
+	python ./classify_nsfw.py --model_def nsfw_model/deploy.prototxt --pretrained_model nsfw_model/resnet_50_1by2_nsfw.caffemodel test1.jpg	
+	//成功鉴别,输出级别分数!!
+	//题外话,classify_nsfw.py是 python2的脚本,python3运行会出错,上面的docker容器默认python2,但也有python3
+	//	而 elezar/caffe:cpu 这个虚拟系统里,默认python是python2,所以完美执行,
+	//还有 .py脚本,只能使用虚拟系统里已有的支持库,如果没有也不会去搜索实体系统的支持库
+	//	例如 elezar/caffe:cpu 这个虚拟系统里 没有pygame这个模块,所以运有 import pygame 的模块时,会出错!!!
+	//import PIL 出问题,安装pillow库
+	//	sudo apt-get install libjpeg-dev libpng12-dev libfreetype6-dev libtiff-dev
+	//	pip install -I --no-cache-dir -v Pillow
+	//关于 StringIO库 python3 与python2 兼容问题
+	//	http://python.jobbole.com/81091/
+
+训练生成妹子图!!! (generate_pic项目)
+	预处理:(都在open_nsfw里操作)
+	解压图片包,然后都扔进 images 文件夹
+	workon cv_for_py3 (个人pc是cv3)
+	together_dir.py	//遍历images文件夹及所有深层子文件夹,把所有分散的.jpg都剪切到girls文件夹里
+	minimize.py	//把girls里的图片都缩成统一规格小图片 存到little_girls文件夹里
+	dereplication.py	//图片去重 (4万张,好慢!!!!)
+	nsfw.py		//未操作此步,计划是筛选出限制级图片删掉,此步需要 在docker容器里执行
+	训练并生成妹子图!!!
+	gen_pic.py	//由于新版本tensor,所以会有一些格式问题,幸亏变动不大可以迅速处理
+			//使用资源十分庞大,电脑无法动了!!!!
+
+
+
+
+
+
+
+
+20170518
+学习使用flask架构,建立网站!!
+	建立对应python虚拟机吧,
+	mkvirtualenv flask -p python3	
+	workon flask
+	安装
+	pip install flask
+	pip install flask-login
+	pip install flask-openid
+	pip install flask-mail
+	pip install flask-sqlalchemy
+	pip install sqlalchemy-migrate
+	pip install flask-whooshalchemy
+	pip install flask-wtf
+	pip install flask-babel
+	pip install guess_language
+	pip install flipflop
+	pip install coverage
+	一次性安装:
+	pip install flask flask-login flask-openid flask-mail flask-sqlalchemy sqlalchemy-migrate flask-whooshalchemy flask-wtf flask-babel guess_language flipflop coverage
+
+hello项目:
+	建立文件夹
+	hello
+	|--app
+	|  |--static	
+	|  |--templates
+	|
+	|--tmp	
+	习惯上:
+		app目录用来存放Python脚本，
+		static目录用来存放图片、javascript脚本和css文件。
+		templates用来存放模版，tmp存放临时文件
+	app下建立 __init__.py 脚本:
+		脚本创建了应用程序对象app（Flask对象），然后引入views（下面创建的脚本）。
+
+		views用来处理客户端（浏览器）的请求，每个view可以映射一个或多个URL
+	app下建立 views.py 脚本:
+		route声明网站根目录/
+		route声明／index的URL映射为index函数，每次收到主页请求就会执行这个函数
+	hello下建立 run.py 脚本
+	Flask默认使用5000端口，打开浏览器输入地址:	
+	http://localhost:5000   #  或  http://localhost:5000/index 均可
+	上面两个地址都在views.py中定义了，如果输入其他地址，会得到错误信息
+
+
+
+
+
+
+
+20170522
+iar win7 编译环境配置
+usb串口驱动:使用的是台湾的pi2303芯片
+win7的pi2303驱动安装:反正把sam9x35里的usb串口都装就是了,而且只能使用指定一格usb插口,换了擦插口就出错了
+(恶心的处理)
+
+sam9x35: (裸机使用iar)
+首先,逻辑软件包不一定要安装到iar的指定目录,因为软件包是一个独立完整包,里面的例程可摆脱iar自带依赖,独立工作
+弄清楚了 裸机demo里使用了ddram但没有使用mmu,
+	但软件包提供了一个mmuinitial()参考:初始化一张地址表,然后启动mmu
+裸机demo很多都是在ddram 0x20000000 地址上,使用linux上的bootstraps引导,
+	但是bootstraps的复制还有跳转执行的地址要从 0x26f00000 改为 0x20000000
+usb cdc 就是串口,但是如何收发需要烧录测试后才能搞清楚api的使用情况
+cdc_hid例程的hid 主要是ek上没有用户按键!!使用了模拟键盘按键方式,
+	当在edebug串口输入数字1,demo会模拟源源不断按下按键a,作为hid输入到打开的的空白文本里
+	再在edebug串口输入数字1,demo会 停止 模拟源源不断按下按键a!!
+cdc_hid例程的cdc
+	原来例子main.c注册了两个串口,一个是usart0,一个是usb的cdc,(不算dbug),怪不得这么奇怪,
+	在uart0输入内容,usbcdc接收到内容
+	在usbcdc输入内容,uart0接收到内容
+	注意 dbug虽然也是串口,但是在main.c之前就初始化好了的调试串口,
+	至于这个debug串口在哪初始化和初始化过程并没有显性公开!但是printf()指向debug串口的.
+jlink:
+	昨日按照网上调了一个下午还是用不了jlink,今天终于弄好,原来就是重新打开iar,重新加载项目文件就好了
+	重申jlink配置:
+	开发板启动,正常nandflash启动就好了,不管启动时有没有程序执行都没关系,只要板子通着电
+	jlink连开发板和win7,win7设备管理器usb处多出了一个j-link driver
+	打开iar,打开项目,不管项目本身被规定在ddram还是nandflash运行都没关系,
+	项目->options->debugger->setup->driver(j-link/j-trace) 其他默认
+		     ->J-link/J-trace->connection->communication(usb device 0) 其他默认!!!
+	(最好重启)重新打开iar,打开项目,于是就可以使用 download and debug了
+	还有:
+		如果项目简单,放在外围 nandflash 芯片的0x0地址时,开发板nandflash启动时会把程序拷到sram里执行
+			jlink download and debug 时,会跳过从nandflash拷贝的过程,直接从sram的程序运行地址开始调试
+		如果项目复杂,要在ddram里运行,那么程序先放在nandflash里,
+			芯片先把外围 nandflash 芯片的0x0地址时bootstrap拷到sram里执行
+			bootstrap再把这项目程序拷到ddram指定位置,然后跳到ddram里的项目程序开始处开始执行!!!
+			jlink download and debug 时,会跳过从之前步骤,直接从ddram的项目程序开始处开始调试
+	jlink调试原理:jlink模块监测pc指针位置,时刻把pc指针的指向上报,
+		而插入断点就是在pc跳转下一条指令前插入一条操作指令,继续执行时,给pc插入本接着要执行的下条指令
+		所以从原理看到jlink 调试中断操作,并不是太友好和易操作
+
+
+
+
+20170523
+sam9g25: (裸机使用iar, camera例子!!!)
+cam接线:
+ * <table>
+ *   <tr> <th>isi module</th> <th>ISI</th>       <th>PIO</th> </tr>
+ *   <tr> <td>1 </td>         <td>3v3</td>       <td>3v3</td> </tr>
+ *   <tr> <td>2 </td>         <td>Gnd</td>       <td>Gnd</td> </tr>
+ *   <tr> <td>3 </td>         <td>Vdd_isi</td>   <td>3v3</td></tr>
+ *   <tr> <td>4 </td>         <td>Gnd</td>       <td>Gnd</td></tr>
+
+ *   <tr> <td>5 </td>         <td>Rst</td>       <td>Pioa28</td></tr>
+ *   <tr> <td>6 </td>         <td>Pwd</td>       <td>Pioa29</td></tr>
+ *   <tr> <td>7 </td>         <td>Slc</td>       <td>Pioa31</td></tr>
+ *   <tr> <td>8 </td>         <td>Sda</td>       <td>Pioa30</td></tr>
+
+ *   <tr> <td>9 </td>         <td>gnd</td>       <td>Gnd</td></tr>
+ *   <tr> <td>10</td>         <td>Isi_mck</td>   <td>Pc15</td></tr>
+ *   <tr> <td>11</td>         <td>Gnd</td>       <td>Gnd</td></tr>
+ *   <tr> <td>12</td>         <td>Isi_vsync</td> <td>Pc13</td></tr>
+ *   <tr> <td>13</td>         <td>Gnd</td>       <td>Gnd</td></tr>
+ *   <tr> <td>14</td>         <td>Isi_hsync</td> <td>Pc14</td></tr>
+ *   <tr> <td>15</td>         <td>Gnd</td>       <td>gnd</td></tr>
+ *   <tr> <td>16</td>         <td>Isi_pck</td>   <td>Pc12</td></tr>
+ *   <tr> <td>17</td>         <td>Gnd</td>       <td>Gnd</td></tr>
+ *   <tr> <td>18</td>         <td>Isi_d0</td>    <td>Pc0</td></tr>
+ *   <tr> <td>19</td>         <td>Isi_d1</td>    <td>Pc1</td></tr>
+ *   <tr> <td>20</td>         <td>Isi_d2</td>    <td>Pc2</td></tr>
+ *   <tr> <td>21</td>         <td>Isi_d3</td>    <td>Pc3</td></tr>
+ *   <tr> <td>22</td>         <td>Isi_d4</td>    <td>Pc4</td></tr>
+ *   <tr> <td>23</td>         <td>Isi_d5</td>    <td>Pc5</td></tr>
+ *   <tr> <td>24</td>         <td>Isi_d6</td>    <td>Pc6</td></tr>
+ *   <tr> <td>25</td>         <td>Isi_d7</td>    <td>Pc7</td></tr>
+ *   <tr> <td>26</td>         <td>Isi_d8</td>    <td>Pc8</td></tr>
+ *   <tr> <td>27</td>         <td>Isi_d9</td>    <td>Pc9</td></tr>
+ *   <tr> <td>28</td>         <td>Isi_d10</td>   <td>Pc10</td></tr>
+ *   <tr> <td>29</td>         <td>Isi_d11</td>   <td>Pc11</td></tr>
+ *   <tr> <td>30</td>         <td>Gnd</td>       <td>gnd</td></tr>
+ * </table>
+经观察:
+	ov2640只有10针数据线,虽然上面isi初始化了11针数据线,但到头来最多只使用其中10针
+	还有,ov2640默认数据传输是10针高位模式,而demo里也是设置使用10针高位模式,
+	也就是 ov2640 的 D0~D9 应接 9g25 的 isi_d0~isi_d9
+	我们买回来的ov2640模块!!
+		alientek 的软件源码要求是 10针低位模式,即 ov2640 D9~D0接 isi_d0~isi_d9,
+			所以模块数据针标注反过来了,本来 D2-D9 的针,他们标成 D7~D0
+		waveshare 直接从数据针标注知道要求是 8针高位模式, 即 ov2640 D2~D9接 isi_d0~isi_d7,
+	由于我们 wavesahre做的模块 只有D2~D9,所以 D2~D9 接 isi_d2~isi_d9 试试看,
+					    所以 D2~D9 接 isi_d0~isi_d7 试试看,
+然后是关于demo的设计,从camera获取一张yuv,放到指定位置,然后压缩成一张jpg然后通过usb串口传输图片!!!
+	目前,获取图片和压缩图片的思路都从sam4s里得到启发了,剩下的就是发送一张图片到pc端!!
+	明天写一个单片机程序,接受串口传输的一个txt文本,并打印出来!
+	jpg文件的文件结束符是 ff d9 所以传输文件检测到ffd9就表示结束!!!!
+	然而 .txt文件没有结束符,所谓文件末就是不再有数据,已经到达数据未!!
+
+
+
+
+
+
+
+
+20170527
+编写 ubuntu 串口上位机程序!!! (sam9x35)
+特别注意 串口中使用的多路复用 与开发板的edbg串口有严重冲突!!!容易造成 开发板的edbg跑偏不工作
+附加:重和备份window
+重装win7后 安装了vs2015后,使用winpe2013备份了c盘到移动硬盘里
+注意备份的软件做了手脚,会自动给备份的系统装上了360卫士,还原系统后手动删掉就好了,使用unlocker解锁所有360文件,直接整个文件夹删掉
+还有,cmd->msconfig里禁用360的开机启动服务!!!
+关于pi2303串口模块win7安装的注意事项!!!!
+	一定要先装光盘提供的旧版驱动!!!
+	断开网络连接后再插入usb串口,等待绑定完成
+	如果不断网插入,则会自动网上寻找并安装新版驱动,而新版驱动并不能用!!!
+vs2015无法找到 stdio.h 等文件:
+	项目->XXX属性->配置属性->VC++目录->包含目录:添加
+		C:\Program Files %28x86%29\Windows Kits\10\Include\10.0.15063.0\ucrt
+	项目->XXX属性->配置属性->VC++目录->库目录:添加
+		C:\Program Files %28x86%29\Windows Kits\10\Lib\10.0.15063.0\ucrt\x86;$(LibraryPath)
+	另一个方法(不可行):新建win32console程序时,向导不要勾选:预编译头,安全开发生命周期(SDL)检查
+vs2015项目->属性 ->配置属性什么都没有!!
+	新建一个例如是cpp文件.然后删掉,然后 项目 出现了 xxx属性 里面的配置属性就什么都有了	
+关于win7 X64安装usb设备驱动 笔记:
+	经过学习知道.inf 文件是一个 执行脚本文件,
+		注册一个 usb驱动脚本 文件到系统,
+		usb线连接设备和pc
+		win7自动按照脚本联网匹配已注册到微软上的usb驱动,下载下来并安装!!!
+		成功后即可使用
+	而atmel提供的sam9x35例程包的提供的 usb驱动脚本 是面向 x86系统的,
+	要想面向 x64系统,需要修改脚本!!!
+以下附上修改前后的两个.inf脚本区别!!(拷贝成两份用meid查看比较方便)
+/*****************************************************   适合x32的inf   **************************************************************/
+; $Id: 6119.inf,v 1.1.2.1 2006/12/05 08:33:25 danielru Exp $
+
+[Version]                                                       ; Version section
+Signature="$Chicago$"                                           ; All Windows versions
+Class=Ports                                                     ; This is a serial port driver
+ClassGuid={4D36E978-E325-11CE-BFC1-08002BE10318}                ; Associated GUID
+Provider=%ATMEL%                                                ; Driver is provided by ATMEL
+DriverVer=09/12/2006,1.1.1.5                                    ; Driver version 1.1.1.5 published on 23 February 2007
+
+[DestinationDirs]                                               ; DestinationDirs section
+DefaultDestDir=12                                               ; Default install directory is \drivers or \IOSubSys
+
+[Manufacturer]                                                  ; Manufacturer section
+%ATMEL%=AtmelMfg                                                ; Only one manufacturer (ATMEL), models section is named
+                                                                ; AtmelMfg
+
+[AtmelMfg]                                                      ; Models section corresponding to ATMEL
+%USBtoSerialConverter%=USBtoSer.Install,USB\VID_03EB&PID_6130&MI_00   ; Identifies a device with ATMEL Vendor ID (03EBh) and
+                                                                      ; Product ID equal to 6130h. Corresponding Install section
+                                                                      ; is named USBtoSer.Install ( CDCHID )
+%USBtoSerialConverter%=USBtoSer.Install,USB\VID_03EB&PID_6131&MI_00   ; Identifies a device with ATMEL Vendor ID (03EBh) and
+                                                                      ; Product ID equal to 6131h. Corresponding Install section
+                                                                      ; is named USBtoSer.Install ( CDCAUDIO )
+%USBtoSerialConverter%=USBtoSer.Install,USB\VID_03EB&PID_6132&MI_00   ; Identifies a device with ATMEL Vendor ID (03EBh) and
+                                                                      ; Product ID equal to 6132h. Corresponding Install section
+                                                                      ; is named USBtoSer.Install ( CDCMSD )
+%USBtoSerialConverter%=USBtoSer.Install,USB\VID_03EB&PID_6133&MI_00   ; Identifies a device with ATMEL Vendor ID (03EBh) and
+                                                                      ; Product ID equal to 6133h. Corresponding Install section
+                                                                      ; is named USBtoSer.Install ( CDCCDC )
+%USBtoSerialConverter%=USBtoSer.Install,USB\VID_03EB&PID_6133&MI_02   ; Identifies a device with ATMEL Vendor ID (03EBh) and
+                                                                      ; Product ID equal to 6133h. Corresponding Install section
+                                                                      ; is named USBtoSer.Install ( CDCCDC )
+
+[USBtoSer.Install]                                              ; Install section
+include=mdmcpq.inf
+CopyFiles=FakeModemCopyFileSection
+AddReg=USBtoSer.AddReg                                          ; Registry keys to add are listed in USBtoSer.AddReg
+
+[USBtoSer.AddReg]                                               ; AddReg section
+HKR,,DevLoader,,*ntkern                                         ;
+HKR,,NTMPDriver,,usbser.sys
+HKR,,EnumPropPages32,,"MsPorts.dll,SerialPortPropPageProvider"
+
+[USBtoSer.Install.Services]                                     ; Services section
+AddService=usbser,0x00000002,USBtoSer.AddService                ; Assign usbser as the PnP driver for the device
+
+[USBtoSer.AddService]                                           ; Service install section
+DisplayName=%USBSer%                                            ; Name of the serial driver
+ServiceType=1                                                   ; Service kernel driver
+StartType=3                                                     ; Driver is started by the PnP manager
+ErrorControl=1                                                  ; Warn about errors
+ServiceBinary=%12%\usbser.sys                                   ; Driver filename
+
+[Strings]                                                       ; Strings section
+ATMEL="ATMEL Corp."                                             ; String value for the ATMEL symbol
+USBtoSerialConverter="AT91 USB to Serial Converter"             ; String value for the USBtoSerialConverter symbol
+USBSer="USB Composite Serial Driver"                            ; String value for the USBSer symbol
+
+/*****************************************************   适合x32的inf   **************************************************************/
+-----------------------------------------------------------
+-----------------------------------------------------------
+-----------------------------------------------------------
+/*****************************************************   适合x64的inf   **************************************************************/
+; $Id: 6119.inf,v 1.1.2.1 2006/12/05 08:33:25 danielru Exp $
+
+[Version]                                                       ; Version section
+Signature="$Chicago$"                                           ; All Windows versions
+Class=Ports                                                     ; This is a serial port driver
+ClassGuid={4D36E978-E325-11CE-BFC1-08002BE10318}                ; Associated GUID
+Provider=%ATMEL%                                                ; Driver is provided by ATMEL
+DriverVer=09/12/2006,1.1.1.5                                    ; Driver version 1.1.1.5 published on 23 February 2007
+
+[DestinationDirs]                                               ; DestinationDirs section
+DefaultDestDir=12                                               ; Default install directory is \drivers or \IOSubSys
+
+[Manufacturer]                                                  ; Manufacturer section
+%ATMEL%=AtmelMfg,NT,NTia64,NTAMD64                              ; Only one manufacturer (ATMEL), models section is named
+                                                                ; AtmelMfg
+
+[AtmelMfg]                                                      ; Models section corresponding to ATMEL
+%USBtoSerialConverter%=USBtoSer.Install,USB\VID_03EB&PID_6130&MI_00   ; Identifies a device with ATMEL Vendor ID (03EBh) and
+                                                                      ; Product ID equal to 6130h. Corresponding Install section
+                                                                      ; is named USBtoSer.Install ( CDCHID )
+%USBtoSerialConverter%=USBtoSer.Install,USB\VID_03EB&PID_6131&MI_00   ; Identifies a device with ATMEL Vendor ID (03EBh) and
+                                                                      ; Product ID equal to 6131h. Corresponding Install section
+                                                                      ; is named USBtoSer.Install ( CDCAUDIO )
+%USBtoSerialConverter%=USBtoSer.Install,USB\VID_03EB&PID_6132&MI_00   ; Identifies a device with ATMEL Vendor ID (03EBh) and
+                                                                      ; Product ID equal to 6132h. Corresponding Install section
+                                                                      ; is named USBtoSer.Install ( CDCMSD )
+%USBtoSerialConverter%=USBtoSer.Install,USB\VID_03EB&PID_6133&MI_00   ; Identifies a device with ATMEL Vendor ID (03EBh) and
+                                                                      ; Product ID equal to 6133h. Corresponding Install section
+                                                                      ; is named USBtoSer.Install ( CDCCDC )
+%USBtoSerialConverter%=USBtoSer.Install,USB\VID_03EB&PID_6133&MI_02   ; Identifies a device with ATMEL Vendor ID (03EBh) and
+                                                                      ; Product ID equal to 6133h. Corresponding Install section
+                                                                      ; is named USBtoSer.Install ( CDCCDC )
+
+[AtmelMfg.NT]                                                      ; Models section corresponding to ATMEL
+%USBtoSerialConverter%=USBtoSer.Install.NT,USB\VID_03EB&PID_6130&MI_00   ; Identifies a device with ATMEL Vendor ID (03EBh) and
+                                                                      ; Product ID equal to 6130h. Corresponding Install section
+                                                                      ; is named USBtoSer.Install ( CDCHID )
+%USBtoSerialConverter%=USBtoSer.Install.NT,USB\VID_03EB&PID_6131&MI_00   ; Identifies a device with ATMEL Vendor ID (03EBh) and
+                                                                      ; Product ID equal to 6131h. Corresponding Install section
+                                                                      ; is named USBtoSer.Install ( CDCAUDIO )
+%USBtoSerialConverter%=USBtoSer.Install.NT,USB\VID_03EB&PID_6132&MI_00   ; Identifies a device with ATMEL Vendor ID (03EBh) and
+                                                                      ; Product ID equal to 6132h. Corresponding Install section
+                                                                      ; is named USBtoSer.Install ( CDCMSD )
+%USBtoSerialConverter%=USBtoSer.Install.NT,USB\VID_03EB&PID_6133&MI_00   ; Identifies a device with ATMEL Vendor ID (03EBh) and
+                                                                      ; Product ID equal to 6133h. Corresponding Install section
+                                                                      ; is named USBtoSer.Install ( CDCCDC )
+%USBtoSerialConverter%=USBtoSer.Install.NT,USB\VID_03EB&PID_6133&MI_02   ; Identifies a device with ATMEL Vendor ID (03EBh) and
+                                                                      ; Product ID equal to 6133h. Corresponding Install section
+                                                                      ; is named USBtoSer.Install ( CDCCDC )
+
+[AtmelMfg.NTia64]                                                      ; Models section corresponding to ATMEL
+%USBtoSerialConverter%=USBtoSer.Install.NTia64,USB\VID_03EB&PID_6130&MI_00   ; Identifies a device with ATMEL Vendor ID (03EBh) and
+                                                                      ; Product ID equal to 6130h. Corresponding Install section
+                                                                      ; is named USBtoSer.Install ( CDCHID )
+%USBtoSerialConverter%=USBtoSer.Install.NTia64,USB\VID_03EB&PID_6131&MI_00   ; Identifies a device with ATMEL Vendor ID (03EBh) and
+                                                                      ; Product ID equal to 6131h. Corresponding Install section
+                                                                      ; is named USBtoSer.Install ( CDCAUDIO )
+%USBtoSerialConverter%=USBtoSer.Install.NTia64,USB\VID_03EB&PID_6132&MI_00   ; Identifies a device with ATMEL Vendor ID (03EBh) and
+                                                                      ; Product ID equal to 6132h. Corresponding Install section
+                                                                      ; is named USBtoSer.Install ( CDCMSD )
+%USBtoSerialConverter%=USBtoSer.Install.NTia64,USB\VID_03EB&PID_6133&MI_00   ; Identifies a device with ATMEL Vendor ID (03EBh) and
+                                                                      ; Product ID equal to 6133h. Corresponding Install section
+                                                                      ; is named USBtoSer.Install ( CDCCDC )
+%USBtoSerialConverter%=USBtoSer.Install.NTia64,USB\VID_03EB&PID_6133&MI_02   ; Identifies a device with ATMEL Vendor ID (03EBh) and
+                                                                      ; Product ID equal to 6133h. Corresponding Install section
+                                                                      ; is named USBtoSer.Install ( CDCCDC )
+
+[AtmelMfg.NTAMD64]                                                      ; Models section corresponding to ATMEL
+%USBtoSerialConverter%=USBtoSer.Install.NTAMD64,USB\VID_03EB&PID_6130&MI_00   ; Identifies a device with ATMEL Vendor ID (03EBh) and
+                                                                      ; Product ID equal to 6130h. Corresponding Install section
+                                                                      ; is named USBtoSer.Install ( CDCHID )
+%USBtoSerialConverter%=USBtoSer.Install.NTAMD64,USB\VID_03EB&PID_6131&MI_00   ; Identifies a device with ATMEL Vendor ID (03EBh) and
+                                                                      ; Product ID equal to 6131h. Corresponding Install section
+                                                                      ; is named USBtoSer.Install ( CDCAUDIO )
+%USBtoSerialConverter%=USBtoSer.Install.NTAMD64,USB\VID_03EB&PID_6132&MI_00   ; Identifies a device with ATMEL Vendor ID (03EBh) and
+                                                                      ; Product ID equal to 6132h. Corresponding Install section
+                                                                      ; is named USBtoSer.Install ( CDCMSD )
+%USBtoSerialConverter%=USBtoSer.Install.NTAMD64,USB\VID_03EB&PID_6133&MI_00   ; Identifies a device with ATMEL Vendor ID (03EBh) and
+                                                                      ; Product ID equal to 6133h. Corresponding Install section
+                                                                      ; is named USBtoSer.Install ( CDCCDC )
+%USBtoSerialConverter%=USBtoSer.Install.NTAMD64,USB\VID_03EB&PID_6133&MI_02   ; Identifies a device with ATMEL Vendor ID (03EBh) and
+                                                                      ; Product ID equal to 6133h. Corresponding Install section
+                                                                      ; is named USBtoSer.Install ( CDCCDC )
+
+[USBtoSer.Install.NTAMD64]                                              ; Install section
+include=mdmcpq.inf
+CopyFiles=FakeModemCopyFileSection
+AddReg=USBtoSer.AddReg                                          ; Registry keys to add are listed in USBtoSer.AddReg
+
+[USBtoSer.AddReg]                                               ; AddReg section
+HKR,,DevLoader,,*ntkern                                         ;
+HKR,,NTMPDriver,,usbser.sys
+HKR,,EnumPropPages32,,"MsPorts.dll,SerialPortPropPageProvider"
+
+[USBtoSer.Install.NTAMD64.Services]                                     ; Services section
+AddService=usbser,0x00000002,USBtoSer.AddService                ; Assign usbser as the PnP driver for the device
+
+[USBtoSer.AddService]                                           ; Service install section
+DisplayName=%USBSer%                                            ; Name of the serial driver
+ServiceType=1                                                   ; Service kernel driver
+StartType=3                                                     ; Driver is started by the PnP manager
+ErrorControl=1                                                  ; Warn about errors
+ServiceBinary=%12%\usbser.sys                                   ; Driver filename
+
+[Strings]                                                       ; Strings section
+ATMEL="ATMEL Corp."                                             ; String value for the ATMEL symbol
+USBtoSerialConverter="AT91 USB to Serial Converter"             ; String value for the USBtoSerialConverter symbol
+USBSer="USB Composite Serial Driver"                            ; String value for the USBSer symbol
+/*****************************************************   适合x64的inf   **************************************************************/
+
+
+
+
+
+
+
+
+
+
+20170601
+通过串口程序系统学习MFC程序!!!
+MFC项目 AAXX 的运作流程:
+	新建过程向导会:
+		自动生成 AAXX.h: 声明继承CWinApp的CAAXXApp类 和 CAAXXApp 类变量 theApp
+		自动生成 AAXX.cpp:
+初步看了看CSerialPort的类,发现,这个使用了一个线程监控串口情况,然后接收到的内容使用sendmessage方法传递!!
+	但是 sendmessage 只对交互窗口类操作!!
+	调用::sendmessage 之前加:: 表示使用的是全局范畴上的 sendmessage函数
+	但是有一个问题:使用sendmessage一定是把信息传给窗口类的,
+	所以只能用MFC框架了,不能用非交互窗口的了,因为这样要修改 CSerialPort的类 污染了,变得不再通用!!
+	大概懂了,在人家串口程序的基础上加传输文件内容的就行,也找到接受数据的执行函数!!
+
+
+		
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
