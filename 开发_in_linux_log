@@ -9315,8 +9315,13 @@ MFC项目 AAXX 的运作流程:
 	但是有一个问题:使用sendmessage一定是把信息传给窗口类的,
 	所以只能用MFC框架了,不能用非交互窗口的了,因为这样要修改 CSerialPort的类 污染了,变得不再通用!!
 	大概懂了,在人家串口程序的基础上加传输文件内容的就行,也找到接受数据的执行函数!!
-
-
+通过从串口工程添加传输文本文件发现
+	本来打算用Cfile类,在一个线程上构建书写文件,
+	最后发现,写入的文件内容后,如果线程不退出,即使执行了.close函数也不会成功
+	注意学习了如何建立线程!!!
+	还没有测试如何 使用 sendmessage 框架
+	本以为串口传文件应该是直接数据传输的,但原来是通过数据握手协议传输的,所以要找到文件传输协议才行
+	串口程序的发送功能有问题,只能发一遍
 		
 
 
@@ -9328,6 +9333,241 @@ MFC项目 AAXX 的运作流程:
 
 
 
+20170612
+发现ov2640 的i2c协议,与9g25-ek的默认的使用的不一样,硬件协议不一样,,
+静止时,9g25 slc是高电平,sda是高电平, 插上ov2640的i2c接口后,sda变低电平!!,
+后来发现,并不是这么一回事,,
+原因是我使用jlink调试,而开发板上电时默认启动自带linux程序!!!
+由于不知道linux程序初始化时做了什么,后面用jlink调试 ov2640 时,i2c初始化时出错!!
+总之 使用ov2640 作为sam9g25-ek 的 usbcamera的功能没有问题!!!
+
+
+
+
+
+
+
+
+20170613
+分析sam9g25-ek_usb设备的初始化实现过程,学习usb从设备一般的实现思路
+首先,9g25 usb_camera 探索如何变成200万像素相机,
+初始化阶段,虽然_ConfigureOvpins()标榜配置迎合ov芯片的针口 ,
+	理论只需要8位data并线,但实际上,直接把12位data并线都一并初始化了!!!
+_Configureisi配置了缓存,DMA等资源,还有中断函数
+ov_init()通过i2c设置sensor芯片!!!!
+	用jlink测试时,特别是i2c通讯传输数据实际执行处,不能分步执行,i2c模块会从此崩溃不再工作!!
+	就是所 ov_id(),ov_Manufacturer(),ov_TestWrite()一步跳过,不要逐步边执行便分析!!
+	其实还没有配置摄像头的工作配置,就是读取了一些摄像头厂商信息和产品码,核对..
+USBPower_Configure()然后开始配置usb,首先是配置usb电源管理,就是Vbus
+	9g25有三个usb口,虽然我们使用USB-A口,但A,B,C口的Vbus针全配置个遍
+USBDDriver_Initialize
+	分配空间存储一系列descriptors信息,
+USBD_init()
+	USBD_HAL_Init(),usb硬件模块的初始化
+		初始化DMA
+		初始化usb-peripheral-clock
+		初始化所有 endpoint 
+		D+ usb串口线加上拉电阻
+		reset UDPHS
+		打开PMC的usb模块工作时钟,usb模块开始工作
+		进一步初始化每个endpoint 的 DMA
+		强制设定 usb2.0 (fullspeed)模式
+		配置 usb 的 wakeup endofrsm det_suspd 中断 
+		关闭PMC的usb模块工作时钟,usb模块暂停工作
+	USBDCallbacks_Initialized() 配置中断函数,并打开中断
+VBus_Configure配置vbus针的中断处理函数,
+	VBus_Configure 不能逐步执行,不然容易崩溃
+	此刻后,usb的配置全部完成,一旦有usb线连接pc和开发板,vbus针电压发生变化触发Vbus中断,
+	usb便开始工作,把自己的一些列descriptors信息传到pc
+	while (USBD_GetState() < USBD_STATE_CONFIGURED);如果没有连到pc,mian一直卡在这里,目的就是等待链接,
+	连接后,才开始 while(1) 循环内容
+	中途断开,开发板主程序依然在 while(1) 循环,重新连接后可继续正常工作
+然后while(1)循环
+	if (bVidON && !bVideoON) {} 这一段语句并没有执行过,直到usb软件关闭,不再使用摄像头
+	if (!bVidON && bVideoON) () 
+		当usb连上了,而且被usb软件开启摄像头,才执行这一段语句
+		_PreviewMode();
+			其中的ov_configure()才是用i2c配置摄像头工作的真正函数		
+     	        USBD_HAL_SetTransferCallback(VIDCAMD_IsoInEndpointNum, (TransferCallback)VIDD_PayloadSent, 0);
+         	VIDD_PayloadSent(NULL, USBD_STATUS_SUCCESS);
+		这段if实现了i2c配置摄像头,和开始拍照传输的真正工作,瞬间实现i2c配置,然后工作
+		但是我们打开usb摄像头软件是,却要等待一段时间的初始化,那是usb与pc的多次轮询初始化有关!!!
+
+当usb摄像头软件,指定要打开usb摄像头时,
+	usb软件会给usb发送多次配置请求,每次接收到了配置请求都会触发中断函数处理请求
+	USBDCallbacks_RequestReceived是被触发的中断程序
+	VIDD_GetCUR 是pc提出获取当前CUR的请求,对应地,开发板通过 usb_write 回送对应的信息
+	VIDD_SetCUR 是pc提出设置开发CUR的请求,对应地,开发板通过 usb_read 向pc获取具体设置内容,
+		    然后在下一次接收到pc传来的数据后,执行VIDD_StatusStage,进行具体设置
+	VIDD_GetDEF 是pc提出获取DEF的请求,然而开发板无视请求,这种情况下pc端会一直等待,直到请求超时
+	VIDD_GetINFO 是pc提出获取INFO的请求,然而开发板无视请求,这种情况下pc端会一直等待,直到请求超时
+	VIDD_GetMIN 是pc提出获取MIN的请求,然而开发板无视请求,这种情况下pc端会一直等待,直到请求超时
+	VIDD_GetMAX 是pc提出获取MAX的请求,然而开发板无视请求,这种情况下pc端会一直等待,直到请求超时
+	VIDD_GetRES 是pc提出获取RES的请求,然而开发板无视请求,这种情况下pc端会一直等待,直到请求超时
+	怪不得,usb配置这一块浪费这么多时间,原来是因为一些请求超时!!
+
+usb摄像头打开摄像头时,dbug输出的log:
+	-- SAM9XX5-EK
+	-- Compiled: Jun 13 2017 17:35:16 --
+	-E- Do nothing: MMU not enabled
+	-I- VBus configuration
+	-I- conn
+	Susp Susp Vid GetCUR(26) VS PROBE 
+	Vid GetMax(1,100,26)
+	
+	Vid GetMin(1,100,26)
+	
+	Vid SetCUR(26) VS PROBE 
+	Vid GetCUR(26) VS PROBE 
+	Vid GetMax(1,100,26)
+
+	Vid GetMin(1,100,26)
+	
+	Vid SetCUR(26) VS PROBE 
+	Vid GetCUR(26) VS PROBE 
+	Vid SetCUR(26) VS COMMIT -W- UDP_Stall: EP0 locked
+	
+	vidS
+	FR USB:  53; ISI:  16
+	
+320x240修改成640x480 模式 需要改frmW frmH,
+在定义frmW frmH 定义的位置赋值 640,480 并不起作用,原因是后续会更改此数值!!! 
+追踪到 VIDD_StatusStage()处的 viddProbeData.bFrameIndex 导致修改了 frmW frmH
+然而也不可以在定义 viddProbeData 赋值修改,因为 viddProbeData中途还是被改了!!!
+后来甚至发现 viddProbeData 的参数,最后又usb摄像头软件传输过来的数据告诉的,,??
+经过测试发现,原来分辨率 和 帧率 还有图片格式的选择最终是通过 usb摄像头程序 发送请求来选择的,
+手动设置参数斌没有用,甚至会破坏配置,
+而我之间的的摄像头软件只能配置320x240的设置
+换了功能更全的摄像头软件,就可以手动配置可供选择的分辨率了!!!
+
+接下来要探究,usb摄像头数据传输实践
+不管是数据帧 与 请求设置帧,都使用
+	要分析多个函数 USBD_Read  USBD_Write VIDD_PayloadSent
+		USBD_Read() -> USBD_HAL_Read() -> UDPHS_Read()
+		USBD_Write() -> USBD_HAL_Write -> UDPHS_Write()
+		VIDD_PayloadSent -> USBD_HAL_WrWithHdr
+	分析发现 USBD_HAL_WrWithHdr() UDPHS_Read() UDPHS_Write() 才是usb传输数据的实现函数
+	传输的步骤无非是填充DMA,然后开中断.
+
+接下来是探究,摄像头的图像采集.
+	ISI_IrqHandler 处理每一次isi中断,如果接收到新图片数据,会把图片指针指向新图片数据地址
+	        S_Video.lcd_fb_addr = FbList[S_Video.IsiPrevBuffIndex].Current;
+		否则会留在旧图片地址处,
+	然而VIDD_PayloadSent() 源源不断地发送图片流数据,它并不关心传输的图片数据是旧的还是新的.
+
+sp2519补充:
+	有三个电源针!! 
+		AVDD 2.8v 片内模拟电路供电
+		DVDD 1.5v 片内数字逻辑电路供电
+		DOVDD 1.8~3.3V I/O控制电路供电,I/O电路一般为开漏电路,所以电源可以按照实际情况选择具体值
+			I/O电路就是使用I/O针与其他芯片进行通讯,I/O使用的逻辑电平与供电值有关!!
+			如果I/O逻辑1是3.3V,哪么要求控制电路电源是3.3V
+			(sp2519的摄像头逻辑电平是3.3V的,所对应的这边的I/O电路也需要3.3v的电压)
+
+开漏电路拓展:
+	开漏电路概念中提到的“漏”就是指MOSFET的漏极。
+	同理，开集电路中的“集”就是指三极管的集电极。
+	开漏电路就是指以MOSFET的漏极为输出的电路。
+	一般的用法是会在漏极外部的电路添加上拉电阻。完整的开漏电路应该由开漏器件和开漏上拉电阻组成
+	
+
+
+
+
+
+
+
+
+20170614
+分析sam9g25-ek_usb cdc_hid设备的初始化实现过程,继续学习usb从设备一般的实现思路
+首先,程序除了初始化一个usb串口外,还需要另外一个串口配合工作
+首先 usb设备部分的初始化:
+	CDCHIDDDriver_Initialize()
+然后测试cdc工作:
+	pc给串口usart发送一个字符,usart收到后,会递交给usb串口cdc,让cdc往pc发送字符,
+		即pc -> _UsDmaRxCallback -> cdc转发回pc(透过TC中断) ->_UsartDmaRx(重置usart read DMA)
+	pc给usb串口cdc发送一个字符,cdc收到后,会递交给usb串口cdc,让cdc往pc发送字符,
+		即pc -. _UsbDataReceived -> _UsartDmaTx(usart发数据) -> _UsDmaTxCallback(重置usbcdc 的接收数据中断)
+测试hid:
+	每次循环都会执行 _HIDDKeyboardProcessKeys()处理hid操作,
+	而真正传递按键动作是其中的 HIDDKeyboard_ChangeKeys,其中的 USBD_Write()
+
+
+
+
+
+
+
+20170619
+移植sp2519:根据ov2640
+阅读sp2519 daatasheet,记录关键:
+	Rolling shutter:卷帘快门,其实就是逐行扫描采集像数数据
+	Support UXGA (2Mega, 1600x1200) resolution
+	Support 720P (0.9Mega, 1280x720) resolution
+	Support SVGA (0.48Mega, 800x600) resolution
+	RGB to YUV Conversion
+	YUV to RGB Conversion
+	传感器1600x1200外围还有一些多余的像数点,用来其他作用.所以实际像数区域是1628x1252,
+		例如最底下20行像数用于 Black Level Calibration 黑电平校准,
+	黑电平校准指在不同曝光环境下,采集颜色的电路电流都有区别,最典型拿黑色采集为例,所以需要电流校准
+
+
+补充:
+RGB:红绿蓝三色格式
+YUV:Y亮度+UV两个描述色彩的图像格式
+	YUV和RGB的转换:
+	Y = 0.299 R + 0.587 G + 0.114 B
+	U = -0.1687 R - 0.3313 G + 0.5 B + 128
+	V = 0.5 R - 0.4187 G - 0.0813 B + 128
+		R = Y + 1.402 (V-128)
+		G= Y - 0.34414 (U-128) - 0.71414 (V-128)
+		B= Y + 1.772 (U-128)
+YCbCr: YUV的一个最广泛使用的分支格式,JPEG、MPEG均采用此格式,一般人们所讲的YUV大多是指YCbCr
+	YCbCr与RGB的相互转换
+	Y=0.299R+0.587G+0.114B
+	Cb=0.564(B-Y)
+	Cr=0.713(R-Y)
+	R=Y+1.402Cr
+	G=Y-0.344Cb-0.714Cr
+	B=Y+1.772Cb
+YUV（YCbCr）采样格式：
+主要的采样格式有YCbCr 4:2:0、YCbCr 4:2:2、YCbCr 4:1:1和 YCbCr 4:4:4。
+其中YCbCr 4:1:1 比较常用，其含义为：每个点保存一个 8bit 的亮度值(也就是Y值), 
+	每 2 x 2 个点保存一个 Cr和Cb值, 图像在肉眼中的感觉不会起太大的变化。
+	所以, 原来用 RGB(R,G,B 都是 8bit unsigned) 模型, 每个点需要 8x3=24 bits， 
+	而现在仅需要 8+(8/4)+(8/4)=12bits, 平均每个点占12bits。这样就把图像的数据压缩了一半。
+下面给出几种具体的存储形式：
+（1） YUV 4:4:4
+	YUV三个信道的抽样率相同，因此在生成的图像里，每个象素的三个分量信息完整（每个分量通常8比特），
+	经过8比特量化之后，未经压缩的每个像素占用3个字节。
+	下面的四个像素为: [Y0 U0 V0] [Y1 U1 V1] [Y2 U2 V2] [Y3 U3 V3]
+	存放的码流为: Y0 U0 V0 Y1 U1 V1 Y2 U2 V2 Y3 U3 V3
+（2） YUV 4:2:2
+	每个色差信道的抽样率是亮度信道的一半，所以水平方向的色度抽样率只是4:4:4的一半。对非压缩的8比特量化的图像来说，
+	每个由两个水平方向相邻的像素组成的宏像素需要占用4字节内存(例如下面映射出的前两个像素点只需要Y0、Y1、U0、V1四个字节)。
+	下面的四个像素为: [Y0 U0 V0] [Y1 U1 V1] [Y2 U2 V2] [Y3 U3 V3]
+	存放的码流为: Y0 U0 Y1 V1 Y2 U2 Y3 V3
+	映射出像素点为：[Y0 U0 V1] [Y1 U0 V1] [Y2 U2 V3] [Y3 U2 V3]
+（3） YUV 4:1:1
+	4:1:1的色度抽样，是在水平方向上对色度进行4:1抽样。对于低端用户和消费类产品这仍然是可以接受的。
+	对非压缩的8比特量化的视频来说，每个由4个水平方向相邻的像素组成的宏像素需要占用6字节内存
+	下面的四个像素为: [Y0 U0 V0] [Y1 U1 V1] [Y2 U2 V2] [Y3 U3 V3]
+	存放的码流为: Y0 U0 Y1 Y2 V2 Y3
+	映射出像素点为：[Y0 U0 V2] [Y1 U0 V2] [Y2 U0 V2] [Y3 U0 V2]
+（4）YUV4:2:0
+	4:2:0并不意味着只有Y,Cb而没有Cr分量。它指得是对每行扫描线来说，只有一种色度分量以2:1的抽样率存储。
+	相邻的扫描行存储不同的色度分量，也就是说，如果一行是4:2:0的话，下一行就是4:0:2，再下一行是4:2:0...以此类推。
+	对每个色度分量来说，水平方向和竖直方向的抽样率都是2:1，所以可以说色度的抽样率是4:1。
+	对非压缩的8比特量化的视频来说，每个由2x2个2行2列相邻的像素组成的宏像素需要占用6字节内存。
+	下面八个像素为：
+		[Y0 U0 V0] [Y1 U1 V1] [Y2 U2 V2] [Y3 U3 V3]
+		[Y5 U5 V5] [Y6 U6 V6] [Y7U7 V7] [Y8 U8 V8]
+	存放的码流为：
+		Y0 U0 Y1 Y2 U2 Y3
+		Y5 V5 Y6 Y7 V7 Y8
+	映射出的像素点为：
+		[Y0 U0 V5] [Y1 U0 V5] [Y2 U2 V7] [Y3 U2 V7]
+		[Y5 U0 V5] [Y6 U0 V5] [Y7U2 V7] [Y8 U2 V7]
 
 
 
@@ -9344,7 +9584,6 @@ MFC项目 AAXX 的运作流程:
 使用 bitbake 工具链???
 	另外,如何 更改内核配置!!! 而bitbake 又可以通过!!!
 	
-
 
 
 
