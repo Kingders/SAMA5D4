@@ -1754,7 +1754,7 @@ gaget 串口例程分析:
 			所以，当收到uevent的add事件后，shell能自动加载在MODALIAS中定义的模块。	
 		mdev的模块自动加载过程与之类似，它的配置文件在/etc/mdev.conf中。例如：
 			$MODALIAS=.* 0:0 660 @modprobe "$MODALIAS"
-			这条规则指的是：当收到的环境变量中含有MODALIAS，那么加载MODALIAS代表的模块。
+		git a	这条规则指的是：当收到的环境变量中含有MODALIAS，那么加载MODALIAS代表的模块。
 			mdev的详细说明在busybox的docs/mdev.txt中。
 关于 OTG
 	OTG 是 usb 的一个通用标准功能!! USB硬件内部有一条 动态的ID线
@@ -4401,7 +4401,7 @@ dpkg -l |grep ^rc|awk '{print $2}' |sudo xargs dpkg -P
 	cmos硬件采集 -> isi协议传输数据 -> V4L2中间库 -> 应用程序
 总的说,	ov2640.c是i2c从设备, 
 	atmel-isi.c是isi的平台设备,
-	那么对应ov2670的isi从设备是哪一个,难道 ov2640.c兼顾?
+	那么对应ov2640的isi从设备是哪一个,难道 ov2640.c兼顾?
 	make ARCH=arm menuconfig 里关于 isi i2c ov2640 v4l2 该选的都选上了 
 纠错:上述热时错误是,直接把 xxx平台设备等同于 XXX协议总线!!!
 	xxx平台设备是挂在 平台总线 上的一个设备而已,虽然大多数平台设备都可以操作硬件寄存器
@@ -4442,7 +4442,7 @@ Example: isi: isi@f0034000 { compatible = "atmel,at91sam9g45-isi";
 				}; 
 			}; 
 		}; 
-设置ov2670的!!
+设置ov2640的!!
 Example:
 	i2c1: i2c@f0018000 { 
 		ov2640: camera@0x30 { 
@@ -4594,7 +4594,7 @@ sama5d4对应的针口:
 };
 
 &i2c0 {
-	status =""
+	status = "okay";
 	ov2640: camera@0x30 {
 		compatible = "ovti,ov2640";
 		reg = <0x30>;
@@ -9510,11 +9510,63 @@ sp2519补充:
 	传感器1600x1200外围还有一些多余的像数点,用来其他作用.所以实际像数区域是1628x1252,
 		例如最底下20行像数用于 Black Level Calibration 黑电平校准,
 	黑电平校准指在不同曝光环境下,采集颜色的电路电流都有区别,最典型拿黑色采集为例,所以需要电流校准
+	i2c:
+	The write device address is 60H and the read device address is 61H
+	关键寄存器内容: (page 28 of datasheet)
+		sp2519把控制寄存器放在了4个page里,需要先选择page,再选择寄存器地址!!
+		P0:0x02	chip ID	0x25
+		P0:0xa0	chip ID	0x19
+		0xfd  page select   00:page0,01page1,10page2,page3
+		P1:0x36 yuv输出时,开关 H和V 信号开关, 还有选择yuv的输出模式
+		P1:0x35 yuv输出格式的排序模式, YUYV? UYVY? 
+		P0:0x3f	关于 镜向 和上下翻转输出模式的设置 !!! mirror和flip 
+	只能输出 RAW 和YUV422 两种格式
+阅读sp2519 MTKdriver c文件,记录关键:
+	通篇没有插入内核的内容和与内核框架接口的函数
+	通篇都是i2c初始化,或修改参数对的函数内容
+	关于图像传输,或者终端处理函数什么的都没有一点踪迹
+	其实与内核相联系的是 kd_camera 驱动框架的事情,而sp2519yuv_Sensor.c只是驱动框架上的一部分内容
+阅读atmel 提供的 ov2640.c文件,记录关键点:
+	同样发现,ov2640.c是属于 soc_camera 驱动框架的某篇具体内容
+
+
 
 
 补充:
-RGB:红绿蓝三色格式
-YUV:Y亮度+UV两个描述色彩的图像格式
+cmos sensor 的 ISP(in sensor process)(片上执行模块) 有:
+	黑电平校准指在不同曝光环境下,采集颜色的电路电流都有区别,最典型拿黑色采集为例,所以需要电流校准
+	AE:自动亮度调节,不同环境下的曝光度调节
+	AWB: (自动白平衡)是传感器对在光线不断变化环境下的色彩准确重现的能力表示
+	GMAAM:伽玛校正,也叫对比度校正
+	工频干扰 (Banding):传感器采集采取逐行扫描,而日光灯,显示屏都是50-60Hz频闪,给图像采集产生flicker条纹,所以需要做规避工频处理
+	Chief Ray Angle:CRA 主光角
+	Lens shading: 亮度矫正,因为光镜学成像,所以中间向四周亮度不断减少,所以需要矫正,让输出图片的色彩是匀称的!!! lens是镜头
+	BPC: bad pixel correction 坏像数点矫正
+	DVP: 就是传统的 图像并口数据传输协议
+	MIPI: 超高速的 图像串口数据传输协议
+
+RAW:格式!!也是cmos的采集格式!!!注意,与RGB有天大的差异!!!
+	RAW格式是,每个像数点pixel只采集RGB三色中其中一种颜色!!!!
+	即没个每个像数点只有一种颜色的数值
+	RGB不一样,RGB 是一个像数点pixel有RGB三种颜色的数据!!!
+	YUV什么的也是一个像数点含有YUV三个参数的像数点格式
+	RAW的像数点排布是这样的:
+		R,G,R,G,R,.....
+		G,B,G,B,G,.....
+		R,G,R,G,R,.....
+		G,B,G,B,G,.....
+	RGB的像数点排布是这样的:
+		RGB,RGB,RGB,RGB,RGB....
+		RGB,RGB,RGB,RGB,RGB....
+		RGB,RGB,RGB,RGB,RGB....
+		RGB,RGB,RGB,RGB,RGB....
+	YUV的像数点排布是这样的:
+		YUV,YUV,YUV,YUV,YUV....
+		YUV,YUV,YUV,YUV,YUV....
+		YUV,YUV,YUV,YUV,YUV....
+		YUV,YUV,YUV,YUV,YUV....
+RGB:红绿蓝三色 像数点格式
+YUV:Y亮度+UV两个描述色彩的 像数点格式
 	YUV和RGB的转换:
 	Y = 0.299 R + 0.587 G + 0.114 B
 	U = -0.1687 R - 0.3313 G + 0.5 B + 128
@@ -9571,6 +9623,379 @@ YUV（YCbCr）采样格式：
 
 
 
+
+
+
+
+
+
+20160622
+调整测试环境(使用 sama5d4开发板)
+先建立一个 for_sp2519_project 的 专门调试 sp2519 驱动的项目文件夹
+at91bootstrap-sama5d4_xplained.bin  //原demo提供的
+u-boot.bin	//uboot1编译出的
+.dtb	//kernel1最后编译的
+zImage	//kernel1最后编译的
+rootfs  //之前的编译的rootfs没一个适用,需要重新编译buildroot,只需要gstreamer相关库就行,不需要 tslib和qt
+	//编译出来.ubi大小才14mb
+	//傻逼了,重新设置编译,忘了先备份已经下好的 dl软件包!!!!!
+	//注意:
+	//	rootfs1是用于生成一个rootfs的实验!!!
+	//	rootfs2是官方demo的,用来实现解压ubi和重新编译ubi的实验
+	//	rootfs3的并没有安装gstreamer,只是可以测试touchscreen,和QT的
+成功运行ov2640摄像头并显示!!!
+测试环境通过;
+后面就是修改测试 sp2519的摄像头驱动了!!!!
+首先修改 ov2640 框架直接对sensor操作的函数
+	sp2519_write_array i2c队列写的				感觉不用改
+	sp2519_mask_set 构造具体数值,i2c写入			暂时用不着
+	sp2519_reset	i2c写入控制 芯片重启!!			已改
+	sp2519_select_win 选择窗口大小				感觉不用改
+	sp2519_set_params 调用 sp2519_write_array		感觉要大改!!!!!!
+		首先ov2640是可以以多种格式传输的,RGB YUV RAW
+		而sp2519 只可以yuv和raw格式传输,所以并没有专门的这样的函数设计
+		主要看传输格式的变化!!!
+		要清楚都干了什么的话,需要分析他们的寄存器初始化操作!!!
+		ov2640:
+			其实也就是设置了IMAGE_MODE 而已,其他的只是做了延时处理
+	sp2519_s_ctrl i2c写入控制 选择是否对图像镜向翻转操作	已改
+至此,驱动文件的修改大致完成:
+接着 修改内核配置添加 sp2519,按照之前弄ov7670那样配置,
+接着,为了提高调试效率!!先录下使用ov2640时的log消息:
+
+
+
+
+
+
+
+
+
+20160628
+几经波折,终于可以使用I2C
+	读取productID 这一步是,芯片通 mck后, 的第一次 设置配置操作
+	然而芯片还没有完全动起来,就用i2c会导致失败
+	所以在sp2519_video_probe 使用i2c之前,先延时一段时间, msleep(5);
+开始初始化,在i2c第 442 条配置后,开始出错
+	第442条初始化是启动 VS 信号 输出data
+	但是一个问题是,一旦启动了VS信号后,就会干扰到i2c,使得i2c不能正常工作!!!!
+	所以要在所有设置都完成后才output图像!!!
+	比如我是在init_array最后才设置output_on,但是似乎是错误的,因为除了init_array后还有其他i2c设置
+		因为init后也有其他的初始化!!!!
+		然而很意外地成功运行了,但是失真严重,而且640X480 只有11.5帧,
+			而且是在探针接到h v 信号时,阻挡了一些干扰i2c的成分,让i2c可以继续设置,才成功运行
+	不过总算成功了,所以也证明了以下一些内容:
+		做出来的电源可用,thank goodness
+		对于fpc那25针的次序排列并没有错封装 sp2519的D2~D9,接sama5d4的D0~D7
+		i2c的时钟数据触发等所有特性都可以沿用 ov2640了
+		还有 h v信号的特性也 与 ov2640 一样,
+		还有 datasheet 说用24mhz,但是sama5d4只能用25mhz的,然而勉强可用,
+	但是不知道,是不是时钟的原因导致失真,
+	也不知道,哪里设置了帧数率
+接下来就是分析gstreamer软件的调用,具体去分析摄像头驱动是怎么被调用的!!!!!
+	特别是要知道,图像是怎么源源不断进来的机制!!!!!
+				
+
+
+
+
+
+20160629
+/**log**/
+# gst-launch v4l2src device="/dev/video0" ! video/x-raw-yuv,width=640,height=480
+ ! ffmpegcolorspace ! fbdevsink
+Setting pipeline to PAUSED ...
+CPU: 0 PID: 727 Comm: gst-launch-0.10 Not tainted 4.1.0-linux4sam_5.3 #313
+Hardware name: Atmel SAMA5
+[<c0013814>] (unwind_backtrace) from [<c00117f4>] (show_stack+0x10/0x14)
+[<c00117f4>] (show_stack) from [<c034001c>] (soc_camera_open+0x18/0x2d4)
+[<c034001c>] (soc_camera_open) from [<c03248a8>] (v4l2_open+0xa0/0xe0)
+[<c03248a8>] (v4l2_open) from [<c0098958>] (chrdev_open+0xa0/0x140)
+[<c0098958>] (chrdev_open) from [<c0093858>] (do_dentry_open.isra.11+0xe8/0x2e8)
+[<c0093858>] (do_dentry_open.isra.11) from [<c009f460>] (do_last.isra.43+0x4cc/0xb9c)
+[<c009f460>] (do_last.isra.43) from [<c00a0f48>] (path_openat+0x7c/0x520)
+[<c00a0f48>] (path_openat) from [<c00a2140>] (do_filp_open+0x2c/0x80)
+[<c00a2140>] (do_filp_open) from [<c009495c>] (do_sys_open+0x110/0x1cc)
+[<c009495c>] (do_sys_open) from [<c000f360>] (ret_fast_syscall+0x0/0x3c)
+atmel_isi f0008000.isi: Atmel ISI Camera driver attached to camera 0
+clk_system_prepare 
+ov2640 0-0030: ov2640_hw_power: ENABLE the camera
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(YUYV, 800x600)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 800x600)
+ov2640 0-0030: ov2640_set_params: Selected cfmt YUYV (YUV422)
+clk_sam9x5_peripheral_enable
+ov2640 0-0030: ov2640_reset: (ret 0)
+ov2640 0-0030: ov2640_set_params: Init default
+ov2640 0-0030: ov2640_set_params: Set size to SVGA
+ov2640 0-0030: ov2640_set_params: Set cfmt
+soc-camera-pdrv soc-camera-pdrv.0: set width: 800 height: 600
+atmel_isi f0008000.isi: Flags cam: 0x175 host: 0x1fd common: 0x175
+atmel_isi f0008000.isi: vsync active high, hsync active high, sampling on pix clock rising edge
+soc-camera-pdrv soc-camera-pdrv.0: camera device open
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 1x1)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 1x1)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 1x1)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(UYVY, 1x1)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(UYVY, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(UYVY, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 1x1)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBR, 1x1)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBR, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBR, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 1x1)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 1x1)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(RGBP, 32768x32768)
+soc-camera-pdrv soc-camera-pdrv.0: current_fmt->fourcc: 0x56595559
+soc-camera-pdrv soc-camera-pdrv.0: S_FMT(YUYV, 640x480)
+soc-camera-pdrv soc-camera-pdrv.0: TRY_FMT(YUYV, 640x480)
+ov2640 0-0030: ov2640_set_params: Selected cfmt YUYV (YUV422)
+ov2640 0-0030: ov2640_reset: (ret 0)
+ov2640 0-0030: ov2640_set_params: Init default
+ov2640 0-0030: ov2640_set_params: Set size to VGA
+ov2640 0-0030: ov2640_set_params: Set cfmt
+soc-camera-pdrv soc-camera-pdrv.0: set width: 640 height: 480
+atmel_isi f0008000.isi: Flags cam: 0x175 host: 0x1fd common: 0x175
+atmel_isi f0008000.isi: vsync active high, hsync active high, sampling on pix clock rising edge
+atmel_isi f0008000.isi: queue_setup, count=2, size=614400
+soc-camera-pdrv soc-camera-pdrv.0: mmap called, vma=0xd41c1030
+soc-camera-pdrv soc-camera-pdrv.0: vma start=0xb6802000, size=614400, ret=0
+soc-camera-pdrv soc-camera-pdrv.0: mmap called, vma=0xd41bcfa8
+soc-camera-pdrv soc-camera-pdrv.0: vma start=0xb676c000, size=614400, ret=0
+clk_sam9x5_peripheral_enable
+Pipeline is live and does not need PREROLL ...
+Setting pipeline to PLAYING ...
+New clock: GstSystemClock
+/**log**/
+gstreamer先学着打开 /dev/video0
+	do_sys_open -> do_filp_open -> path_openat -> do_last.isra.43 -> do_dentry_open.isra.11 -> chrdev_open
+ 	由于/dev/video0 注册为字符设备,自然通过 chrdev_open 的入口:
+		static int chrdev_open(struct inode *inode, struct file *filp) (/fs/Char_dev.c)
+		其中:ret = filp->f_op->open(inode, filp);就是调用了/dev/video0 注册了的f_op.open:V4l2_open
+		至于何时如何从哪个驱动注册上,并未探知
+	继续讨论 V4l2_open:
+		static int v4l2_open(struct inode *inode, struct file *filp) (/drivers/media/v4l2-core/V4l2-dev.c)
+		其中:ret = vdev->fops->open(filp);调用了注册在v4l2驱动上的 soc_camera_open
+		而这个就是我们atmel 特有的摄像头驱动框架
+	而一切初始化内容都是从soc_camera出发!!
+
+以下重点分析 soc_camera.c 和 soc_camera_platform.c
+先分析:soc_camera_platform.c (v4l2_subde的具体实现)
+
+	static struct v4l2_subdev_core_ops platform_subdev_core_ops = {
+		.s_power = soc_camera_platform_s_power,			//启动,这里是启动了isi,还是设置了sensor的pwd? 未挖掘
+	};
+	static struct v4l2_subdev_video_ops platform_subdev_video_ops = {
+		.s_stream	= soc_camera_platform_s_stream,		//start streaming
+		.cropcap	= soc_camera_platform_cropcap,		//设置 v4l2_cropcap
+			//cropcap即cropping capacity (取景属性)   其中:
+			//	v4l2_cropcap.bounds 是sensor捕捉图像的位置和范围
+			//	v4l2_cropcap.defrect 是指在bounds内,可取样范围
+			//	v4l2_cropcap.pixelaspect; // 定义了图片的宽高比
+			//补充:
+			//	v4l2_crop.c 是seneor 可取样范围里,的实际取景范围	(这里.c是其中那个c变量,不要混淆 .c文件)
+			//		而这部分取景范围才是 我们用户使用的有效数据
+			//		这部分数据再经 scaling (缩放)算法缩放成实际输出图像
+		.g_crop		= soc_camera_platform_g_crop,		//设置v4l2_crop的,重点设置v4l2_crop.c
+		.g_mbus_config	= soc_camera_platform_g_mbus_config,	//设置图像传输总线方式:
+			//例如以下三种:
+ 			// * @V4L2_MBUS_PARALLEL:	parallel interface with hsync and vsync
+			// * @V4L2_MBUS_BT656:		parallel interface with embedded synchronisation, can
+			// *				also be used for BT.1120
+			// * @V4L2_MBUS_CSI2:		MIPI CSI-2 serial interface
+	};
+	static const struct v4l2_subdev_pad_ops platform_subdev_pad_ops = {
+		.enum_mbus_code = soc_camera_platform_enum_mbus_code,	//枚举 sensor 提供多少种 图像传输 格式
+		.get_fmt	= soc_camera_platform_fill_fmt,		//获取 图像传输 格式 
+		.set_fmt	= soc_camera_platform_fill_fmt,		//设置 图像传输 格式 
+			//get_fmt 和 set_fmt 都一样 (所以貌似这两个并没有实际用上)
+	};
+	static struct v4l2_subdev_ops platform_subdev_ops = {
+		.core	= &platform_subdev_core_ops,
+		.video	= &platform_subdev_video_ops,
+		.pad	= &platform_subdev_pad_ops,
+	};
+//卧槽,soc_camera_platform.c 并没有被烧录写入,白分析了!!!!!!!!!!!!
+//soc_camera.c 和 soc_camera_platform.c是功能框架一样的,但是却是面向不同的sensor类型
+接着分析:soc_camera.c ()
+	很神奇,module_platform_driver(soc_camera_pdrv);说明了这是一平台总线上的设备,
+		所以执行 probe初始化时,先要有步骤把 "soc-camera-pdrv" device信息注入平台总线上才行.
+		但是并没有找到在哪里注入? 注意,并没有在dtb上注入,但是可以肯定的是,一定probe了!!!
+		
+	soc_camera_host_register() 实际上所有驱动初始化都从这里走,
+		而调用这的是 atmel_isi.c,而不是	soc_camera.c本身里面自己的函数调用
+	感觉分析不下去了,要先看 atmel_isi.c 因为 soc_camera.c作为平台总线上的设备驱动,
+		在没有设备信息注入的情况下自己soc_camera_pdrv_probe了,
+		还有, soc_camera_pdrv_probe之前, soc_camera.c自身的函数居然还可以被调用,卧槽!!!
+卧槽
+卧槽,终于找到了为什么会这样了!!!!!!!
+	首先 dtb 并没有  "soc-camera-pdrv" 项,所以不可能通过dtb 注入设备信息!!!
+	然后发现,atmel_isi_probe的时候,就会自动 soc_camera_pdrv_probe,!!!
+	经过 dump_stack()发现,不简单, 先来一段启动 log!!!
+/*log*/
+atmel_isi_probe!!
+in atmel_isi_probe, before stepin soc_camera_host_register  !!
+scan_of_host !! 
+soc_of_bind !! 
+CPU: 0 PID: 1 Comm: swapper Not tainted 4.1.0-linux4sam_5.3 #343
+Hardware name: Atmel SAMA5
+[<c0013814>] (unwind_backtrace) from [<c00117f4>] (show_stack+0x10/0x14)
+[<c00117f4>] (show_stack) from [<c033f548>] (soc_camera_pdrv_probe+0x10/0x190)
+[<c033f548>] (soc_camera_pdrv_probe) from [<c027758c>] (platform_drv_probe+0x48/0xa4)
+[<c027758c>] (platform_drv_probe) from [<c0276228>] (driver_probe_device+0x1c0/0x264)
+[<c0276228>] (driver_probe_device) from [<c0274a1c>] (bus_for_each_drv+0x44/0x8c)
+[<c0274a1c>] (bus_for_each_drv) from [<c0276030>] (device_attach+0x70/0x88)
+[<c0276030>] (device_attach) from [<c0275768>] (bus_probe_device+0x84/0xa8)
+[<c0275768>] (bus_probe_device) from [<c0273ce8>] (device_add+0x33c/0x524)
+[<c0273ce8>] (device_add) from [<c0277730>] (platform_device_add+0xac/0x214)
+[<c0277730>] (platform_device_add) from [<c033fb84>] (soc_camera_add_pdev+0x10/0x30)
+[<c033fb84>] (soc_camera_add_pdev) from [<c0341984>] (soc_of_bind.isra.2+0x84/0x1c8)
+[<c0341984>] (soc_of_bind.isra.2) from [<c0341ca4>] (soc_camera_host_register+0x1dc/0x344)
+[<c0341ca4>] (soc_camera_host_register) from [<c0343b54>] (atmel_isi_probe+0x38c/0x4f8)
+[<c0343b54>] (atmel_isi_probe) from [<c027758c>] (platform_drv_probe+0x48/0xa4)
+[<c027758c>] (platform_drv_probe) from [<c0276228>] (driver_probe_device+0x1c0/0x264)
+[<c0276228>] (driver_probe_device) from [<c0276358>] (__driver_attach+0x8c/0x90)
+[<c0276358>] (__driver_attach) from [<c0274ab8>] (bus_for_each_dev+0x54/0x88)
+[<c0274ab8>] (bus_for_each_dev) from [<c0275954>] (bus_add_driver+0xd4/0x1d0)
+[<c0275954>] (bus_add_driver) from [<c027695c>] (driver_register+0x78/0xf4)
+[<c027695c>] (driver_register) from [<c027749c>] (__platform_driver_probe+0x20/0x70)
+[<c027749c>] (__platform_driver_probe) from [<c00095c4>] (do_one_initcall+0x80/0x1d0)
+[<c00095c4>] (do_one_initcall) from [<c06a0d18>] (kernel_init_freeable+0xe8/0x1b0)
+[<c06a0d18>] (kernel_init_freeable) from [<c04ca2d4>] (kernel_init+0x8/0xec)
+[<c04ca2d4>] (kernel_init) from [<c000f408>] (ret_from_fork+0x14/0x2c)
+soc_camera_pdrv_probe !! 
+soc_of_bind !! 
+CPU: 0 PID: 1 Comm: swapper Not tainted 4.1.0-linux4sam_5.3 #343
+Hardware name: Atmel SAMA5
+[<c0013814>] (unwind_backtrace) from [<c00117f4>] (show_stack+0x10/0x14)
+[<c00117f4>] (show_stack) from [<c033f548>] (soc_camera_pdrv_probe+0x10/0x190)
+[<c033f548>] (soc_camera_pdrv_probe) from [<c027758c>] (platform_drv_probe+0x48/0xa4)
+[<c027758c>] (platform_drv_probe) from [<c0276228>] (driver_probe_device+0x1c0/0x264)
+[<c0276228>] (driver_probe_device) from [<c0274a1c>] (bus_for_each_drv+0x44/0x8c)
+[<c0274a1c>] (bus_for_each_drv) from [<c0276030>] (device_attach+0x70/0x88)
+[<c0276030>] (device_attach) from [<c0275768>] (bus_probe_device+0x84/0xa8)
+[<c0275768>] (bus_probe_device) from [<c0273ce8>] (device_add+0x33c/0x524)
+[<c0273ce8>] (device_add) from [<c0277730>] (platform_device_add+0xac/0x214)
+[<c0277730>] (platform_device_add) from [<c033fb84>] (soc_camera_add_pdev+0x10/0x30)
+[<c033fb84>] (soc_camera_add_pdev) from [<c0341984>] (soc_of_bind.isra.2+0x84/0x1c8)
+[<c0341984>] (soc_of_bind.isra.2) from [<c0341ca4>] (soc_camera_host_register+0x1dc/0x344)
+[<c0341ca4>] (soc_camera_host_register) from [<c0343b54>] (atmel_isi_probe+0x38c/0x4f8)
+[<c0343b54>] (atmel_isi_probe) from [<c027758c>] (platform_drv_probe+0x48/0xa4)
+[<c027758c>] (platform_drv_probe) from [<c0276228>] (driver_probe_device+0x1c0/0x264)
+[<c0276228>] (driver_probe_device) from [<c0276358>] (__driver_attach+0x8c/0x90)
+[<c0276358>] (__driver_attach) from [<c0274ab8>] (bus_for_each_dev+0x54/0x88)
+[<c0274ab8>] (bus_for_each_dev) from [<c0275954>] (bus_add_driver+0xd4/0x1d0)
+[<c0275954>] (bus_add_driver) from [<c027695c>] (driver_register+0x78/0xf4)
+[<c027695c>] (driver_register) from [<c027749c>] (__platform_driver_probe+0x20/0x70)
+[<c027749c>] (__platform_driver_probe) from [<c00095c4>] (do_one_initcall+0x80/0x1d0)
+[<c00095c4>] (do_one_initcall) from [<c06a0d18>] (kernel_init_freeable+0xe8/0x1b0)
+[<c06a0d18>] (kernel_init_freeable) from [<c04ca2d4>] (kernel_init+0x8/0xec)
+[<c04ca2d4>] (kernel_init) from [<c000f408>] (ret_from_fork+0x14/0x2c)
+soc_camera_pdrv_probe !! 
+atmel_isi f0008000.isi: group probe failed: -17
+soc_of_bind !! 
+CPU: 0 PID: 1 Comm: swapper Not tainted 4.1.0-linux4sam_5.3 #343
+Hardware name: Atmel SAMA5
+[<c0013814>] (unwind_backtrace) from [<c00117f4>] (show_stack+0x10/0x14)
+[<c00117f4>] (show_stack) from [<c033f548>] (soc_camera_pdrv_probe+0x10/0x190)
+[<c033f548>] (soc_camera_pdrv_probe) from [<c027758c>] (platform_drv_probe+0x48/0xa4)
+[<c027758c>] (platform_drv_probe) from [<c0276228>] (driver_probe_device+0x1c0/0x264)
+[<c0276228>] (driver_probe_device) from [<c0274a1c>] (bus_for_each_drv+0x44/0x8c)
+[<c0274a1c>] (bus_for_each_drv) from [<c0276030>] (device_attach+0x70/0x88)
+[<c0276030>] (device_attach) from [<c0275768>] (bus_probe_device+0x84/0xa8)
+[<c0275768>] (bus_probe_device) from [<c0273ce8>] (device_add+0x33c/0x524)
+[<c0273ce8>] (device_add) from [<c0277730>] (platform_device_add+0xac/0x214)
+[<c0277730>] (platform_device_add) from [<c033fb84>] (soc_camera_add_pdev+0x10/0x30)
+[<c033fb84>] (soc_camera_add_pdev) from [<c0341984>] (soc_of_bind.isra.2+0x84/0x1c8)
+[<c0341984>] (soc_of_bind.isra.2) from [<c0341ca4>] (soc_camera_host_register+0x1dc/0x344)
+[<c0341ca4>] (soc_camera_host_register) from [<c0343b54>] (atmel_isi_probe+0x38c/0x4f8)
+[<c0343b54>] (atmel_isi_probe) from [<c027758c>] (platform_drv_probe+0x48/0xa4)
+[<c027758c>] (platform_drv_probe) from [<c0276228>] (driver_probe_device+0x1c0/0x264)
+[<c0276228>] (driver_probe_device) from [<c0276358>] (__driver_attach+0x8c/0x90)
+[<c0276358>] (__driver_attach) from [<c0274ab8>] (bus_for_each_dev+0x54/0x88)
+[<c0274ab8>] (bus_for_each_dev) from [<c0275954>] (bus_add_driver+0xd4/0x1d0)
+[<c0275954>] (bus_add_driver) from [<c027695c>] (driver_register+0x78/0xf4)
+[<c027695c>] (driver_register) from [<c027749c>] (__platform_driver_probe+0x20/0x70)
+[<c027749c>] (__platform_driver_probe) from [<c00095c4>] (do_one_initcall+0x80/0x1d0)
+[<c00095c4>] (do_one_initcall) from [<c06a0d18>] (kernel_init_freeable+0xe8/0x1b0)
+[<c06a0d18>] (kernel_init_freeable) from [<c04ca2d4>] (kernel_init+0x8/0xec)
+[<c04ca2d4>] (kernel_init) from [<c000f408>] (ret_from_fork+0x14/0x2c)
+soc_camera_pdrv_probe !! 
+CPU: 0 PID: 1 Comm: swapper Not tainted 4.1.0-linux4sam_5.3 #343
+Hardware name: Atmel SAMA5
+[<c0013814>] (unwind_backtrace) from [<c00117f4>] (show_stack+0x10/0x14)
+[<c00117f4>] (show_stack) from [<c0341648>] (soc_camera_async_complete+0x10/0x5c)
+[<c0341648>] (soc_camera_async_complete) from [<c03340f4>] (v4l2_async_test_notify+0xec/0xf8)
+[<c03340f4>] (v4l2_async_test_notify) from [<c03342b4>] (v4l2_async_notifier_register+0x104/0x154)
+[<c03342b4>] (v4l2_async_notifier_register) from [<c0341a20>] (soc_of_bind.isra.2+0x120/0x1c8)
+[<c0341a20>] (soc_of_bind.isra.2) from [<c0341ca4>] (soc_camera_host_register+0x1dc/0x344)
+[<c0341ca4>] (soc_camera_host_register) from [<c0343b54>] (atmel_isi_probe+0x38c/0x4f8)
+[<c0343b54>] (atmel_isi_probe) from [<c027758c>] (platform_drv_probe+0x48/0xa4)
+[<c027758c>] (platform_drv_probe) from [<c0276228>] (driver_probe_device+0x1c0/0x264)
+[<c0276228>] (driver_probe_device) from [<c0276358>] (__driver_attach+0x8c/0x90)
+[<c0276358>] (__driver_attach) from [<c0274ab8>] (bus_for_each_dev+0x54/0x88)
+[<c0274ab8>] (bus_for_each_dev) from [<c0275954>] (bus_add_driver+0xd4/0x1d0)
+[<c0275954>] (bus_add_driver) from [<c027695c>] (driver_register+0x78/0xf4)
+[<c027695c>] (driver_register) from [<c027749c>] (__platform_driver_probe+0x20/0x70)
+[<c027749c>] (__platform_driver_probe) from [<c00095c4>] (do_one_initcall+0x80/0x1d0)
+[<c00095c4>] (do_one_initcall) from [<c06a0d18>] (kernel_init_freeable+0xe8/0x1b0)
+[<c06a0d18>] (kernel_init_freeable) from [<c04ca2d4>] (kernel_init+0x8/0xec)
+[<c04ca2d4>] (kernel_init) from [<c000f408>] (ret_from_fork+0x14/0x2c)
+soc_camera_async_complete !! 
+soc_camera_probe !! 
+soc-camera-pdrv soc-camera-pdrv.1: Probing soc-camera-pdrv.1
+atmel_isi f0008000.isi: Atmel ISI Camera driver attached to camera 1
+soc-camera-pdrv soc-camera-pdrv.1: Found 6 supported formats.
+atmel_isi f0008000.isi: Providing format Packed YUV422 16 bit using code 8200
+atmel_isi f0008000.isi: Providing format RGB565 using code 8200
+atmel_isi f0008000.isi: Providing format Packed YUV422 16 bit using code 8198
+atmel_isi f0008000.isi: Providing format RGB565 using code 8198
+atmel_isi f0008000.isi: Atmel ISI Camera driver detached from camera 1
+in atmel_isi_probe, after soc_camera_host_register  !!
+atmel_isi_probed !! 
+/*log*/
+	上述log是 atmel_isi_probe 的全过程!!!!!!
+	首先atmel_isi_probe -> soc_camera_host_register 
+		注意这时,soc_camera.c只是挂入了platform总线,但是还没有匹配device信息,所以没有probe,
+		所以从传统方式看,因为还未把里面的操作函数挂到指定 ops集上,
+		所以理论上还未能访问soc_camera.c 里的函数,
+		但是 soc_camera_host_register 用 EXPORT_SYMBOL(soc_camera_host_register); 标出是全局可用
+		所以就直接用上了!!!
+	soc_camera_host_register -> soc_of_bind-> soc_camera_add_pdev 
+		这里是soc_camera_host_register调用内部的一些函数,
+		soc_camera.c自己给自己构造设备信息,然后再自己注入 平台总线上
+		soc_of_bind.isra.2 与 soc_of_bind 区别????(一样的,不过不知道为何名字改了)
+	soc_camera_add_pdev -> soc_of_bind -> soc_camera_dyn_pdev ->
+		pdev = platform_device_alloc("soc-camera-pdrv", i);	在这里设置了设备信息
+	然后就是 -> platform_device_add 注入设备信息
+	然后就辗转到 soc_camera_pdrv_probe 完成了设备驱动注册到linux
+	然后,回到 soc_of_bind 继续 -> soc_camera_async_complete -> soc_camera_probe
+		soc_camera_probe()才是进行一些列的驱动初始化工作!!
+	最后,回到 atmel_isi_probe 继续完成isi的初始化工作!!!
+
+	
+
+
+
+
+
+
+
+
+
+
+补习:
+container_of(ptr,type,member) //已知member位置, 需找member所在的type变量的位置, 返回type变量的位置指针 
 
 
 
