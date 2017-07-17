@@ -9971,7 +9971,7 @@ atmel_isi_probed !!
 		所以理论上还未能访问soc_camera.c 里的函数,
 		但是 soc_camera_host_register 用 EXPORT_SYMBOL(soc_camera_host_register); 标出是全局可用
 		所以就直接用上了!!!
-	soc_camera_host_register -> soc_of_bind-> soc_camera_add_pdev 
+	soc_camera_host_register -> scan_of_host -> soc_of_bind-> soc_camera_add_pdev 
 		这里是soc_camera_host_register调用内部的一些函数,
 		soc_camera.c自己给自己构造设备信息,然后再自己注入 平台总线上
 		soc_of_bind.isra.2 与 soc_of_bind 区别????(一样的,不过不知道为何名字改了)
@@ -9982,7 +9982,424 @@ atmel_isi_probed !!
 	然后,回到 soc_of_bind 继续 -> soc_camera_async_complete -> soc_camera_probe
 		soc_camera_probe()才是进行一些列的驱动初始化工作!!
 	最后,回到 atmel_isi_probe 继续完成isi的初始化工作!!!
+补习:
+container_of(ptr,type,member) //已知member位置, 需找member所在的type变量的位置, 返回type变量的位置指针 
+	
 
+
+
+
+
+20170704
+探究失真问题:
+	一开始认为是转接口布线紊乱的问题,
+	然后使用了排线,却没有用,后来发现是布线太长的问题,芯片驱动能力不够!!!
+	尝试 加大data排线 I/O 口的驱动能力!!
+	默认 p0:0x1c 是0x0f Data pad driver current 4ma
+	     p0:0x1f 是0xd0 pclk pad driver current 8ma
+	     p0:0x2e 是0xc0 hv signal is 00
+	暂时相对稳定!!!
+	调试:
+	data   0x17 8ma		pclk  0xe0 12ma		hvsignal  0xc5 01	图像偏不稳定,不易开启
+	data   0x1f 12ma	pclk  0xe0 12ma		hvsignal  0xc5 01	图像更不稳定
+	data   0x1f 12ma	pclk  0xf0 16ma		hvsignal  0xc5 01	图像更不稳定
+	data   0x1f 12ma	pclk  0xf0 16ma		hvsignal  0xca 10	图像更不稳定
+	data   0x17 8ma		pclk  0xe0 12ma		hvsignal  0xca 10	图像偏不稳定
+	data   0x0f 4ma		pclk  0xd0 8ma		hvsignal  0xca 10	图像不显示
+	data   0x0f 4ma		pclk  0xd0 8ma		hvsignal  0xc5 01	不好启动,但相对最稳定
+
+	提高了data pck 驱动电流,反而死的更快!!!
+	还有发现了,有时,当光通量足够多的时候, 更容易成功开启!!!!当光通量更暗时,更难开启
+	还有一个重点是,布线干扰,摄像头不能直接粘到板子上!!!!因为贴住地方的 toplayer层有布线,所以有强烈的电磁干扰!!!!!!!
+最后发现是电源噪音的问题!!!
+	芯片工作时,芯片噪音高达 66mhz
+	在sensor三个电源处并联,100nf,10nf 1nfa 510pf
+	在ldo 芯片输入电源处并联,100nf,10nf 1nfa 510pf
+	发现并没有很好地滤波(卧槽 ,多不知道怎么接了)
+
+
+
+
+
+
+
+
+20170706
+分析V4L2!!!
+参考:http://blog.csdn.net/evilcode/article/details/6337155
+
+V4L2(video for linux) 可以支持多种设备，它可以有以下5种接口：
+1、视频采集接口(video capture interface)：这种应用的设备可以是高频头或者摄像头.V4L2的最初设计就是应用于这种功能的.下面也是着重讲解这种应用；
+2、视频输出接口(video output interface)：可以驱动计算机的外围视频图像设备——像可以输出电视信号格式的设备；
+3、直接传输视频接口(video overlay interface)：它的主要工作是把从视频采集设备采集过来的信号直接输出到输出设备之上,而不用经过系统的CPU；
+4、视频间隔消隐信号接口(VBI interface)：它可以使应用可以访问传输消隐期的视频信号；
+5、收音机接口(radio interface)：可用来处理从AM或FM高频头设备接收来的音频流；
+
+下面从一个例子分析 v4l2
+soc_camera是一个平台总线设备,
+但与其他传统平台总线设备有些区别, 它不像是硬件总线控制器设备, 更像是一个具体的设备
+但也是一个基于 v4l2 的 模块化视频采集设备 (之所以说是模块化是因为统一的操作策略,而摄像头的硬件操作分离出来,即可简单更换移植各种摄像头)
+基于 v4l2 的视频采集设备 首先有 v4l2_file_operations 操作集!!(soc_camera.c里)
+static struct v4l2_file_operations soc_camera_fops = {
+	.owner		= THIS_MODULE,
+	.open		= soc_camera_open,
+	.release	= soc_camera_close,
+	.unlocked_ioctl	= video_ioctl2,
+	.read		= soc_camera_read,
+	.mmap		= soc_camera_mmap,
+	.poll		= soc_camera_poll,
+}; 
+还有 v4l2_ioctl_ops 对应ioctl操作的 操作函数集	(soc_camera.c里)
+static const struct v4l2_ioctl_ops soc_camera_ioctl_ops = {
+	.vidioc_querycap	 = soc_camera_querycap,
+	.vidioc_try_fmt_vid_cap  = soc_camera_try_fmt_vid_cap,
+	.vidioc_g_fmt_vid_cap    = soc_camera_g_fmt_vid_cap,
+	.vidioc_s_fmt_vid_cap    = soc_camera_s_fmt_vid_cap,
+	.vidioc_enum_fmt_vid_cap = soc_camera_enum_fmt_vid_cap,
+	.vidioc_enum_input	 = soc_camera_enum_input,
+	.vidioc_g_input		 = soc_camera_g_input,
+	.vidioc_s_input		 = soc_camera_s_input,
+	.vidioc_s_std		 = soc_camera_s_std,
+	.vidioc_g_std		 = soc_camera_g_std,
+	.vidioc_enum_framesizes  = soc_camera_enum_framesizes,
+	.vidioc_reqbufs		 = soc_camera_reqbufs,
+	.vidioc_querybuf	 = soc_camera_querybuf,
+	.vidioc_qbuf		 = soc_camera_qbuf,
+	.vidioc_dqbuf		 = soc_camera_dqbuf,
+	.vidioc_create_bufs	 = soc_camera_create_bufs,
+	.vidioc_prepare_buf	 = soc_camera_prepare_buf,
+	.vidioc_expbuf		 = soc_camera_expbuf,
+	.vidioc_streamon	 = soc_camera_streamon,
+	.vidioc_streamoff	 = soc_camera_streamoff,
+	.vidioc_cropcap		 = soc_camera_cropcap,
+	.vidioc_g_crop		 = soc_camera_g_crop,
+	.vidioc_s_crop		 = soc_camera_s_crop,
+	.vidioc_g_selection	 = soc_camera_g_selection,
+	.vidioc_s_selection	 = soc_camera_s_selection,
+	.vidioc_g_parm		 = soc_camera_g_parm,
+	.vidioc_s_parm		 = soc_camera_s_parm,
+};
+还有的 是一个视频基类结构 是一个实质的采集设备对象!!!比如这样:
+static struct video_device soc_camera1 = {
+	.name		= "soc_camera1",
+	.fops           = &soc_camera_fops,
+	.ioctl_ops 	= &soc_camera_ioctl_ops,
+	....
+};
+然而实际实际上 这些对象是实际注册时自动生成的,而不是既定的,比如通过这个函数生成 video_dev_create() (soc_camera.c里)
+然后,介绍 soc_camera 的设备结构体:
+struct soc_camera_device {
+	struct list_head list;		//设备所在的内核双向链表
+	struct soc_camera_desc *sdesc;
+	struct device *pdev;		/* Platform device */
+	struct device *parent;		/* Camera host device */
+	struct device *control;		/* E.g., the i2c client */
+	s32 user_width;
+	s32 user_height;
+	u32 bytesperline;		/* for padding, zero if unused */
+	u32 sizeimage;
+	enum v4l2_colorspace colorspace;
+	unsigned char iface;		/* Host number */
+	unsigned char devnum;		/* Device number per host */
+	struct soc_camera_sense *sense;	/* See comment in struct definition */
+	struct video_device *vdev;	 //指向具体的 视频基类结构 的某设备对象,也是 soc_camera_device结构对象的 核心项
+	struct v4l2_ctrl_handler ctrl_handler;
+	const struct soc_camera_format_xlate *current_fmt;
+	struct soc_camera_format_xlate *user_formats;
+	int num_user_formats;
+	enum v4l2_field field;		/* Preserve field over close() */
+	void *host_priv;		/* Per-device host private data */
+	/* soc_camera.c private count. Only accessed with .host_lock held */
+	int use_count;
+	struct file *streamer;		/* stream owner */
+	struct v4l2_clk *clk;
+	/* Asynchronous subdevice management */
+	struct soc_camera_async_client *sasc;
+	/* video buffer queue */
+	union {
+		struct videobuf_queue vb_vidq;
+		struct vb2_queue vb2_vidq;
+	};
+};
+上述是 基于 v4l2 框架 移植过来的 视频采集设备的基本内容和结构
+当然根据实际需求,还有一些深层的封装,例如:
+struct soc_camera_host {
+	struct v4l2_device v4l2_dev;
+	struct list_head list;
+	struct mutex host_lock;		/* Main synchronisation lock */
+	struct mutex clk_lock;		/* Protect pipeline modifications */
+	unsigned char nr;		/* Host number */
+	u32 capabilities;
+	struct soc_camera_device *icd;	/* Currently attached client */
+	void *priv;
+	const char *drv_name;
+	struct soc_camera_host_ops *ops;
+	struct v4l2_async_subdev **asd;	/* Flat array, arranged in groups */
+	unsigned int *asd_sizes;	/* 0-terminated array of asd group sizes */
+};
+这里的host,我怀疑指的是isi总线!!!
+
+驱动与应用程序的数据传输方式有三种:
+1）read与write这种方式，它像其它设备驱动一样，但是这种方式很慢，对于数据视频流不能满足其要求；
+2）直接的内存访问，可以通过其映射方式来传输(IO数据流，交换指向缓冲区指针的方法)；
+   这是视频设备通常用的方法，采用mmap()的方法，即有内核空间里开辟内存，再在程序里把这部分的内存映射到程序空间。
+   如果有设备内存，即直接映射到设备的内核，这种性能更高。
+3）反过来,用户态申请的内存隐射到内核里被使用!!!
+soc_camera 使用了 第二种方法, 把内核态分出的内存隐射出来让用户程序也可以操作
+soc_camera_mmap 干了这事,特别是:
+videobuf_mmap_mapper(&fh->vb_vidq, vma);  这个核心函数把设备的I/O内存或者设备内存映射到系统为它开辟的虚拟内存。
+
+操控设备的实现: ioctl
+long video_ioctl2(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	return video_usercopy(file, cmd, arg, __video_do_ioctl);
+}
+__video_do_ioctl 这个函数里调用一些命令来设备V4L2模块中的一些结构参数来改变或者获取设备的参数。
+一般使用ioctl函数来对设备的I/O通道进行管理：
+	extern int ioctl (int __fd, unsigned long int __request, ...) __THROW;
+	__fd：设备的ID，例如刚才用open函数打开视频通道后返回的cameraFd；
+	__request：具体的命令标志符。
+在进行V4L2开发中，一般会用到以下的命令标志符：
+	VIDIOC_REQBUFS：分配内存 
+	VIDIOC_QUERYBUF：把VIDIOC_REQBUFS中分配的数据缓存转换成物理地址 
+	VIDIOC_QUERYCAP：查询驱动功能 
+	VIDIOC_ENUM_FMT：获取当前驱动支持的视频格式 
+	VIDIOC_S_FMT：设置当前驱动的频捕获格式 
+	VIDIOC_G_FMT：读取当前驱动的频捕获格式 
+	VIDIOC_TRY_FMT：验证当前驱动的显示格式 
+	VIDIOC_CROPCAP：查询驱动的修剪能力 
+	VIDIOC_S_CROP：设置视频信号的边框 
+	VIDIOC_G_CROP：读取视频信号的边框 
+	VIDIOC_QBUF：把缓存放入缓存队列 
+	VIDIOC_DQBUF：把缓存从缓存队列中取出来 
+	VIDIOC_STREAMON：开始视频显示函数 
+	VIDIOC_STREAMOFF：结束视频显示函数 
+	VIDIOC_QUERYSTD：检查当前视频设备支持的标准，例如PAL或NTSC。 
+	这些IO调用，有些是必须的，有些是可选择的。
+
+struct v4l2_subdev  在这里一般就是,视频采集设备里子功能设备,如编解码器,声色子功能等等 一般都使用I2C控制 !!!
+重点结构体:
+/* kernel/include/media/v4l2-subde.h */
+struct v4l2_subdev {
+#if defined(CONFIG_MEDIA_CONTROLLER)
+    struct media_entity entity;
+#endif
+    struct list_head list;
+    struct module *owner;
+    u32 flags;
+    struct v4l2_device *v4l2_dev;
+    const struct v4l2_subdev_ops *ops;    // 各种策略的ops
+    /* Never call these internal ops from within a driver! */
+    const struct v4l2_subdev_internal_ops *internal_ops;
+    /* The control handler of this subdev. May be NULL. */
+    struct v4l2_ctrl_handler *ctrl_handler;
+    /* name must be unique */
+    char name[V4L2_SUBDEV_NAME_SIZE];
+    /* can be used to group similar subdevs, value is driver-specific */
+    u32 grp_id;
+    /* pointer to private data */
+    void *dev_priv;
+    void *host_priv;
+    /* subdev device node */
+    struct video_device devnode;
+    /* number of events to be allocated on open */
+    unsigned int nevents;
+};
+struct v4l2_subdev_ops {
+    const struct v4l2_subdev_core_ops    *core;    // 所有sub-device通用
+    const struct v4l2_subdev_tuner_ops    *tuner;
+    const struct v4l2_subdev_audio_ops    *audio;
+    const struct v4l2_subdev_video_ops    *video;
+    const struct v4l2_subdev_vbi_ops    *vbi;
+    const struct v4l2_subdev_ir_ops        *ir;
+    const struct v4l2_subdev_sensor_ops    *sensor;
+    const struct v4l2_subdev_pad_ops    *pad;
+};
+ops的调用:
+1. 直接调用：
+	err = sd->ops->core->g_chip_ident(sd, &chip);
+2. 宏调用
+	err = v4l2_subdev_call(sd, core, g_chip_ident, &chip);
+#define v4l2_subdev_call(sd, o, f, args...)                \
+    (!(sd) ? -ENODEV : (((sd)->ops->o && (sd)->ops->o->f) ?    \
+        (sd)->ops->o->f((sd) , ##args) : -ENOIOCTLCMD))
+/*
+　　宏调用优点：1. 对sd是否为空的检测
+　　　　　　   2. 调用函数f所在的ops是否为空的检测
+　　          3. 调用函数f是否为空的检测
+　　　　　　   4. 调用是被返回负值，成功返回函数f的返回值
+*/
+
+soc_camera 里的函数:
+soc_camera_expbuf() 把buf 模拟成一个暂时文件,输出这个文件的文件描述符
+soc_camera_init_user_formats ????
+soc_camera_add_device(icd) 只是 加到抽象的 host 对象里 
+__soc_camera_power_on 重点是: ret = v4l2_subdev_call(sd, core, s_power, 1);
+soc_camera_poll ???轮询??
+v4l2_ctrl_add_handler ???
+scan_async_xxx 什么的,似乎我们并没有使用!!!	
+
+atmel_isi.c 
+fb 是 frame buffer
+fbd 是 frame buffer descriptor
+isc 是 isi 低版本的 图像通讯硬件协议
+
+为了掌握 驱动`的执行情况,我使用了dump_stack 来追溯
+发现 atmel_isi 也是在 soc_camera 下工作
+
+
+
+
+
+20170710
+microchip学习:
+	FPU:浮点运算单元!!
+	emmc 与 nandflash 的区别: emmc 是集成了控制器的nandflash,
+		数据内容放入nandflash时,单单是nandflash,时,要人工指定地址段,而emmc则自己安排地址,用户不用管
+	
+atmel MPU启动:
+	rom-coder固化程序:启动时钟,枚举用户程序所在地方: emmc nandflash sdcard...,没有则启动 samba-morritor
+		假如 枚举到是nandflash,就会把nandflash的开始地址的 bootloader放入sram执行
+	bootloader 会初始化 ddram 等等,然后把uboot拷到ddram(ddram是sdram的一种)
+	uboot 初始化 linux 环境,并跳入linux初始化
+
+fat 的文件分区表是在开头位置, 而yaff,ubi文文件分区表是分布式的,linux之所以不用fat文件系统格式是因为flash有读写次数
+如果使用fat 那么统一位置的分区表大量写,很快就挂掉了!!而分布的,分摊了写次数,延长寿命
+
+上电: 外设先上,然后再核心上!!
+
+devicetree 补充学习: dts_debug 案例
+# ls /proc/device-tree/
+#address-cells	clocks
+#size-cells
+compatible
+ahb
+cpus
+aliases
+fixedregulator@0
+chosen
+fixedregulator@1
+gpio_keys
+interrupt-parent
+leds
+memory
+model
+name
+sram@00210000
+
+# ls /proc/device-tree/ahb/apb/mmc@fc000000/
+#address-cells compatible
+#size-cells
+dma-names
+pinctrl-0
+clock-names
+dmas
+pinctrl-names
+clocks
+interrupts
+reg
+name
+slot@0
+status
+vmmc-supply
+vqmmc-supply
+
+# cat /proc/device-tree/ahb/apb/mmc@fc000000/status
+okay
+
+# cat /proc/device-tree/ahb/apb/mmc@fc000000/compatible
+atmel,hsmci
+
+# cat /proc/device-tree/ahb/apb/mmc@fc000000/clocks
+G
+
+# ls /sys/kernel/debug/pinctrl/ahb\:apb\:pinctrl@fc06a000/
+gpio-ranges
+pinconf-groups
+pingroups
+pinmux-pins
+pinconf-config
+pinconf-pins
+pinmux-functions
+pins
+
+# cat /sys/kernel/debug/pinctrl/ahb\:apb\:pinctrl@fc06a000/pinconf-pins
+Pin config settings per pin
+Format: pin (name): configs
+pin 0 (pioA0):PULL_UP
+pin 128 (pioE0):PULL_DOWN
+pin 129 (pioE1):PULL_UP|DEGLITCH
+
+# cat /sys/kernel/debug/pinctrl/ahb\:apb\:pinctrl@fc06a000/pinmux-pins
+Pinmux settings per pin
+Format: pin (name): mux_owner gpio_owner hog?
+pin 0 (pioA0): (MUX UNCLAIMED) (GPIO UNCLAIMED)
+pin 30 (pioA30): f8014000.i2c (GPIO UNCLAIMED) function i2c0 group i2c0-0
+pin 31 (pioA31): f8014000.i2c (GPIO UNCLAIMED) function i2c0 group i2c0-0
+pin 67 (pioC3): (MUX UNCLAIMED) fc06c000.gpio:67
+pin 131 (pioE3): fc000000.mmc fc06d000.gpio:131 function board group mmc1_cd
+
+# ls /sys/kernel/debug/pinctrl/fc038000.pinctrl/
+gpio-ranges
+pinconf-groups pingroups
+pinconf-config pinconf-pins
+pinmux-functions
+pinmux-pins
+pins
+
+# cat /sys/kernel/debug/pinctrl/fc038000.pinctrl/pinconf-pins
+Pin config settings per pin
+Format: pin (name): configs
+pin 0 (PA0): (sdmmc0_default, ioset 1)
+pin 1 (PA1): (sdmmc0_default, ioset 1) pull-up
+pin 39 (PB7): (pinctrl_mxt_irq, ioset 0) pull-up debounce
+
+# cat /sys/kernel/debug/pinctrl/fc038000.pinctrl/pinmux-pins
+Pinmux settings per pin
+Format: pin (name): mux_owner gpio_owner hog?
+pin 0 (PA0): a0000000.sdio-host (GPIO UNCLAIMED) function A group PA0
+pin 41 (PB9): gpio_keys (GPIO UNCLAIMED) function GPIO group PB9
+
+# cat /sys/kernel/debug/clk/clk_summary
+[20/1851]
+clock				enable_cnt 	prepare_cnt	rate		accuracy	phase
+----------------------------------------------------------------------------------------------------------
+slow_rc_osc			0 		0 		32768 		250000000 	0
+main_rc_osc 			0 		0 		12000000 	100000000 	0
+clock				0		0		12000000	0		0
+adc_op_clk			1		1		1000000		0 		0
+main_xtal			1		1		12000000	0 		0
+   main_osc			1		1		12000000	0 		0
+      mainck			2		2		12000000	0 		0
+         utmick			2		2		480000000	0 		0
+            usbck		1		1		48000000	0 		0
+               udpck		0		0		48000000	0 		0
+               uhpck		1		1		48000000	0 		0
+         pllack			1		1 		1200000000	0 		0
+            plladivck		1		1		600000000	0 		0
+               smdclk		0		0		600000000	0 		0
+                  smdck		0		0		600000000	0 		0
+               masterck		5		5		200000000	0 		0
+                  isi_clk	0		0		200000000	0 		0
+                  lcdc_clk	0		0		200000000	0 		0
+                  dma1_clk	1		1		200000000	0 		0
+                  vdec_clk	0		0		200000000	0 		0
+                  matrix0_clk	0		0		200000000	0 		0
+                  mpddr_clk	1		1		200000000	0 		0
+
+
+
+
+
+
+
+
+
+20170713
+德沃 SAM4S 板子
+	1,PIR 例子中似乎并没有做 UVC例子,需要移植,大大麻烦
+	2,似乎使用ek 而非PIR例子指定开发板, 所以摄像头,需要自己画板子!!! 大麻烦
+	3,未知用ek 还是 PIR-DEMO板子
 	
 
 
@@ -9994,14 +10411,602 @@ atmel_isi_probed !!
 
 
 
-补习:
-container_of(ptr,type,member) //已知member位置, 需找member所在的type变量的位置, 返回type变量的位置指针 
+
+
+20170714
+建立个人网站!!!!!!!! 用python
+预备:
+	pc新建项目目录 selfweb 并进入
+建立独立环境:
+	mkvirtualenv selfweb -p python2.7
+	workon selfweb
+安装环境包:
+	pip install django 	//web框架
+	pip install uwsgi	//服务端容器 对django友好
+	小技巧:
+	如果pip install 安装慢 ,可以用豆瓣的镜像!
+	pip install django -i http://pypi.douban.com/simple --trusted-host pypi.douban.com
+建立github仓库:
+	git init			//通过git init命令把当前目录变成Git可以管理的仓库
+	登陆GitHub，然后，在右上角找到“Create a new repo”按钮，创建一个新的仓库
+	在Repository name填入selfweb，其他保持默认设置，点击“Create repository”按钮，就成功地创建了一个新的Git仓库
+	git remote add origin git@github.com:Kingders/selfweb.git 
+		//在本地库learngit作为当前工作目录执行此命令，关联本地与远程仓库（通过ssh协议）
+	git add readme
+	git commit -m "first commit"
+	git push -u origin master		//提交本地仓库到远程库
+	出错: (由于使用新机器,还没有与我的github账号建立ssh连接)
+	/*log start*/
+	(selfweb) infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/selfweb$ git commit -m "first_commit"
+	
+	*** Please tell me who you are.
+	
+	Run
+	
+	  git config --global user.email "you@example.com"
+	  git config --global user.name "Your Name"
+	
+	to set your account's default identity.
+	Omit --global to set the identity only in this repository.
+	
+	fatal: unable to auto-detect email address (got 'infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR.(none)')
+	(selfweb) infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/selfweb$ git push -u origin master
+	The authenticity of host 'github.com (192.30.255.113)' can't be established.
+	RSA key fingerprint is 16:27:ac:a5:76:28:2d:36:63:1b:56:4d:eb:df:a6:48.
+	Are you sure you want to continue connecting (yes/no)? yes
+	Warning: Permanently added 'github.com,192.30.255.113' (RSA) to the list of known hosts.
+	Permission denied (publickey).
+	fatal: Could not read from remote repository.
+	
+	Please make sure you have the correct access rights
+	and the repository exists.
+	(selfweb) infortech-ubuntu-1404@infortechubuntu1404-HP-EliteDesk-880-G2-TWR:~/selfweb$ git push -u origin master
+	Warning: Permanently added the RSA host key for IP address '192.30.255.112' to the list of known hosts.
+	Permission denied (publickey).
+	fatal: Could not read from remote repository.
+	
+	Please make sure you have the correct access rights
+	and the repository exists.
+	/*log end*/
+	解决:建立ssh连接
+	创建SSH Key
+	$ ssh-keygen -t rsa -C "418128064@qq.com"	//ssh key 与机器相连，所以同一email，不同机子的ssh key 不一样
+	Generating public/private rsa key pair.
+	Enter file in which to save the key (/home/kl/.ssh/id_rsa):	//不填,回车直接默认
+	Enter passphrase (empty for no passphrase): //不填,回车直接默认
+	Enter same passphrase again: //不填,回车直接默认
+	Your identification has been saved in /home/kl/ssh.	//可以不填，直接回车
+	Your public key has been saved in /home/kl/ssh.pub.
+	The key fingerprint is:
+	36:1a:e1:5c:9d:13:7b:ce:0c:6f:72:b8:a9:b7:8a:0c 418128064@qq.com
+	The key's randomart image is:
+	+--[ RSA 2048]----+
+	|          .      |
+	|         . +     |
+	|      . . * .    |
+	|     o o   X     |
+	|      + S o B    |
+	|       + . *     |
+	|    E .   o      |
+	|     o . ..      |
+	|      o oo..     |
+	+-----------------+
+	在/home/kl目录下得到ssh文件（私钥），ssh.pub文件（公钥）
+	登陆GitHub，打开“Account settings”，“SSH Keys”页面
+	点“Add SSH Key”，填上任意Title，在Key文本框里粘贴id_rsa.pub文件的全部内容后，点“Add Key”，你就应该看到已经添加的Key	
+	再次git push 出错: 
+	git push -u origin master	//出错,由于没有pc端没有登陆账号!!!
+	登陆账号
+	git config --global user.email "418128064@qq.com"
+	git config --global user.name "kingders"
+	再次git push 成功!! 终于建立好 github仓库!!!
+创建dajango工程的记录没了,回去要先补上????????
+	uwsg.ini 里要用绝对路径我去!!!
+	ps ux | grep uwsgi //查看
+	关 uwsgi : killall -9 uwsgi
+
+加入数据库 mysql:
+	先登陆数据库命令行处理界面
+	mysql -u root -p	//以数据库root 登陆 后续提示填写root密码:362951847
+		create database db_selfweb;	//每条命令要加";",这里建立一个数据库
+	退出登陆数据库: ctrl+c
+	配置工程连接这个数据库: 修改 selfweb/settings.py
+		DATABASES = {
+		    'default': {
+		        # 'ENGINE': 'django.db.backends.sqlite3',
+		        # 'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+			# by william
+		        'ENGINE': 'django.db.backends.mysql',
+		        'NAME': 'db_selfweb',
+		        'USER': 'root',
+		        'PASSWORD': '362951847',
+		        'HOST': '127.0.0.1',
+		        'PORT': '3306',			//mysql默认的监听口,命令可查: ps -an | grep 3306
+		        'OPTIONS': {
+		            'sql_mode': 'traditional',
+		        }
+		    }
+		}
+	检查配置是否出错: python manage.py check
+	出错: 没有加 python2 的 mysql 接口 Mysqldb
+	解决: pip install MYSQL-python
+	再检查:python manage.py check	//没出错 !!  System check identified no issues (0 silenced).
+创建数据库model并自动生成数据库表
+	model即定义了 一条数据含有的 内容项,遵从这个model的每条数据都是 这个model的实例,多个实例最终集中成一个数据表格
+	我们在代码里操作model的实例其实就是在操作数据库
+	修改 web/models.py
+		# by william
+		class BlogPost(models.Model):
+		class BlogPost(models.Model):
+		    title = models.CharField(max_length=255,verbose_name='文章标题')
+		    body = models.TextField(verbose_name='文章内容')
+		    create_time = models.DateTimeField(verbose_name='创建时间')
+	其实就是定义了一个BlogPost的model了,接下来的事情,就是把我们定义的model转换成一个真正的mysql model,建立真正的BlogPost数据表
+	修改 selfweb/settings.py
+		INSTALLED_APPS = [
+		    'django.contrib.admin',
+		    'django.contrib.auth',
+		    'django.contrib.contenttypes',
+		    'django.contrib.sessions',
+		    'django.contrib.messages',
+		    'django.contrib.staticfiles',
+		    # by william
+		    'web',	//添加我们创建的web到默认安装的app里
+		]
+	python manage.py makemigrations		//更新migrate配置
+	python manage.py migrate		//根据配置建立数据库表单!!
+	然后登陆数据库看看:
+		use db_selfweb;		//转到db_selfweb
+		show tables;		//显示建立了的数据表单
+		+----------------------------+
+		| Tables_in_db_selfweb       |
+		+----------------------------+
+		| auth_group                 |
+		| auth_group_permissions     |
+		| auth_permission            |
+		| auth_user                  |
+		| auth_user_groups           |
+		| auth_user_user_permissions |
+		| django_admin_log           |
+		| django_content_type        |
+		| django_migrations          |
+		| django_session             |
+		| web_blogpost               |
+		+----------------------------+
+		11 rows in set (0.00 sec)
+		看到了 web_blogpost 就是我们定义的 mysql 数据库表单
+		而其他的是 django默认的建立的表单
+数据库表 所谓的 一对多关系:(通过model 的联系理解)
+	补充修改 web/models.py
+		# by william
+		class Subject(models.Model):
+		    name = models.CharField(max_length=255,verbose_name='类别名称')
+		    introduce = models.CharField(max_length=255,verbose_name='类别简介')
+		    image = models.ImageField(verbose_name='类别图片')
+		
+		class BlogPost(models.Model):
+		    title = models.CharField(max_length=255,verbose_name='文章标题')
+		    body = models.TextField(verbose_name='文章内容')
+		    create_time = models.DateTimeField(verbose_name='创建时间')
+		    subject = models.ForeignKey(Subject,verbose_name='类别',null=True)
+	python manage.py makemigrations		//更新migrate配置 这时出错,提示缺 pillow ,pip install 就好
+	python manage.py migrate		//根据配置建立数据库表单!!
+	然后登陆数据库看看:
+		mysql -u root -p	//键入密码362951847
+			use db_selfweb;
+			show tables;
+		除了web_blogpost 还有一个web_subject,
+		而且 web_blogpost 里也多了一项 subject_id 的内容项,即照应blogpost 这个model 多了一个内容项
+数据库表 所谓的 多对多关系:(通过model 的联系理解)
+	给每篇blogpost 都添加标签
+	在这里,标签是比类别还要特殊,这里例子的局限性认为,每篇文章只能被归类到一个类别里,但可以被贴上多个标签
+	那么是问题来了,是不是要 给 blogpost 这个model 添加几个内容项?来存被贴上的多个标签?
+	但是如果有些文章只被贴一个标签的话,多余的没用标签内容项让model看起来比较臃肿
+	所以观察以下改变:
+	补充修改 web/models.py
+		# by william
+		class Tag(models.Model):
+		    name = models.CharField(max_length=255,verbose_name='标签名称')
+		
+		class Subject(models.Model):
+		    name = models.CharField(max_length=255,verbose_name='类别名称')
+		    introduce = models.CharField(max_length=255,verbose_name='类别简介')
+		    image = models.ImageField(verbose_name='类别图片')
+		
+		class BlogPost(models.Model):
+		    title = models.CharField(max_length=255,verbose_name='文章标题')
+		    body = models.TextField(verbose_name='文章内容')
+		    create_time = models.DateTimeField(verbose_name='创建时间')
+		    subject = models.ForeignKey(Subject,verbose_name='类别',null=True)
+		    tags = models.ManyToManyField(Tag,verbose_name='标签')
+	python manage.py makemigrations		//更新migrate配置 
+	python manage.py migrate		//根据配置建立数据库表单!!	
+	然后登陆数据库看看:
+		再多了一个web_tag, 和 web_blogpost_tags 数据表
+		但是 web_blogpost 里并没有多了一项 关于tag 的内容项,即照应blogpost 这个model 的结构 并没有变化
+		替代地 多出了一张 web_blogpost_tags 的新表 来记录 blogpost的每条数据实例与 tag 每条数据实例的关系
+关于pycharm 这个IDE:
+	先不管!!
+强大的后台管理工具 django-admin (例子:在django-admin管理后台管理BlogPost、Subject、Tag这三个表)
+	python manage.py createsuperuser	//创建管理者
+	登陆http://127.0.0.1:8000/admin页面,可以进行相关管理
+	修改web/admin.py:
+	# by william
+		from .models import BlogPost
+		from .models import Subject
+		from .models import Tag
+		
+		class BlogPostAdmin(admin.ModelAdmin):
+		    list_display = ('title', 'create_time', 'subject', 'tags')
+		
+		class SubjectAdmin(admin.ModelAdmin):
+		    list_display = ('name')
+		
+		class TagAdmin(admin.ModelAdmin):
+		    list_display = ('name')
+		
+		admin.site.register(Tag,TagAdmin)
+		admin.site.register(Subject,SubjectAdmin)
+		admin.site.register(BlogPost,BlogPostAdmin)
+	检查 python manage.py check //出现以下错误未解决
+		SystemCheckError: System check identified some issues:
+		
+		ERRORS:
+		<class 'web.admin.BlogPostAdmin'>: (admin.E109) The value of 'list_display[3]' must not be a ManyToManyField.
+		<class 'web.admin.SubjectAdmin'>: (admin.E107) The value of 'list_display' must be a list or tuple.
+		<class 'web.admin.TagAdmin'>: (admin.E107) The value of 'list_display' must be a list or tuple.
+		
+		System check identified 3 issues (0 silenced).
+	上述错误未解决,但是不影响 http://127.0.0.1:8000/admin 出现 BlogPost、Subject、Tag 的选单
+	按道理现在就可以点入,并添加 给这些数据库表单 添加一条条数据信息!!
+	但是出错:
+		勉强可以写入 BlogPost 的数据消息条,
+		但是 Subject 和 Tag 连进去都失败,不行!!!
+		直接错误为:
+		AttributeError at /admin/web/subject/
+		Unable to lookup 'n' on Subject or SubjectAdmin	
+	问题解决:
+	由于web/admin.py的书写格式错误,导致以上显示问题,实际上add 的数据消息条都成功建立:只是显示出问题:
+	重写web/admin.py为:
+		# -*- coding: utf-8 -*-
+		from __future__ import unicode_literals
+		
+		from django.contrib import admin
+		
+		# Register your models here.
+		
+		# by william
+		from .models import BlogPost
+		from .models import Subject
+		from .models import Tag
+		
+		class BlogPostAdmin(admin.ModelAdmin):
+		    list_display = ('title', 'create_time', 'subject', 'tags')
+		admin.site.register(BlogPost,BlogPostAdmin)
+		
+		class SubjectAdmin(admin.ModelAdmin):
+		    list_display = ('name',)
+		admin.site.register(Subject,SubjectAdmin)
+		
+		class TagAdmin(admin.ModelAdmin):
+		    list_display = ('name',)
+		admin.site.register(Tag,TagAdmin)
+	重启网站服务器成功
+管理界面的定制化
+	页面顶部写的“Django administrator”换成“selfweb管理后台”，
+		管理页面总标题因为是django-admin自身的内容，因此做定制有些复杂些，
+		在根目录下创建如下目录templates/admin，
+			mkdir templates
+			mkdir templates/admin
+		在里面新建base_site.html文件:(要注意全部用英文字符符号,否则出错)
+			touch templates/admin/base_site.html
+			内容如下:
+			{% extends "admin/base.html"%}
+			{% load i18n %}
+			
+			{% block title %}
+			{{ title }} | {% trans "selfweb后台管理" %}
+			{% endblock %}
+			
+			{% block branding %}
+			<hi id="site_name">{% trans 'selfweb后台管理' %}</hi>
+			{% endblock %}
+			
+			{% block nav-global %}
+			{% endblock %}
+		修改shareditor/settings.py，在TEMPLATES  =>  DIRS配置项中添加'templates'，
+			TEMPLATES = [
+			    {
+			        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+			        'DIRS': [
+			            'templates',
+			        ],
+			        'APP_DIRS': True,
+			        'OPTIONS': {
+			            'context_processors': [
+			                'django.template.context_processors.debug',
+			                'django.template.context_processors.request',
+			                'django.contrib.auth.context_processors.auth',
+			                'django.contrib.messages.context_processors.messages',
+			            ],
+			        },
+			    },
+			]			
+	管理首页里的“WEB”改成“网站”，“Blog posts”改成“文章”，“Tag”改成“标签”，
+		修改web/models.py:
+		# by william
+		class Tag(models.Model):
+		    name = models.CharField(max_length=255,verbose_name='标签名称')
+		    class Meta:
+		        verbose_name_plural = '标签'
+		    def __unicode__(self):
+		        return self.name
+		
+		class Subject(models.Model):
+		    name = models.CharField(max_length=255,verbose_name='类别名称')
+		    introduce = models.CharField(max_length=255,verbose_name='类别简介')
+		    image = models.ImageField(verbose_name='类别图片')
+		    class Meta:
+		        verbose_name_plural = '类别'
+		    def _unicode_(self):
+		        return self.name
+		
+		class BlogPost(models.Model):
+		    title = models.CharField(max_length=255,verbose_name='文章标题')
+		    body = models.TextField(verbose_name='文章内容')
+		    create_time = models.DateTimeField(verbose_name='创建时间')
+		    subject = models.ForeignKey(Subject,verbose_name='类别',null=True)
+		    tags = models.ManyToManyField(Tag,verbose_name='标签')
+		    class Meta:
+		        verbose_name_plural = '文章'
+		    def _unicode_(self):
+		        return self.name
+		这里的verbose_name_plural就是在这个结构在管理页面里的展示名称，
+		__unicode__就是这个结构里每一个对象的展示形式，直接看一下你的管理页面的效果就知道了			
+	另外我们在新建BlogPost的时候，
+		类别和标签这两项里写的是“Subject object”和"Tag object"，都不知道具体信息，
+		(未解决)
+图片管理(要申请阿里云,整段未验证)
+	我们在新建一个类别的时候要为image字段选择一张图片，
+	我们看到图片实际上上传到了根目录下。这种方式存在一些问题：
+		1）如果要在网站中展示这张图片需要为其单独指定路由；
+		2）如果网站多机部署无法实时同步数据；
+		3）如果图片很大，会耗费很多带宽，响应慢
+
+	为了解决如上问题，我们引入阿里云的对象存储OSS服务(收费,但不贵,)，
+	它的优点是有CDN加速，也就是不同地域都有镜像，访问快，而且价格低廉，可比同样的网络带宽便宜多了
+	OSS的使用请见官方文档，我这里直接贴代码，懂的可以参考，不懂的可以直接用
+	首先要在阿里云的OSS中创建一个Bucket，如selfweb-selfweb，读写权限一定要选择“公共读”
+	其次要安装oss2库，执行：
+	pip install oss2
+	然后在我们代码的根目录创建commons目录(用于放置所有公共组件)，
+	并在其中创建一个空的__init__.py(作为lib的目录都要有这个文件，否则无法import)，
+	并创建ossutils.py文件，内容如下
+		# -*- coding: utf-8 -*-
+		import oss2
+		import time
+		
+		AccessKeyId = '我的accesskey'
+		AccessKeySecret = '我的accesskey密码'
+		Endpoint = 'oss-cn-beijing.aliyuncs.com'
+		InternalEndpoint = 'oss-cn-beijing-internal.aliyuncs.com' 
+		
+		def upload_oss(bucket_name, file_name, bytes_content):
+		    """
+		    :param bucket_suffix: 区分测试环境和线上环境
+		    :param file_name: 会自动添加时钟戳
+		    :param bytes_content: 二进制的文件内容
+		    :returm: 外网可以访问的url
+		    """
+		    auth = oss2.Auth(AccessKeyId,AccessKeySecret)
+		    buck = oss2.bucket(auth, Endpoint, bucket_name)
+		    file_path = 'dynamic/' + str(int(time.time())) + '_' + file_name
+		    result = bucket.put_object(file_path, bytes_content)
+		    if result.status == 200:
+		        return 'http://' + bucket_name + '.oss-cn-beijing.aliyuncs.com' + file_path
+		    else:
+		        return None
+	重载Subject的image的上传逻辑，修改web/admin.py，引入ossuitls：
+		from commons.ossutils import upload_oss
+	声明BucketName变量下面会用到：
+		BucketName = 'selfweb_selfweb'
+	修改SubjectAdmin类，添加如下方法：
+		def save_model(self, request, obj, form, change):
+		    if 'image' in request.FILES:
+		        image_name = request.FILES['image'].name
+		        image_content = request.FILES['image'].read()
+		
+		        url = upload_oss(BucketName, image_name, image_content)
+		        if url:
+		            obj.image = url
+		
+		    super(SubjectAdmin, self).save_model(request, obj, form, change)
+	这时我们重新修改一个类目，重新上传图片，我们发现图片已经不再保存到本地文件了，
+	而在阿里云的OSS里找到了上传的文件，而在我们的数据库里存储了这个图片在阿里云OSS中的url，可以直接访问
+
+/////////至此 后台基本准备就绪，真正的前台网站开始出场了//////////
+
+模板渲染
+	模板属于mvc中的view这一层，是用来为网页布局的，
+	乍一看来就是个html页面，但是里面会嵌入模板引擎提供给我们的特殊语法。
+	模板引擎有很多，不同语言或框架都会实现自己一套，
+	还有一些通用的模板引擎，但是他们语法和功能都比较类似，
+	无非就是模板继承、模板引入、读透传的变量、循环、逻辑判断、filters、自定义标签等。
+	我们这里直接用django原生的django-template就足够了。
+	创建web/templates/web/index.html，内容如下：
+		<!DOCTYPE html>
+		<html lang="en">
+		<head>
+		    <meta charset="UTF-8">
+		    <title>Title</title>
+		</head>
+		<body>
+		<h1>Hello {{ name }}</h1>
+		</body>
+		</html>
+	修改web/views.py中的index函数如下：
+		def index(request):
+		    return render(request, 'web/index.html', {'name': 'william_huang'})
+	打开网页我们看到了一个大大的Hello william_huang
+	这里的{{}}就是变量透传的语法，直接获取到python传进去的变量。
+	另外这个模板文件的路径用的是web/index.html而不是直接index.html，
+	原因是django里多个app如果用相同的模板文件名，在python代码里指定模板名时它分辨不出是哪个，
+	所以一般把app的名字作为模板文件的目录
+模板继承
+	我们网站的所有页面都有一个共同的布局，那就是顶部是logo，底部是版权声明，
+	所以这个框架可以抽象出来一个基类模板，而所有页面模板都继承自这一模板，
+	下面我们创建这个基类模板web/templates/web/base.html，内容如下：
+		<!DOCTYPE html>
+		<html lang="zh-CN">
+		<head>
+		    <meta charset="UTF-8">
+		    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+		    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+		    <link rel="stylesheet" href="//cdn.bootcss.com/bootstrap/3.3.5/css/bootstrap.min.css">
+		    <link rel="stylesheet" href="//cdn.bootcss.com/bootstrap/3.3.5/css/bootstrap-theme.min.css">
+		    <link rel="stylesheet" href="http://netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.css">
+		    <script src="//cdn.bootcss.com/jquery/1.11.3/jquery.min.js"></script>
+		    <script src="//cdn.bootcss.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+		
+		    <title>{% block title %}selfweb - wiliam个人网站{% endblock title %}</title>
+		    {% block head %}
+		    {% endblock head %}
+		</head>
+		<body>
+		
+		<div class="row bg-primary" style="margin-right: 0">
+		    <div class="col-sm-1 col-xs-1"></div>
+		    <div class="col-sm-2 col-xs-11">
+		        <h1><a href="" style="text-decoration: none;color: white;">william_selfweb</a></h1>
+		    </div>
+		    <div class="col-sm-6"></div>
+		</div>
+		
+		{% block body %}
+		{% endblock body %}
+		
+		<div class="row" style="margin-right: 0">
+		    <div class="col-sm-2"></div>
+		    <div class="col-sm-8 col-xs-12 text-center" style="color: #959595;margin-bottom: 10px;">
+		        Copyright © <a href="">selfweb.com</a> | 京ICP备xxxxxxx号 | ccxxccxxcc@gmail.com
+		    </div>
+		</div>
+		
+		</body>
+		</html>
+	这里面有一些叫做block的代码块，它的作用是声明可重写的部分，下面你就会看到这个代码块是怎么在子模板中使用的。
+	我们重写web/templates/web/index.html：为
+		{% extends "web/base.html" %}
+
+		{% block title %}
+		{% endblock %}
+
+		{% block body %}
+		{% endblock %}
+	这里我们只是做了继承，并没有重写,所以演示只看到了
+	<div class="row bg-primary" style="margin-right: 0">
+	<div class="row" style="margin-right: 0"> 
+	这两部分,即顶部是logo，底部是版权声明
+	我们重写web/templates/web/index.html：为
+		{% extends "web/base.html" %}
+		
+		{% block title %}
+		{% endblock %}
+		
+		{% block body %}
+		    <div class="row jumbotron" style="margin-right: 0">
+		        <div class="col-md-1 col-xs-1"></div>
+		        <div class="col-md-10 col-xs-10"><h1>Welcome Big Data ITors!</h1></div>
+		        <div class="col-md-1 col-xs-1"></div>
+		    </div>
+		{% endblock %}
+	这时不但继承了,还重写添加了 body 内容
+动态数据展示
+	从数据获取tag数据，并展示到首页里。修改web/views.py的index函数，把tag数据取出来并传到模板中，如下：
+		from .models import Tag	
+		def index(request):
+		    tags = Tag.objects.all()
+		    return render(request, 'web/index.html', {'tags': tags})
+	重写web/templates/web/index.html：
+	{% extends "web/base.html" %}
+	
+	{% block title %}
+	{% endblock %}
+	
+	{% block body %}
+	
+	    <div class="row jumbotron" style="margin-right: 0">
+	        <div class="col-md-1 col-xs-1"></div>
+	        <div class="col-md-10 col-xs-10"><h1>Welcome Big Data ITors!</h1></div>
+	        <div class="col-md-1 col-xs-1"></div>
+	    </div>
+	
+	    <div class="row" style="margin-right: 0">
+	        <div class="col-sm-1 col-xs-1"></div>
+	        {% for tag in tags %}
+	            <div class="col-sm-2 col-xs-12">
+	                <div class="thumbnail">
+	                    <img src="{{ tag.image }}" alt="tag">
+	                    <div class="caption">
+	                        <h3>{{ tag }}({{ tag.blogpost_set.count }})</h3>
+	                        <p>
+	                            {% for blogpost in tag.blogpost_set.all %}
+	                                {{ blogpost.title }}
+	                            {% endfor %}
+	                        </p>
+	                        <h5>更多>>></h5>
+	                    </div>
+	                </div>
+	            </div>
+	        {% endfor %}
+	        <div class="col-sm-1 col-xs-1"></div>
+	    </div>
+	
+	{% endblock %}
+	
+重启网站服务器:
+		killall -9 uwsgi
+		uwsgi --ini selfweb/uwsgi.ini
+	登陆:http://127.0.0.1:8000 
+	可以看到便签和指定文章!!
+	显示更多内容需要去发掘，比如说为Tag添加image属性
+展示最新文章
+	为了用户能找到最新的文章，所以在所有页面的底部显示最新发表的文章，这需要修改基类模板了，
+	首先在views.py中透传latest_blog_posts变量，如下：
+		from .models import Tag
+		from .models import BlogPost
+		def index(request):
+		    tags = Tag.objects.all()
+		    latest_blog_posts = BlogPost.objects.order_by('create_time')[0:5]
+		    return render(request, 'web/index.html', {'tags': tags, 'latest_blog_posts': latest_blog_posts})
+	修改web/templates/web/base.html，在<body></body>中倒数第二位置处添加如下代码：
+	<div class="row navbar navbar-inverse" style="margin:0">
+	    <div class="row" style="margin:0">
+	        <div class="col-sm-1 col-xs-1"></div>
+	        <div class="col-sm-5 col-xs-5">
+	            <h4 style="color: #FFFFFF; border-bottom: 1px solid #695d69; padding-bottom: 10px; margin-top: 30px;">最新文章</h4>
+	            {% for blogpost in latest_blog_posts %}
+	                <div class="row" style="margin: 10px; margin-left: 0; overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+	                    <span style="color: #959595;">({{ blogpost.create_time|date:"Y-m-d" }})</span>
+	                    <a title="{{ blogpost }}" style="color: #959595;">{{ blogpost.title }}</a>
+	                </div>
+	            {% endfor %}
+	        </div>
+	        <div class="col-sm-1 col-xs-1"></div>
+	    </div>
+	</div>
+	重启网站服务器:
+	可以底下新文章的通知,二次登陆则因为检测到2次进入,所以就不再显示新文章通知
+	但好像没能显示 文章标题!!!
 
 
 
 
 
-??????
+
+
+
+?????????
  VBLANK: 显示器扫描线完成最后一行后,需要重返左上角,这个过程叫做: vblank,也叫VBI(vertical blank interval) ,因为扫描线变得blank,以防止看到一个斜线显示在屏幕上.?????
 开机没有出现小企鹅问题!!
 开发板的中断号与linux中断号的兑换表!!		 
