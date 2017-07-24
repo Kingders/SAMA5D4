@@ -10500,11 +10500,78 @@ main_xtal			1		1		12000000	0 		0
 	git config --global user.email "418128064@qq.com"
 	git config --global user.name "kingders"
 	再次git push 成功!! 终于建立好 github仓库!!!
-创建dajango工程的记录没了,回去要先补上????????
+创建 django 工程
+	django-admin startproject selfweb ~/selfweb
+		自动创建manage.py文件(一个工具脚本，不需要修改)，
+		自动创建工程总目录shareditor
+			包含了配置文件settings.py、
+			总路由配置urls.py、
+			wsgi协议配置文件wsgi.py
+在工程下创建 网站app
+	django-admin startapp web
+		自动创建web目录，并且自动帮我们组织了一些文件，包括：
+			admin.py：数据库表的后台管理类一般定义在这里
+			apps.py：这个app的配置信息，这个文件一般不动
+			migrations目录：存储数据库迁移相关的临时文件，不需要动
+			models.py：和数据库对应的model类一般定义在这里
+			tests.py：自动化脚本
+			views.py：视图层脚本，我一般会把控制逻辑写到这里
+尝试执行:
+	python manage.py runserver	//执行网站服务
+	然后登陆 http://127.0.0.1:8000就可以访问网页了	
+修改得 helloworld 例程(单进程,单线程)
+	修改web/views.py (添加一个显示函数)	
+		# by william 
+		from django.http import HttpResponse
+		
+		def index(request):
+		    return HttpResponse('hi my baby!')
+	修改路由规则:修改selfweb/urls.py
+		# by william
+		from web import views
+		
+		urlpatterns = [
+		    url(r'^admin/', admin.site.urls),
+		    # by william
+		    url(r'^$',views.index)
+		]
+	python manage.py runserver	//执行网站服务 然后登陆 http://127.0.0.1:8000测试
+设置成比较专业的高并发网站:(多进程)
+	建立selfweb/uwsgi.ini:
+		[uwsgi]
+		chdir = /home/infortech-ubuntu-1404/selfweb
+		http = 127.0.0.1:8000
+		http-keepalive = 1
+		module = selfweb.wsgi:application
+		master = ture
+		processes = 5
+		daemonize = /home/infortech-ubuntu-1404/selfweb/logs/uwsgi.log
+		disable-logging = 1
+		buffer-size = 16384
+		harakiri = 5
+		post-buffering = 8192
+		post-buffering-bufsize = 65536
+		pidfile = /home/infortech-ubuntu-1404/selfweb/logs/uwsgi.pid
+		enable-threads = true
+		single-interpreter = true
+	上述是配置了一个web容器
+	logs文件夹还没有,我们mkdir 一个
+	然后执行 启动命令:
+	uwsgi --ini selfweb/uwsgi.ini	//得到如下log:
+	[uWSGI] getting INI configuration from selfweb/uwsgi.ini
+	多进程 网站服务 已经在后台启动了!! 登陆 http://127.0.0.1:8000可测试
+	ps ux|grep uwsgi 可以查看正在工作的进程
+	关闭 uwsgi 启动的网站服务:
+		killall -9 uwsgi
+	扩展:(先不研究)
+	另外为了让我们的网站具有高可用性(高可用就是挂掉一台机器不影响服务)，一台机器启动服务还不行，
+	我们至少要部署两台完全对等的web服务来同时提供服务，
+	那么用户在浏览器里访问时到底访问的是哪个机器呢？这里有两种实现方案，
+	一种是配置DNS记录，同一个域名对应多个ip，那么当一个ip不可用时浏览器会自动尝试另外的ip，
+	还有一种方法就是通过稳定的代理服务器(如nginx、apache httpd等)来配置成一个负载均衡代理，对外暴露的一个ip，对内连接到多台web服务器
 	uwsg.ini 里要用绝对路径我去!!!
-	ps ux | grep uwsgi //查看
-	关 uwsgi : killall -9 uwsgi
-
+		ps ux | grep uwsgi //查看  uwsgi
+		uwsgi : killall -9 uwsgi	//关闭uwsgi
 加入数据库 mysql:
 	先登陆数据库命令行处理界面
 	mysql -u root -p	//以数据库root 登陆 后续提示填写root密码:362951847
@@ -10988,7 +11055,7 @@ main_xtal			1		1		12000000	0 		0
 	            {% for blogpost in latest_blog_posts %}
 	                <div class="row" style="margin: 10px; margin-left: 0; overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
 	                    <span style="color: #959595;">({{ blogpost.create_time|date:"Y-m-d" }})</span>
-	                    <a title="{{ blogpost }}" style="color: #959595;">{{ blogpost.title }}</a>
+	                    <a title="{{ blogpost }}" style="color: #959595;">{{ blogpost.title }}</a>		/*显示标题设置*/
 	                </div>
 	            {% endfor %}
 	        </div>
@@ -10996,11 +11063,832 @@ main_xtal			1		1		12000000	0 		0
 	    </div>
 	</div>
 	重启网站服务器:
-	可以底下新文章的通知,二次登陆则因为检测到2次进入,所以就不再显示新文章通知
-	但好像没能显示 文章标题!!!
+	可以底下新文章的通知,显示了时间和文章标题二次登陆则因为检测到2次进入,所以就不再显示新文章通知
+建立路由:
+	目前为止,首页显示的文章内容,很多都没有建立链接到指定的页面上,接下来做这方面的工作!!
+指定标签的文章列表页路由
+	上一节完成的首页部分每个标签有对应的一块展示区域，
+	希望点击标题可以进入到这个标签的文章列表页。
+	定义如下路由规则，修改selfweb/urls.py，为urlpatterns增加如下一行：
+		url(r'^bloglistbytag', views.blog_list_by_tag, name='blog_list_by_tag'),	//数组成员里加","是一个好习惯
+	意思是说对于url路径为bloglistbytag的网页，直接调用views.blog_list_by_tag来执行逻辑。
+	其中的name是用来在模板中利用“url”模板语法使用的，马上会看到
+	在web/views.py中添加如下函数：
+		def blog_list_by_tag(request):
+		    if 'tagname' in request.GET:
+		        tag_name = request.GET['tagname']
+		        blog_posts = BlogPost.objects.filter(tags__name=tag_name)
+		        latest_blog_posts = BlogPost.objects.order_by('create_time')[0:5]
+		        return render(request, 'web/blog_list_by_tag.html', {'tag_name': tag_name, 'blog_posts': blog_posts,
+		                                                             'latest_blog_posts': latest_blog_posts})
+		    else:
+		        return HttpResponse('404')
+	这里首先通过获取GET请求的tagname参数来获取到标签名，然后通过model层查询数据库获取导数据，
+	并通过web/templates/web/blog_list_by_tag.html这个模板来渲染的，这个模板如下样子：
+		{% extends "web/base.html" %}
+		
+		{% block title %}
+		    {{ tag_name }}
+		{% endblock %}
+		
+		{% block body %}
+		
+		    <div class="row" style="margin-right: 0">
+		        <div class="col-sm-3 col-xs-1"></div>
+		        <div class="col-sm-6 col-xs-10">
+		            <h1>{{ tag_name }}</h1>
+		        </div>
+		        <div class="col-sm-3 col-xs-1"></div>
+		    </div>
+		
+		    <div class="row" style="margin-right: 0">
+		        <div class="col-sm-3 col-xs-1"></div>
+		        <div class="col-sm-6 col-xs-10">
+		            {% for blog_post in blog_posts %}
+		                <h4><a href="">{{ blog_post.title }}</a>({{ blog_post.create_time|date:'Y-m-d' }})</h4>
+		            {% endfor %}
+		        </div>
+		    </div>
+		
+		{% endblock %}
+	重启网站服务器:
+	http://127.0.0.1:8000/bloglistbytag?tagname=hh  //打开标签为hh的文章列表页面
+	由此看路由已经建立好!!
+	通过首页链接进到这个列表页,我们修改web/templates/web/index.html:
+		<h3>{{ tag }}({{ tag.blogpost_set.count }})</h3>
+	改成:
+		<h3><a href="{% url 'blog_list_by_tag' %}?tagname={{ tag }}">{{ tag }}({{ tag.blogpost_set.count }})</a></h3>
+	由此可见,当路由建立好后 <a href=""></a> 是添加连接路径的 !!!
+	由于html 是经过浏览器实时解释渲染的,所以随意修改html 不用重启网站服务器就可以测试!!
+文章详情页的路由:
+	添加web/templates/web/blog_show.html:
+		{% extends "web/base.html" %}
+		
+		{% block title %}
+		    {{ blog_post }} - SharEDITor - 关注大数据技术
+		{% endblock %}
+		
+		{% block body %}
+		
+		    <div class="row">
+		        <div class="col-sm-2 col-xs-1"></div>
+		        <div class="col-sm-6 col-xs-10">
+		            <div class="row">
+		                <div class="col-sm-12 col-xs-12">
+		                    <div class="row">
+		                        <h1>{{ blogpost.title }}</h1>
+		                    </div>
+		                    <div class="row">
+		                        <a class="btn btn-info btn-xs">{{ blog_post.subject.name }}</a>
+		                        {% for tag in blog_post.tags.all %}
+		                            <a class="btn btn-warning btn-xs" href="{% url 'blog_list_by_tag' %}?tagname={{ tag }}">
+		                                {{ tag.name }}
+		                            </a>
+		                        {% endfor %}
+		                        <small>发表于 {{ blog_post.create_time|date:"Y-m-d H:i:s" }}</small>
+		                        <small>阅读{{ blog_post.pv }}次</small>
+		                    </div>
+		
+		                    <div class="row">
+		                        <hr/>
+		                    </div>
+		
+		                    <div class="row">
+		                        <div class="row">
+		                            <div class="col-sm-12 col-xs-12">
+		                                <img style="width: 100%; height: 100%;" src="{{ blog_post.image }}">
+		                            </div>
+		                        </div>
+		                        {{ blog_post.abstract }}
+		                        <br />
+		                        {{ blog_post.body }}
+		                    </div>
+		                </div>
+		            </div>
+		            <div class="row">
+		                <div class="col-sm-6 col-xs-6">
+		                    <span style="color:#aaaaaa;">前一篇:</span>
+		                    {% if prev_blog_post.first != null %}
+		                        <a href="">{{ prev_blog_post.first }}</a>
+		                    {% endif %}
+		                </div>
+		                <div class="text-right col-sm-6 col-xs-6">
+		                    <span style="color:#aaaaaa;">后一篇:</span>
+		                    {% if next_blog_post.first != null %}
+		                        <a href="">{{ next_blog_post.first }}</a>
+		                    {% endif %}
+		                </div>
+		            </div>
+		
+		            <!--PC和WAP自适应版-->
+		            <div id="SOHUCS" sid="{{ blog_post.id }}" ></div>
+		            <script type="text/javascript">
+		             (function(){
+		                    var appid = 'cysV8S2ux';
+		                    var conf = 'prod_bd659405e413a4b27a3568e27185b632';
+		                    var width = window.innerWidth || document.documentElement.clientWidth;
+		                    if (width < 960) {
+		                        window.document.write('<script id="changyan_mobile_js" charset="utf-8" type="text/javascript" src="http://changyan.sohu.com/upload/mobile/wap-js/changyan_mobile.js?client_id=' + appid + '&conf=' + conf + '"><\/script>'); } else { var loadJs=function(d,a){var c=document.getElementsByTagName("head")[0]||document.head||document.documentElement;var b=document.createElement("script");b.setAttribute("type","text/javascript");b.setAttribute("charset","UTF-8");b.setAttribute("src",d);if(typeof a==="function"){if(window.attachEvent){b.onreadystatechange=function(){var e=b.readyState;if(e==="loaded"||e==="complete"){b.onreadystatechange=null;a()}}}else{b.onload=a}}c.appendChild(b)};loadJs("http://changyan.sohu.com/upload/changyan.js",function(){window.changyan.api.config({appid:appid,conf:conf})}); } })();
+		            </script>
+		        </div>
+		
+		        <div class="col-sm-2 hidden-xs">
+		            <br/>
+		            <div class="row">
+		                <div class="col-sm-8">
+		                    <h4>官方微信公众号</h4>
+		                    <a href="http://shareditor-shareditor.oss-cn-beijing.aliyuncs.com/dynamic/weixinpub.jpg">
+		                        <img width="90%" height="90%" src="http://shareditor-shareditor.oss-cn-beijing.aliyuncs.com/dynamic/weixinpub.jpg">
+		                    </a>
+		                </div>
+		                <div class="col-sm-1">
+		                    <div class="row">
+		                        <a href="https://github.com/warmheartli">
+		                            <div class="fa fa-github fa-3x" style="margin-top: 20px;"></div>
+		                        </a>
+		                    </div>
+		                    <div class="row">
+		                        <a href="http://weibo.com/chuangwanglaile">
+		                            <div class="fa fa-weibo fa-3x" style="margin-top: 20px;"></div>
+		                        </a>
+		                    </div>
+		                </div>
+		            </div>
+		            <hr/>
+		            <h4>
+		                {% for tag in blog_post.tags.all %}
+		                    系列:{{ tag.name }}
+		                {% endfor %}
+		            </h4>
+		            <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+		                {% for tag_blog_post in tag_blog_posts %}
+		                    {% if tag_blog_post.id == blog_post.id %}
+		                        <h6 style="color: red;">{{ tag_blog_post }}</h6>
+		                    {% else %}
+		                        <h6><a href="{% url 'blog_show' %}?blogId={{ tag_blog_post.id }}">{{ tag_blog_post }}</a></h6>
+		                    {% endif %}
+		                {% endfor %}
+		            </div>
+		            <h4>全部系列</h4>
+		            {% for tag in tags %}
+		                <h6><a href="{% url 'blog_list_by_tag' %}?tagname={{ tag.name }}">{{ tag.name }}</a></h6>
+		            {% endfor %}
+		        </div>
+		    </div>
+		
+		{% endblock %}
+	在selfweb/urls.py，为urlpatterns增加如下一行：
+		    url(r'^blogshow', views.blog_show, name='blog_show'),
+	在web/views.py中添加如下函数：
+	def blog_show(request):
+	    if 'blogId' in request.GET:
+	        blog_id = request.GET['blogId']
+	        blog_post = BlogPost.objects.get(id=blog_id)
+	        latest_blog_posts = BlogPost.objects.order_by('create_time')[0:5]
+	        tag_blog_posts = BlogPost.objects.filter(tags__name=blog_post.tags.first())
+	        tags = Tag.objects.all()
+	        prev_blog_post = BlogPost.objects.filter(tags__name=blog_post.tags.first()).filter(id__gt=blog_post.id).order_by('id')[0:1]
+	        next_blog_post = BlogPost.objects.filter(tags__name=blog_post.tags.first()).filter(id__gt=blog_post.id).order_by('id').reverse()[0:1]
+	        return render(request, 'web/blog_show.html', {'blog_post': blog_post, 'latest_blog_posts': latest_blog_posts,
+	                                                      'tag_blog_posts': tag_blog_posts, 'tags': tags,
+	                                                      'prev_blog_post': prev_blog_post, 'next_blog_post': next_blog_post})
+	    else:
+	        return HttpResponse('404')
+	添加 <a href=""></a> 链接:
+		web/templates/web/index.html:
+                        <p>
+                            {% for blogpost in tag.blogpost_set.all %}
+                                {{ blogpost.title }}
+                            {% endfor %}
+                        </p>
+		改成:
+			<p>
+			    {% for blog_post in tag.blogpost_set.all %}
+			        <a href="{% url 'blog_show' %}?blogId={{ blog_post.id }}">
+			            {{ blog_post.title }}
+			        </a>
+			    {% endfor %}
+			</p>
+		web/templates/web/blog_list_by_tag.html:
+	                <h4><a href="">{{ blog_post.title }}</a>({{ blog_post.create_time|date:'Y-m-d' }})</h4>
+		改成:
+			<h4><a href="{% url 'blog_show' %}?blogId={{ blog_post.id }}">
+			       {{ blog_post.title }}
+			    </a>
+			    ({{ blog_post.create_time|date:'Y-m-d' }})
+			</h4>
+	重启网站服务器测试!! 
+	成功!!!
+	通过,blog_show.html 可以看到典型的网站设计规则
+javascript学习:
+	javascript可写在 <head>段,或者<body>段
+	注意javascript 自带一个基础框架库,可直接使用依稀基础函数,如果要使用其他框架库,例如jquery,就要加载框架
+	javascript与 html 的接口 一般是指 onclick,onmouseover,onload,onchange,onmousout,onmousedown、onmouseup
+JS HTML DOM 和浏览器BOM:
+	其实就是我们上述认为的 javascript 自带一个基础框架库DOM,提供多种种函数动态改变 HTML 页内容,
+	也可以改变 css内容
+	浏览器BOM 提供的是与浏览器有关的 javascript 基础框架库
+json学习:
+	json是一种特殊的数据格式标准,方便各类语言引擎执行数据处理和网络传输,
+	规范了大规模数据处理和传输,能直接被javascript直接处理,与javascript对象无缝转换
+	但并不能说是javascript语法标准之一!!	
+jquery学习:
+	jquery是javascript 应用框架,网页使用前,需要加载框架
+	<script src="https://cdn.bootcss.com/jquery/1.10.2/jquery.min.js"></script>
+	一般选择使用远程框架文件,而不要选择本地框架文件
+	然后下一个<script></script>内就可以填写jquery提供的执行函数了
+	一般scropt脚本都会放在html的前部位置	
+	jQuery 使用 $ 符号作为 jQuery 的简写,但是也有很多其他javascript使用$作为简写标识符号,
+		这时可通过nocondflict()来释放简写符,让给其他框架,例如以下一段代码:
+		<head>
+		<meta charset="utf-8">
+		<script src="https://cdn.bootcss.com/jquery/1.10.2/jquery.min.js"></script>
+		<script>
+		$.noConflict();
+		jQuery(document).ready(function(){
+		  jQuery("button").click(function(){
+		    jQuery("p").text("jQuery 仍然在工作!");
+		  });
+		});
+		</script>
+		</head>
+		您也可以创建自己的简写。noConflict() 可返回对 jQuery 的引用，您可以把它存入变量，以供稍后使用。例如:
+		<script>
+		var jq = $.noConflict();
+		jq(document).ready(function(){
+		  jq("button").click(function(){
+		    jq("p").text("jQuery 仍然在工作!");
+		  });
+		});
+		</script>	
+	jquery选择器,其实就是 jqurey(xx) 或 $(xx) 中的xx变量格式:
+		1.基本选择器
+		$("#id")            //ID选择器
+		$("div")            //元素选择器
+		$(".classname")     //类选择器
+		$(".classname,.classname1,#id1")     //组合选择器
+		2.层次选择器
+		$("#id>.classname ")    //子元素选择器
+		$("#id .classname ")    //后代元素选择器
+		$("#id + .classname ")    //紧邻下一个元素选择器
+		$("#id ~ .classname ")    //兄弟元素选择器
+		3.过滤选择器(重点)
+		$("li:first")    //第一个li
+		$("li:last")     //最后一个li
+		$("li:even")     //挑选下标为偶数的li
+		$("li:odd")      //挑选下标为奇数的li
+		$("li:eq(4)")    //下标等于4的li
+		$("li:gt(2)")    //下标大于2的li
+		$("li:lt(2)")    //下标小于2的li
+		$("li:not(#runoob)") //挑选除 id="runoob" 以外的所有li
+		3.2内容过滤选择器
+		$("div:contains('Runob')")    // 包含 Runob文本的元素
+		$("td:empty")                 //不包含子元素或者文本的空元素
+		$("div:has(selector)")        //含有选择器所匹配的元素
+		$("td:parent")                //含有子元素或者文本的元素
+		3.3可见性过滤选择器
+		$("li:hidden")       //匹配所有不可见元素，或type为hidden的元素
+		$("li:visible")      //匹配所有可见元素
+		3.4属性过滤选择器
+		$("div[id]")        //所有含有 id 属性的 div 元素
+		$("div[id='123']")        // id属性值为123的div 元素
+		$("div[id!='123']")        // id属性值不等于123的div 元素
+		$("div[id^='qq']")        // id属性值以qq开头的div 元素
+		$("div[id$='zz']")        // id属性值以zz结尾的div 元素
+		$("div[id*='bb']")        // id属性值包含bb的div 元素
+		$("input[id][name$='man']") //多属性选过滤，同时满足两个属性的条件的元素
+		3.5状态过滤选择器
+		$("input:enabled")    // 匹配可用的 input
+		$("input:disabled")   // 匹配不可用的 input
+		$("input:checked")    // 匹配选中的 input
+		$("option:selected")  // 匹配选中的 option
+		4.表单选择器
+		$(":input")      //匹配所有 input, textarea, select 和 button 元素
+		$(":text")       //所有的单行文本框，$(":text") 等价于$("[type=text]")，推荐使用$("input:text")效率更高，下同
+		$(":password")   //所有密码框
+		$(":radio")      //所有单选按钮
+		$(":checkbox")   //所有复选框
+		$(":submit")     //所有提交按钮
+		$(":reset")      //所有重置按钮
+		$(":button")     //所有button按钮
+		$(":file")       //所有文件域
+AJAX学习:
+	AJAX = 异步 JavaScript 和 XML（Asynchronous JavaScript and XML）。
+	简短地说，在不重载整个网页的情况下，AJAX 通过后台加载数据，并在网页上进行显示。
+	jQuery 提供多个与 AJAX 有关的方法:
+	$(selector).load(URL,data,callback); 
+	例如:	
+		$("#div1").load("demo_test.txt"); 把文件 "demo_test.txt" 的内容加载到指定的 <div> 元素中
+		$("#div1").load("demo_test.txt #p1");把 "demo_test.txt" 文件中 id="p1" 的元素的内容，加载到指定的 <div> 元素中：
+		下面的例子会在 load() 方法完成后显示一个提示框。如果 load() 方法成功，显示"外部内容加载成功！"，否则，则显示错误消息：
+		$("button").click(function(){
+		  $("#div1").load("demo_test.txt",function(responseTxt,statusTxt,xhr){
+		    if(statusTxt=="success")
+		      alert("外部内容加载成功!");
+		    if(statusTxt=="error")
+		      alert("Error: "+xhr.status+": "+xhr.statusText);
+		  });
+		});
+		
+	$.get(URL,callback);	获取 URL 地址上 的内容
+	$.post(URL,data,callback);	把data post到 URL地址上,服务器经过处理后,返回处理后的内容!!!
+	还有关于处理XML典型操作,例如:
+		先新建一个request:
+			xmlhttp=new XMLHttpRequest();
+		然后指定 递出请求然后从服务器所有数据后,执行的处理函数
+ 			xmlhttp.onreadystatechange=function()=function(){...}
+		指出请求是获取一个文本:
+			xmlhttp.open("GET","/try/ajax/ajax_info.txt",true);
+		发出请求:
+			xmlhttp.send();
+Node.js学习:
+	是一个服务端javascript
+	就是说,语法,使用javascript标准,但是就像python java 一样有一个解释机,
+	写一个javascript脚本文档出来,可以通过node解释机执行!!!
+
+css学习:
+	css是一种网页样式脚本: 一般的写法是 在 <style></style> 句柄里添加脚本内容
+	例如:
+	<!DOCTYPE html>
+	<html>
+	<head>
+	<meta charset="utf-8"> 
+	<title>菜鸟教程(runoob.com)</title> 
+	<style>
+	h1		//这里设置 h1 标识段内容的 样式脚本
+	{
+		background-color:#6495ed;
+	}
+	p		//这里设置 p 标识段内容的 样式脚本
+	{
+		background-color:#e0ffff;
+	}
+	div		//这里设置 div 标识段内容的 样式脚本
+	{
+		background-color:#b0c4de;
+	}
+	</style>
+	</head>
+	
+	<body>
+	
+	<h1>CSS background-color 实例!</h1>
+	<div>
+	该文本插入在 div 元素中。
+	<p>该段落有自己的背景颜色。</p>
+	我们仍然在同一个 div 中。
+	</div>
+	
+	</body>
+	</html>
+正则表达式学习:
+	常用搜索通配符:?和*,例如:
+	像 data?.dat 这样的模式将查找下列文件：
+		data1.dat
+		data2.dat
+		datax.dat
+		dataN.da 
+	使用 * 字符代替 ? 字符扩大了找到的文件的数量。data*.dat 匹配下列所有文件：
+		data.dat
+		data1.dat
+		data2.dat
+		data12.dat
+		datax.dat
+		dataXYZ.dat
+	但是,正则表达式中 ? 和 * 与上述的用法有区别!!!!!!
+	通用表达符:	
+		.	//匹配除换行符 \n 之外的任何单字符。要匹配 . ，请使用 \. 。
+		[ ]	//标记一个中括号表达式的开始。要匹配 [，请使用 \[。
+		^	//匹配输入字符串的开始位置，除非在方括号表达式中使用，此时它表示不接受该字符集合。要匹配 ^ 字符本身，请使用 \^。
+		$	//匹配输入字符串的结尾位置。如果设置了 RegExp 对象的 Multiline 属性，则 $ 也匹配 '\n' 或 '\r'。
+			//要匹配 $ 字符本身，请使用 \$。
+		?	//匹配前面的子表达式零次或一次，或指明一个非贪婪限定符。要匹配 ? 字符，请使用 \?。
+			//例如 colou?r 可以匹配 color 或者 colour，? 问号代表前面的字符最多只可以出现一次（0次、或1次）。
+		+	//匹配前面的子表达式一次或多次。要匹配 + 字符，请使用 \+。
+			//例如 runoo+b，可以匹配 runoob、runooob、runoooooob 等，+ 号代表前面的字符必须至少出现一次（1次或多次）。
+		*	//匹配前面的子表达式零次或多次。要匹配 * 字符，请使用 \*。
+			//例如 runoo*b，可以匹配 runob、runoob、runoooooob 等，* 号代表字符可以不出现，
+			//	也可以出现一次或者多次（0次、或1次、或多次）。
+		{}	//标记限定符表达式的开始。要匹配 {，请使用 \{。
+			//{n} 	n 是一个非负整数。匹配确定的 n 次。例如，'o{2}' 不能匹配 "Bob" 中的 'o'，但是能匹配 "food" 中的两个 o。
+			//{n,} 	n 是一个非负整数。至少匹配n 次。例如，'o{2,}' 不能匹配 "Bob" 中的 'o'，
+			//	但能匹配 "foooood" 中的所有 o。'o{1,}' 等价于 'o+'。'o{0,}' 则等价于 'o*'。
+			//{n,m} m 和 n 均为非负整数，其中n <= m。最少匹配 n 次且最多匹配 m 次。
+			//	例如，"o{1,3}" 将匹配 "fooooood" 中的前三个 o。'o{0,1}' 等价于 'o?'。请注意在逗号和两个数之间不能有空格。
+		|	//指明两项之间的一个选择。要匹配 |，请使用 \|。
+		( )	//标记一个子表达式的开始和结束位置。子表达式可以获取供以后使用。要匹配这些字符，请使用 \( 和 \)。
+		\
+			// \*   代表*符号本身!! \加符号时(?,>,*,&...)表示转义字符意思,
+			// \cx 	匹配由x指明的控制字符。例如， \cM 匹配一个 ctrl+m(即回车符)。
+			//	x 的值必须为 A-Z 或 a-z 之一。否则，将 c 视为一个原义的 'c' 字符。
+			// \f 	匹配一个换页符。等价于 \x0c 和 \cL。
+			// \n 	匹配一个换行符。等价于 \x0a 和 \cJ。
+			// \r 	匹配一个回车符。等价于 \x0d 和 \cM。
+			// \s 	匹配任何空白字符，包括空格、制表符、换页符等等。等价于 [ \f\n\r\t\v]。
+			// \S 	匹配任何非空白字符。等价于 [^ \f\n\r\t\v]。
+			// \t 	匹配一个制表符。等价于 \x09 和 \cI。
+			// \v 	匹配一个垂直制表符。等价于 \x0b 和 \cK。
+			// \b 	匹配一个字边界，即字与空格间的位置,或空格与字的位置
+			// \B 	非字边界匹配。
+	更加具体理论的 通用表达符说明 :	
+		\ 	将下一个字符标记为一个特殊字符、或一个原义字符、或一个 向后引用、或一个八进制转义符。
+			例如，'n' 匹配字符 "n"。'\n' 匹配一个换行符。序列 '\\' 匹配 "\" 而 "\(" 则匹配 "("。
+		^ 	匹配输入字符串的开始位置。如果设置了 RegExp 对象的 Multiline 属性，^ 也匹配 '\n' 或 '\r' 之后的位置。
+		$ 	匹配输入字符串的结束位置。如果设置了RegExp 对象的 Multiline 属性，$ 也匹配 '\n' 或 '\r' 之前的位置。
+		* 	匹配前面的子表达式零次或多次。例如，zo* 能匹配 "z" 以及 "zoo"。* 等价于{0,}。
+		+ 	匹配前面的子表达式一次或多次。例如，'zo+' 能匹配 "zo" 以及 "zoo"，但不能匹配 "z"。+ 等价于 {1,}。
+		? 	匹配前面的子表达式零次或一次。例如，"do(es)?" 可以匹配 "do" 或 "does" 中的"do" 。? 等价于 {0,1}。
+		{n} 	n 是一个非负整数。匹配确定的 n 次。例如，'o{2}' 不能匹配 "Bob" 中的 'o'，但是能匹配 "food" 中的两个 o。
+		{n,} 	n 是一个非负整数。至少匹配n 次。例如，'o{2,}' 不能匹配 "Bob" 中的 'o'，
+			但能匹配 "foooood" 中的所有 o。'o{1,}' 等价于 'o+'。'o{0,}' 则等价于 'o*'。
+		{n,m} 	m 和 n 均为非负整数，其中n <= m。最少匹配 n 次且最多匹配 m 次。
+			例如，"o{1,3}" 将匹配 "fooooood" 中的前三个 o。'o{0,1}' 等价于 'o?'。请注意在逗号和两个数之间不能有空格。
+		? 	当该字符紧跟在任何一个其他限制符 (*, +, ?, {n}, {n,}, {n,m}) 后面时，匹配模式是非贪婪的。
+			非贪婪模式尽可能少的匹配所搜索的字符串，而默认的贪婪模式则尽可能多的匹配所搜索的字符串。
+			例如，对于字符串 "oooo"，'o+?' 将匹配单个 "o"，而 'o+' 将匹配所有 'o'。
+		. 	匹配除 "\n" 之外的任何单个字符。要匹配包括 '\n' 在内的任何字符，请使用像"(.|\n)"的模式。
+		(pattern) 	匹配 pattern 并获取这一匹配。所获取的匹配可以从产生的 Matches 集合得到，
+				在VBScript 中使用 SubMatches 集合，在JScript 中则使用 $0…$9 属性。要匹配圆括号字符，请使用 '\(' 或 '\)'。
+		(?:pattern) 	匹配 pattern 但不获取匹配结果，也就是说这是一个非获取匹配，不进行存储供以后使用。
+				这在使用 "或" 字符 (|) 来组合一个模式的各个部分是很有用。
+				例如， 'industr(?:y|ies) 就是一个比 'industry|industries' 更简略的表达式。
+		(?=pattern) 	正向预查，在任何匹配 pattern 的字符串开始处匹配查找字符串。
+				这是一个非获取匹配，也就是说，该匹配不需要获取供以后使用。
+				例如，'Windows (?=95|98|NT|2000)' 能匹配 "Windows 2000" 中的 "Windows" ，
+				但不能匹配 "Windows 3.1" 中的 "Windows"。预查不消耗字符，
+				也就是说，在一个匹配发生后，在最后一次匹配之后立即开始下一次匹配的搜索，而不是从包含预查的字符之后开始。
+		(?!pattern) 	负向预查，在任何不匹配 pattern 的字符串开始处匹配查找字符串。
+				这是一个非获取匹配，也就是说，该匹配不需要获取供以后使用。
+				例如'Windows (?!95|98|NT|2000)' 能匹配 "Windows 3.1" 中的 "Windows"，
+				但不能匹配 "Windows 2000" 中的 "Windows"。预查不消耗字符，
+				也就是说，在一个匹配发生后，在最后一次匹配之后立即开始下一次匹配的搜索，而不是从包含预查的字符之后开始。
+		x|y 	匹配 x 或 y。例如，'z|food' 能匹配 "z" 或 "food"。'(z|f)ood' 则匹配 "zood" 或 "food"。
+		[xyz] 	字符集合。匹配所包含的任意一个字符。例如， '[abc]' 可以匹配 "plain" 中的 'a'。
+		[^xyz] 	负值字符集合。匹配未包含的任意字符。例如， '[^abc]' 可以匹配 "plain" 中的'p'、'l'、'i'、'n'。
+		[a-z] 	字符范围。匹配指定范围内的任意字符。例如，'[a-z]' 可以匹配 'a' 到 'z' 范围内的任意小写字母字符。
+		[^a-z] 	负值字符范围。匹配任何不在指定范围内的任意字符。例如，'[^a-z]' 可以匹配任何不在 'a' 到 'z' 范围内的任意字符。
+		\b 	匹配一个单词边界，也就是指单词和空格间的位置。例如， 'er\b' 可以匹配"never" 中的 'er'，但不能匹配 "verb" 中的 'er'。
+		\B 	匹配非单词边界。'er\B' 能匹配 "verb" 中的 'er'，但不能匹配 "never" 中的 'er'。
+		\cx 	匹配由 x 指明的控制字符。例如， \cM 匹配一个 Control-M 或回车符。x 的值必须为 A-Z 或 a-z 之一。
+			否则，将 c 视为一个原义的 'c' 字符。
+		\d 	匹配一个数字字符。等价于 [0-9]。
+		\D 	匹配一个非数字字符。等价于 [^0-9]。
+		\f 	匹配一个换页符。等价于 \x0c 和 \cL。
+		\n 	匹配一个换行符。等价于 \x0a 和 \cJ。
+		\r 	匹配一个回车符。等价于 \x0d 和 \cM。
+		\s 	匹配任何空白字符，包括空格、制表符、换页符等等。等价于 [ \f\n\r\t\v]。
+		\S 	匹配任何非空白字符。等价于 [^ \f\n\r\t\v]。
+		\t 	匹配一个制表符。等价于 \x09 和 \cI。
+		\v 	匹配一个垂直制表符。等价于 \x0b 和 \cK。
+		\w 	匹配包括下划线的任何单词字符。等价于'[A-Za-z0-9_]'。
+		\W 	匹配任何非单词字符。等价于 '[^A-Za-z0-9_]'。
+		\xn 	匹配 n，其中 n 为十六进制转义值。十六进制转义值必须为确定的两个数字长。
+			例如，'\x41' 匹配 "A"。'\x041' 则等价于 '\x04' & "1"。正则表达式中可以使用 ASCII 编码。
+		\num 	匹配 num，其中 num 是一个正整数。对所获取的匹配的引用。例如，'(.)\1' 匹配两个连续的相同字符。
+		\n 	标识一个八进制转义值或一个向后引用。如果 \n 之前至少 n 个获取的子表达式，则 n 为向后引用。
+			否则，如果 n 为八进制数字 (0-7)，则 n 为一个八进制转义值。
+		\nm 	标识一个八进制转义值或一个向后引用。如果 \nm 之前至少有 nm 个获得子表达式，则 nm 为向后引用。
+			如果 \nm 之前至少有 n 个获取，则 n 为一个后跟文字 m 的向后引用。
+			如果前面的条件都不满足，若 n 和 m 均为八进制数字 (0-7)，则 \nm 将匹配八进制转义值 nm。
+		\nml 	如果 n 为八进制数字 (0-3)，且 m 和 l 均为八进制数字 (0-7)，则匹配八进制转义值 nml。
+		\un 	匹配 n，其中 n 是一个用四个十六进制数字表示的 Unicode 字符。例如， \u00A9 匹配版权符号 (?)。
+	表达符号的优先级:(从高到低排)
+		\ 				转义符
+		(), (?:), (?=), [] 		圆括号和方括号
+		*, +, ?, {n}, {n,}, {n,m} 	限定符
+		^, $, \任何元字符、任何字符 	定位点和序列（即：位置和顺序）
+		| 				替换，"或"操作
+						字符具有高于替换运算符的优先级，使得"m|food"匹配"m"或"food"。
+						若要匹配"mood"或"food"，请使用括号创建子表达式，从而产生"(m|f)ood"。
+		(注意,同级别的,从左到右进行运算) 
+	实战:
+		/Chapter [1-9][0-9]*/	//注意 需要用前后的"/"符号包住中间的正则表达式,是一种规范写法!!
+					//这表达式表示除了匹配 Chapter 1  至  Chapter 99 的范围,还有例如可匹配到
+					//Chapter 133 , Chapter 288888 , chapter 5777777777 , 等这些奇怪的字符串 	
+		/Chapter [0-9]{1,2}/	//这表达式表示只匹配 Chapter 0  至  Chapter 99 的范围!!!
+		/Chapter [1-9][0-9]?/		//这表达式表示 Chapter 1  至  Chapter 99 的范围!!!
+		/Chapter [1-9][0-9]{0,1}/	//这表达式表示 Chapter 1  至  Chapter 99 的范围!!!
+		/<.*>/		//下面的表达式匹配从开始小于符号 (<) 到关闭 H1 标记的大于符号 (>) 之间的所有内容
+				//	即可以匹配整句 <H1>Chapter 1 - 介绍正则表达式</H1>	
+				//注意,这里的 * 是指后接0个或多个 . 表达式符,即后接0个或多个任意字符,所以可以匹配整句,
+		/<.*?>/		//这里 学习 最少匹配概念, *? 或者 +? 都是最小匹配组合符!!!
+				//比如 	<H1>Chapter 1 - 介绍正则表达式</H1>,
+				//这里 就只会匹配到 <H1> 而已, 而不会匹配整句!!!
+		/<\w+?>/	//同样也是最少匹配 , <H1>Chapter 1 - 介绍正则表达式</H1>, 一句,只会匹配到 <H1> 而已
+				// \W 也表示字符类, 与 . 是一样的意思
+		/\bCha/		//可以匹配到单词 Chapter 的Cha 
+		/ter\b/		//可以匹配到单词 Chapter 的ter
+		/\Bapt/		//可以匹配到单词 Chapter 的apt ,但不能匹配单词 aptitude 中的字符串 apt
+	javascript实战:
+		1,
+		<script>
+		var str = "Is is the cost of of gasoline going up up";
+		var patt1 = /\b([a-z]+) \1\b/ig;
+		document.write(str.match(patt1));
+		</script>
+		//  /\b([a-z]+) \1\b/ig 匹配出 Is is,of of,up up 并显示
+		//第一个\b 是空格与字符的字边界,第二个\b 是字符与控股的边界
+		// ([a-z]+) 很明显指的是 Is is of up
+		// \1 指的是第一个子匹配项 即 ([a-z]+)
+		// 没有 后面的ig时, /\b([a-z]+) \1\b/ 只会匹配到 Is is 一条!!!!
+		// i只不区分大小写,g指全局, 全局指最多次遍历匹配, 于是把 of of,up up 这两条也匹配出来!!!
+		// 最终得到一个包含两个数据的数组:
+		//	patt1[0] = "Is is,of of,up up"
+		//	patt1[1] = "up"
+		2,
+		<script>
+		var str = "http://www.runoob.com:80/html/html-tutorial.html";
+		var patt1 = /(\w+):\/\/([^/:]+)(:\d*)?([^# ]*)/;
+		arr = str.match(patt1);
+		for (var i = 0; i < arr.length ; i++) {
+		    document.write(arr[i]);
+			document.write("<br>");
+		}
+		</script>
+		// /(\w+):\/\/([^/:]+)(:\d*)?([^# ]*)/ 完全匹配 http://www.runoob.com:80/html/html-tutorial.html
+		// (\w+):\/\/	匹配出 	http://    其中 (\w+)匹配出http
+		// ([^/:]+)  中 [^/:] 的^在这里并没有开头的意思,但 ^/: 指从此处开始,匹配不包括 / 和 : 这两个符号的意思
+		//	所以,这时+相当于 一个或多个[^/:] 的意思,于是 连续匹配了 www.runoob.com,
+		//	遇到:的时候,^/:不满足,所以打住了,
+		//	所以 ([^/:]+) 匹配了 www.runoob.com
+		//(:\d*)?	匹配出 :80 , 
+		//	首先 / 和 : 符号在正则方程里就是纯粹 / 和 : 符号, 没有其他意思,也不需要使用转义字符 \ 去表达,
+		//	\d 就是匹配 数字,\d* 就是匹配任意位数的数字
+		//	?  就是指 0个或1个 (:\d*) , 于是就匹配出了  :80
+		//([^# ]*)	匹配出	/html/html-tutorial.html 
+		//	[^# ] 表示 匹配不包括 # 字符
+		//	* 表示 0个或者多个 [^# ] 所以最终匹配出/html/html-tutorial.html
+		// 最终得到一个包含多个数据的数组:
+		//	arr[0] = "http://www.runoob.com:80/html/html-tutorial.html"
+		//	arr[1] = "http"
+		//	arr[2] = "www.runoob.com"
+		//	arr[3] = ":80"
+		//	arr[4] = "/html/html-tutorial.html"
+		//所以注意到, js 会把 正则表达式的 () 子表达式匹配出的内容也会保存起来!!!!!
+	注意区分:
+		^once 和 [^once] ,前者是,匹配出一个开头是once字符串内容的句,
+				  后者是,匹配当前字符中不能是 c,e,n,o 其中之一!!!	
+	在线实验网址: https://c.runoob.com/front-end/854 (非常好用)
+		     https://c.runoob.com/
+html5 学习:
+	并没有太难的!!!
+	主要是video 和数据库的接口重点看看
+MangoDB(分布式文件存储的数据库,有别与Mysql):
+	
+	
+		
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+20170719
+搭建sam4s烧录环境:
+	首先,使用sam-ba2.16 需要打上补丁才可以 connect sam4s系列的芯片,
+	虽然是xplainted 板子,但是connect里只有ek板子选项,所以可以选ek对应型号代替
+	每次烧录,eraseall时,都会有超时错误!!!,所以eraseall后,要重新登陆sam-ba 去烧录
+uvc研究安装amcap工程:
+	几经波折,终于找到了vs2015可用的amcap程序(直接一套windows sdk7_sample,)
+	源码地址:https://github.com/pauldotknopf/WindowsSDK7-Samples
+	先打开 directshow/baseclasses 的sln 编译baseclasses库,例如我们编为debug版本
+	然后打开 amcap 项目 ,先配置 amcap项目属性 -> VC++目录 -> 
+		包含目录是添加 directshow/baseclasses
+		库目录添加 directshow/baseclasses/debug
+	然后编译,就可以工作了
+分析amcap:
+	重点关注 启动摄像头的函数!!!
+	所以关注函数:
+	amcap.cpp
+		AddDevicetoMenu
+		chooseDevices
+		setappcaption
+		startpreview
+		getdc
+		Makebuilder 建立 capture graph builder 对象 
+		CoCreateInstance 获得 ICaptureGraphBuilder 接口指针
+		CreaterClassEnumerator 列举捕捉系统设备
+	SampleCGB.cpp
+		Findinterface
+		Findpin
+		reanderstream
+		setfiltergraph
+研究发现amcap把打开摄像头设备的函数封装起来了!!!
+	关注变量:
+	gcap!!!
+	gcap.fWantPreview(预览功能)
+	gcap.iMasterStream(声音流,视频流谁主导,谁配合同步)
+struct _capstuff
+{
+    WCHAR wszCaptureFile[_MAX_PATH];		// 捕捉文件的路径，该文件保存捕捉到的视频
+    WORD wCapFileSize;  // size in Meg		捕捉文件的size
+    ISampleCaptureGraphBuilder *pBuilder;	// ISampleCGB    类对象实例的指针
+    IVideoWindow *pVW;						// 视频显示窗口的指针，利用该指针将视频显示在项目的界面内
+    IMediaEventEx *pME;						// 媒体事件接口的指针，用来控制filtergraph的play、stop等
+    IAMDroppedFrames *pDF;					// 获取捕捉过程中丢帧数的接口指针
+    IAMVideoCompression *pVC;				// 视频压缩接口指针，捕捉文件为mpeg2格式时用到
+    IAMVfwCaptureDialogs *pDlg;				// 用于捕捉器件设置的对话框接口指针
+    IAMStreamConfig *pASC;      // for audio cap	音频捕捉流配置接口指针
+    IAMStreamConfig *pVSC;      // for video cap	视频捕捉流配置接口指针
+    IBaseFilter *pRender;					// 显示视频图像的filter的接口指针
+    IBaseFilter *pVCap, *pACap;				// 视频、音频捕捉器件的filter的接口指针
+    IGraphBuilder *pFg;						// ISampleCGB中用于建立filtergraph的builder的接口指针
+    IFileSinkFilter *pSink;					// 保存文件要用到的FileSinkFilter的接口指针
+    IConfigAviMux *pConfigAviMux;			// Avi合成器件的filter的接口指针
+    int  iMasterStream;						// 标识哪一个流作为MsterStream的整型变量
+    BOOL fCaptureGraphBuilt;				// 标识是否 已建立了捕捉用的filter graph
+    BOOL fPreviewGraphBuilt;				// 是否已建立了预览用的filter  graph
+    BOOL fCapturing;						// 是否正在捕捉？
+    BOOL fPreviewing;						// 是否正在预览？
+    BOOL fMPEG2;							// 是MPEG2的视频源码？如有线电视接收器等的信号源
+    BOOL fCapAudio;							// 需要捕捉音频吗?
+    BOOL fCapCC;							// 需要显示MPEG2中的隐藏式字幕吗?
+    BOOL fCCAvail;							// 有可用的隐藏式字幕吗?只有VBI图文视频流才可用
+    BOOL fCapAudioIsRelevant;				// 捕捉的视频已有关联的音频吗？
+    bool fDeviceMenuPopulated;				// Devices菜单已填写？
+    IMoniker *rgpmVideoMenu[10];			// 保存视频捕捉器件菜单中每个器件的标识(名字)接口
+    IMoniker *rgpmAudioMenu[10];			// 保存音频捕捉器件菜单中每个器件的标识(名字)
+    IMoniker *pmVideo;						// 获取视频捕捉filter的friendlyname的标识接口的指针
+    IMoniker *pmAudio;						// 获取音频捕捉filter的friendlyname的标识接口的指针
+    double FrameRate;						// 用户设定的帧率数值，即每秒帧数
+    BOOL fWantPreview;						// 需要预览吗？
+    long lCapStartTime;						// 开始捕捉的时间
+    long lCapStopTime;						// 停止捕捉的时间
+    WCHAR wachFriendlyName[120];			// 保存捕捉器件的友善名称的字符串数组
+    BOOL fUseTimeLimit;						// 是否使用时间限制？
+    BOOL fUseFrameRate;						// 是否使用用户设定的帧率？
+    DWORD dwTimeLimit;						// 用户设定的时间限制长度数值
+    int iFormatDialogPos;					// VFW设备设置format输出格式的属性页的起始位置值
+    int iSourceDialogPos;					// VFW设备设置source信号源的属性页的起始位置值
+    int iDisplayDialogPos;					// VFW设备设置display显示参数的属性页的起始位置值
+    int iVCapDialogPos;						// WDM视频设备的属性页的起始位置值
+    int iVCrossbarDialogPos;				// WDM视频设备的输入选择对话框的起始位置值
+    int iTVTunerDialogPos;					// WDM电视设备的调谐对话框的起始位置值
+    int iACapDialogPos;						// WDM音频设备的属性页的起始位置值
+    int iACrossbarDialogPos;				// WDM音频设备的输入选择对话框的起始位置值
+    int iTVAudioDialogPos;					// WDM电视设备的音频属性页的起始位置值
+    int iVCapCapturePinDialogPos;			// WDM视频设备的捕捉Pin属性页的起始位置值
+    int iVCapPreviewPinDialogPos;			// WDM视频设备的预览Pin属性页的起始位置值
+    int iACapCapturePinDialogPos;			// WDM音频设备的捕捉Pin属性页的起始位置值
+    long lDroppedBase;						// 丢帧数
+    long lNotBase;							// 捕捉帧数
+    BOOL fPreviewFaked;						// 当捕捉设备没有preview pin时，是否用capture pin充当preview pin
+    CCrossbar *pCrossbar;					// CCrossbar类对象指针
+    int iVideoInputMenuPos;					// 选中的视频输入源在输入菜单中的位置值
+    LONG NumberOfVideoInputs;				// 视频输入源的数量
+    HMENU hMenuPopup;						// 菜单句柄
+    int iNumVCapDevices;					// 现有视频捕捉设备数量
+} gcap;
+
+
+
+
+
+
+
+
+
+20170721
+分析sam4s 的pir程序:
+	主要是了解 并行io 如何抓取图像
+	全程只有判断 vsync 信号
+	还有 是通过 pioc 并口中断 来执行中断处理函数的,
+		而且,似乎是8位针状态同时改变会被监测到,并且触发 并口中断,记录下并口针状态信息,就是一个像素点!!!
+	首先,知道了固定的cap_buf 指针变量: cap_dest_buf
+	就是,在 获取像素数据的中断处理函数出现疑问!!!!
+	rxbuff interrupt 是接受buf溢出中断,表示接收好一张图片,通过 PIO_capture_buff来表示 
+	芯片提供的pio功能 可处理两个缓存
+	pio->RPR receive pointer register	//第一个缓存地址
+	pio->RCR receive counter register	//第一个缓存大小
+	pio->RNPR receive next pointer register	//第二个缓存地址
+	pio->RNCR receive next counter register //第二个缓存大小
+	piodc工作原理假设:
+	首先 PIODC_Capture_init() 设置了需要采集 pio数据 的那9个位,(8个数据,一个pck)
+	当这些位的状态改变后就会触发中断,中断执行过程中,还有新的改变会被忽略!!!
+	而每次中断都会采集 当下的 pio针位状态 并记录,
+	一般,数据位几乎同时间改变,即使说有数据位先改变先触发中断,但是在中函数记录数据位状态之前,
+	数据位已经全部改变完毕处于稳定状态,这是记录下来的数据是有效的!!!!
+	关于记录数据!!
+	PIO_CaptureHandler 似乎并没有做什么!! 关键是_PioCaptureCopy->xxxx 这些xxxxx虚拟函数都没有指向,所以什么都没有做
+	而记录数据处理的,似乎是PioInterruptHandler(),但发现又好像不是!!!
+	都不知道是在哪里记录数据的!!!
+	不过,很多实际问题表示,上述piodc假设只对了一部分,
+	中断触发的检测不应该是检测所有数据针,而应该仅仅是 pck针 被监测而已!!!!
+	
+	
+	
+
+
+
+
+
+
+20170724
+linux 补充学习:
+Linux 系统启动过程可以分为5个阶段：
+	内核的引导。
+	运行 init。
+	系统初始化。
+	建立终端 。
+	用户登录系统。
+init程序的类型：
+        SysV: init, CentOS 5之前, 配置文件： /etc/inittab。
+        Upstart: init,CentOS 6, 配置文件： /etc/inittab, /etc/init/*.conf。		//这段注释不用管"*/"
+        Systemd： systemd, CentOS 7,配置文件： /usr/lib/systemd/system、 /etc/systemd/system。
+内核引导
+	当计算机打开电源后，首先是BIOS开机自检，按照BIOS中设置的启动设备（通常是硬盘）来启动。
+	操作系统接管硬件以后，首先读入 /boot 目录下的内核文件。
+运行init
+	init 进程是系统所有进程的起点，没有这个进程，系统中任何进程都不会启动。
+	init 程序首先是需要读取配置文件 /etc/inittab。
+运行级别
+	许多程序需要开机启动。它们在Windows叫做"服务"（service），在Linux就叫做"守护进程"（daemon）。
+	init进程的一大任务，就是去运行这些开机启动的程序。
+	不同的场合需要启动不同的程序，比如用作服务器时，需要启动Apache，用作桌面就不需要。
+	Linux允许为不同的场合，分配不同的开机启动程序，这就叫做"运行级别"（runlevel）。也就是说，启动时根据"运行级别"，确定要运行哪些程序。
+	Linux系统有7个运行级别(runlevel)：
+		运行级别0：系统停机状态，系统默认运行级别不能设为0，否则不能正常启动
+		运行级别1：单用户工作状态，root权限，用于系统维护，禁止远程登陆
+		运行级别2：多用户状态(没有NFS)
+		运行级别3：完全的多用户状态(有NFS)，登陆后进入控制台命令行模式
+		运行级别4：系统未使用，保留
+		运行级别5：X11控制台，登陆后进入图形GUI模式
+		运行级别6：系统正常关闭并重启，默认运行级别不能设为6，否则不能正常启动
+系统初始化
+	在init的配置文件中有这么一行： si::sysinit:/etc/rc.d/rc.sysinit　它调用执行了/etc/rc.d/rc.sysinit，
+	而rc.sysinit是一个bash shell的脚本，它主要是完成一些系统初始化的工作，rc.sysinit是每一个运行级别都要首先运行的重要脚本。
+		它主要完成的工作有：激活交换分区，检查磁盘，加载硬件模块以及其它一些需要优先执行任务。
+	l5:5:wait:/etc/rc.d/rc 5
+	这一行表示以5为参数运行/etc/rc.d/rc，/etc/rc.d/rc是一个Shell脚本，
+	它接受5作为参数，去执行/etc/rc.d/rc5.d/目录下的所有的rc启动脚本，
+	/etc/rc.d/rc5.d/目录中的这些启动脚本实际上都是一些连接文件，而不是真正的rc启动脚本，
+	真正的rc启动脚本实际上都是放在/etc/rc.d/init.d/目录下。
+	而这些rc启动脚本有着类似的用法，它们一般能接受start、stop、restart、status等参数。
+	/etc/rc.d/rc5.d/中的rc启动脚本通常是K或S开头的连接文件，对于以以S开头的启动脚本，将以start参数来运行。
+	而如果发现存在相应的脚本也存在K打头的连接，而且已经处于运行态了(以/var/lock/subsys/下的文件作为标志)，
+		则将首先以stop为参数停止这些已经启动了的守护进程，然后再重新运行。
+		这样做是为了保证是当init改变运行级别时，所有相关的守护进程都将重启。
+	至于在每个运行级中将运行哪些守护进程，用户可以通过chkconfig或setup中的"System Services"来自行设定。
+建立终端
+	rc执行完毕后，返回init。这时基本系统环境已经设置好了，各种守护进程也已经启动了。
+	init接下来会打开6个终端，以便用户登录系统。在inittab中的以下6行就是定义了6个终端：
+	1:2345:respawn:/sbin/mingetty tty1
+	2:2345:respawn:/sbin/mingetty tty2
+	3:2345:respawn:/sbin/mingetty tty3
+	4:2345:respawn:/sbin/mingetty tty4
+	5:2345:respawn:/sbin/mingetty tty5
+	6:2345:respawn:/sbin/mingetty tty6
+	从上面可以看出在2、3、4、5的运行级别中都将以respawn方式运行mingetty程序，mingetty程序能打开终端、设置模式。
+	同时它会显示一个文本登录界面，这个界面就是我们经常看到的登录界面，在这个登录界面中会提示用户输入用户名，
+	而用户输入的用户将作为参数传给login程序来验证用户的身份。
+用户登录系统
+	一般来说，用户的登录方式有三种：
+	（1）命令行登录
+	（2）ssh登录
+	（3）图形界面登录
+	对于运行级别为5的图形方式用户来说，他们的登录是通过一个图形化的登录界面。登录成功后可以直接进入KDE、Gnome等窗口管理器。
+	而本文主要讲的还是文本方式登录的情况：当我们看到mingetty的登录界面时，我们就可以输入用户名和密码来登录系统了。
+	Linux的账号验证程序是login，login会接收mingetty传来的用户名作为用户名参数。
+	然后login会对用户名进行分析：如果用户名不是root，且存在/etc/nologin文件，login将输出nologin文件的内容，然后退出。
+	这通常用来系统维护时防止非root用户登录。只有/etc/securetty中登记了的终端才允许root用户登录，
+	如果不存在这个文件，则root可以在任何终端上登录。
+	/etc/usertty文件用于对用户作出附加访问限制，如果不存在这个文件，则没有其他限制。
+图形模式与文字模式的切换方式
+	Linux预设提供了六个命令窗口终端机让我们来登录。
+	默认我们登录的就是第一个窗口，也就是tty1，这个六个窗口分别为tty1,tty2 … tty6，你可以按下Ctrl + Alt + F1 ~ F6 来切换它们。
+	如果你安装了图形界面，默认情况下是进入图形界面的，此时你就可以按Ctrl + Alt + F1 ~ F6来进入其中一个命令窗口界面。
+	当你进入命令窗口界面后再返回图形界面只要按下Ctrl + Alt + F7 就回来了。
+	如果你用的vmware 虚拟机，命令窗口切换的快捷键为 Alt + Space + F1~F6. 
+	如果你在图形界面下请按Alt + Shift + Ctrl + F1~F6 切换至命令窗口。
+Linux 关机
+	在linux领域内大多用在服务器上，很少遇到关机的操作。毕竟服务器上跑一个服务是永无止境的，除非特殊情况下，不得已才会关机。
+	正确的关机流程为：sync > shutdown > reboot > halt
+	关机指令为：shutdown ，你可以man shutdown 来看一下帮助文档。
+	例如你可以运行如下命令关机：
+	sync 将数据由内存同步到硬盘中。
+	shutdown 关机指令，你可以man shutdown 来看一下帮助文档。例如你可以运行如下命令关机：
+	shutdown –h 10 ‘This server will shutdown after 10 mins’ 	//计算机将在10分钟后关机，并且会显示在登陆用户的当前屏幕中。
+	Shutdown –h now //立马关机
+	Shutdown –h 20:25 //系统会在今天20:25关机
+	Shutdown –h +10 //十分钟后关机
+	Shutdown –r now //系统立马重启
+	Shutdown –r +10 //系统十分钟后重启
+	reboot 就是重启，等同于 shutdown –r now
+	halt 关闭系统，等同于shutdown –h now 和 poweroff
+	最后总结一下，不管是重启系统还是关闭系统，首先要运行 sync 命令，把内存中的数据写到磁盘中。
+	关机的命令有 shutdown –h now halt poweroff 和 init 0 , 重启系统的命令有 shutdown –r now reboot init 6。
+
+
+	
 
 
 
