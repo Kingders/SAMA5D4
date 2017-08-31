@@ -13050,7 +13050,8 @@ metasploit
 		bLength		0x09	//这个descriptor长度(包括bLength) 这里占9字节		
 		bDescriptorType	0x04	//descriptor 的标记,0x04 表明这个是 INTERFACE接口 的 descriptor
 		bInterfaceNumber 0x0    //这个接口的id是0, 也就是上面IAD->bFirstInterface 指向的接口
-	**	bAlternateSetting 0x0	//这个 VideoControl Interface Descriptor 的 归类到 id=0 的Alternatesetting 里的一个子项
+	**	bAlternateSetting 0x0	//这里表示 VC 默认指向 id=0 的Alternatesetting 
+					// id=0 的Alternatesetting 在这里只包含 一个VS 而这个VS 并没有 数据端口,只用一些格式的设定
 	**	bNumEndpoints	0	//这个接口使用多少端口, 这里使用0个,虽然会使用到端口0,但端口0不算入这个统计里,所以是0个
 		bInterfaceClass 0x0e	//表示接口 到的 class 是 CC_video ,接口属于 视频类
 		bInterfaceSubClass 0x01	//表示接口 分到 CC_video 的 SC_VIDEOCONTROL subclass里, 接口是视频类的控制类
@@ -13084,6 +13085,56 @@ metasploit
 		wOcularFocalLength 0	//No optical zoom supported 不知道干什么用的
 		bControlSize	3	//The size of the bmControls is 3 bytes
 		bmControls    0x000000	//No controls are supported
+			//bControlSize,bmControls 是 UVC命令的关键!! bControlSize 说明 bmControls 占3字节
+			//bmControls中 某个位设置为1,表示着设备支持某个UVC指令的功能:字位与uvc指令功能的对应如下:
+			//	D0: Scanning Mode
+			//	D1: Auto-Exposure Mode
+			//	D2: Auto-Exposure Priority
+			//	D3: Exposure Time (Absolute)
+			//	D4: Exposure Time (Relative)
+			//	D5: Focus (Absolute)
+			//	D6 : Focus (Relative)
+			//	D7: Iris (Absolute)
+			//	D8 : Iris (Relative)
+			//	D9: Zoom (Absolute)
+			//	D10: Zoom (Relative)
+			//	D11: PanTilt (Absolute)
+			//	D12: PanTilt (Relative)
+			//	D13: Roll (Absolute)
+			//	D14: Roll (Relative)
+			//	D15: Reserved
+			//	D16: Reserved
+			//	D17: Focus, Auto
+			//	D18: Privacy
+			//	D19: Focus, Simple
+			//	D20: Window
+			//	D21: Region of Interest
+			//	D22 – D23: Reserved, set to zero
+			//这个descriptor 描述的是一个 IT unit ,也提供一部分主要的 UVC 标准命令
+			//还有一个 pu unit 提供另外一部分主要的 UVC 标注命令:
+			// pu unit descriptor 的 bControlSize bmControls, 也是表示支持uvc 命令的关键
+			//同样 bControlSize 说明 bmControls 占3字节
+			//bmControls中 某个位设置为1,表示着设备支持某个UVC指令的功能:字位与uvc指令功能的对应如下:
+			//	D0: Brightness
+			//	D1: Contrast
+			//	D2: Hue
+			//	D3: Saturation
+			//	D4: Sharpness
+			//	D5: Gamma
+			//	D6: White Balance Temperature
+			//	D7: White Balance Component
+			//	D8: Backlight Compensation
+			//	D9: Gain
+			//	D10: Power Line Frequency
+			//	D11: Hue, Auto
+			//	D12: White Balance Temperature, Auto
+			//	D13: White Balance Component, Auto
+			//	D14: Digital Multiplier
+			//	D15: Digital Multiplier Limit
+			//	D16: Analog Video Standard
+			//	D17: Analog Video Lock Status
+			//	D18: Contrast, Auto
+			//	D19 – D23: Reserved. Set to zero.
 	/* Class-specific Output Terminal Descriptor */ 输出终端
 		bLength		0x9	//这个descriptor长度(包括bLength) 这里占9字节	
 		bDescriptorType 0x24	//descriptor 的标记,0x24 表明这个是 CS_INTERFACE 接口类 descriptor
@@ -13119,8 +13170,11 @@ metasploit
 		wTotalLength	??	//整个 videocontrol interface class 内容的所占总字节数,即整个SC_VIDEOCONTROL子类具体内容所占总字节数
 					//包括:
 					//	当前的 header descriptor,
-					//	,
-					//	,
+					//	Class-specific VS Format Descriptor,
+					//	Class-specific VS Frame Descriptor 320x240,
+					//	Class-specific VS Frame Descriptor 640x480,
+					//	Class-specific VS Frame Descriptor 176x144,
+					//	Class-specific color matching Descriptor,	
 *********	bEndpointAddress ox80	//用于实时传输流数据的 端点的id=0x82,为啥demo上是0x80,有这个非零端点,为啥上面说没有endpoints?
 		bmInfo			//No dynamic format change supported
 		bTerminalLink	2	//VideoStreaming interface 要连到 模块id=2的 output terminal 
@@ -13189,7 +13243,459 @@ metasploit
 		bDescriptorType 0x24	//descriptor 的标记,0x24 表明这个是 CS_INTERFACE (Class-specific Interface) 接口类 descriptor
 		bDescriptorSubtype 0x0d	//descriptor 的子标记,0x04 表明是VS_colorformat 即原始格式视频流	
 		bColorprimaries 1	//BT.700, sRGB    ???
-		bTranfercharacteristics 1	
+		bTranfercharacteristics 4	//BT.601   ???
+		//至此, 一个完整的 VideoStreaming Interface 结构由
+		//	VideoStreaming Interface Descriptor
+		//	|-Class-specific Interface header Descriptor about VS,
+		//	|-Class-specific VS Format Descriptor,
+		//	|-Class-specific VS Frame Descriptor 320x240,
+		//	|-Class-specific VS Frame Descriptor 640x480,
+		//	|-Class-specific VS Frame Descriptor 176x144,
+		//	|-Class-specific color matching Descriptor,	
+		//这几个 descriptor 描述完毕.
+		//注意 这个 VS 与再上面的 VC 同属于一个 alternate setting
+		//而这个 VS 并没有分配endpoint 的 ,所以并不知道 视频刘数据如何输出!!!  
+	/* VideoStreaming Interface Descriptor (VS) */
+		bLength		0x9	//这个descriptor长度(包括bLength) 这里占9字节			
+		bDescriptorType	0x04	//descriptor 的标记,0x04 表明这个是 INTERFACE接口 的 descriptor
+	**	bInterfaceNumber 0x01	//这个接口的id是1,也是 上述 VC header->baInterfaceNr(1)中指向的 接口id
+					//但是这样的话,VC 不就指向两个相同id号的VS ?? ,怀疑应该有个参数作区分,这个参数是 alternate setting??
+	**	bAlternateSetting 0x1	//这个 VideoStreaming Interface Descriptor 归类到 id=1 的Alternatesetting 里的一个子项
+*********	bNumEndpoints	1	//这个接口使用 1 端口, 这个是 数据输出口??
+		bInterfaceClass 0x0e	//表示接口 到的 class 是 CC_video ,接口属于 视频类
+		bInterfaceSubClass 0x02	//表示接口 分到 CC_video 的 SC_VIDEOSTREAMING subclass里, 接口是视频类的视频流子类
+					//即这是一个视频控制接口!!
+	**	bInterfaceProtocol 0x0  //空置,没有用到,必须设为 0x0 表示PC_PROTOCOL_UNDEFINED
+		iInterface	0	//id=0表示没有指向对应 string descriptor, 没有附加的备注信息
+	/* Standard VS Isochronous Video Data Endpoint Descriptor */
+		bLength		??	//这个descriptor长度(包括bLength) 这里占??字节					
+		bDescriptorType	0x05	//descriptor 的标记,0x05 表明这个是 ENDPOINT接口 的 descriptor
+		bEndpointAddress 0x80 | 2  //IN endpoint 2
+		bmAttributes	1	//Isochronous transfer type  实时传输的端口类型
+		wMaxPacketSize	??	//数据包最大大小(代码上是是 4096 + 1020 ??)
+		bInterval	2	//传输间隔 2 frame interval
+		//显然这个被分配的 端点应该就是 视频流输出端口,但是这样就奇怪了,因为参数设置的 第一个id=0 的VS
+		//真正数据流发生在 id=1 的VS
+		//这个 VideoStreaming Interface 结构 的完整内容是
+		//	VideoStreaming Interface Descriptor
+		//	|-Standard VS Isochronous Video Data Endpoint Descriptor
+		//猜测是这样的,VC先选 Alternate setting id=0 的vs 设置相关内容, 
+		//然后换选 Alternate setting id=1 的vs 的Isochronous endpoint执行 实时输出
+		
+上述是一个 configuration descriptor 数据结构,是在usb设备插入pc后要被枚举的内容,
+	但并不是,上位机打开设备后, get_cur,set_cur传递的内容,
+	configuration descriptor 的地址 会集成到 usbdDriverdescriptor 里,被USB枚举所用
+	对应的是 main 函数里的USBDDRIVER_Initialize() usb从设备驱动初始化
+	所以添加一个brightness 需要加一个 pu 模块
+	经分析, VC 这个interface 设定了各种模块unit, vs 这个 interface 设定了各种帧格式!!! 还定义了一个实时传输的endpoint 
+
+
+
+
+
+
+
+
+
+
+20170830
+linux 调试工具集常用汇总: http://linuxtools-rst.readthedocs.io/zh_CN/latest/base/03_text_processing.html
+命令查看帮助:
+	模查找命令:		man -k clea	//模糊查找含clea字符的命令 
+	whatis 参看命令简述L: 	whatis ls
+	which 查看命令位置:	which ls 
+	man  查看命令详细:	man ls
+	man是一本命令说明书:分9章:
+		(1)、用户可以操作的命令或者是可执行文件
+		(2)、系统核心可调用的函数与工具等
+		(3)、一些常用的函数与数据库
+		(4)、设备文件的说明
+		(5)、设置文件或者某些文件的格式
+		(6)、游戏
+		(7)、惯例与协议等。例如Linux标准文件系统、网络协议、ASCⅡ，码等说明内容
+		(8)、系统管理员可用的管理条令
+		(9)、与内核有关的文件
+	综合使用案例:
+		$whatis printf
+		printf               (1)  - format and print data
+		printf               (1p)  - write formatted output
+		printf               (3)  - formatted output conversion
+		printf               (3p)  - print formatted output
+		printf [builtins]    (1)  - bash built-in commands, see bash(1)		
+		我们看到printf在分类1和分类3中都有；分类1中的页面是命令操作及可执行文件的帮助；
+		而3是常用函数库说明；如果我们想看的是C语言中printf的用法，可以指定查看分类3的帮助：
+		$man 3 printf
+寻找文件 find/locata
+	find是实时查找:
+	$find ./ -name "core*" | xargs file	//搜寻文件或目录
+	$find ./ -name '*.o'		//查找目标文件夹中是否有obj文件
+	$find ./ -name "*.o" -exec rm {} \;		//递归当前目录及子目录删除所有.o文件:
+	如果需要更快的查询，可试试locate；locate会为文件系统建立索引数据库，如果有文件更新，需要定期执行更新命令来更新索引库:
+	$locate string	//寻找包含有string的路径
+	$updatedb	//更新索引数据库, 需要更新数据库，以获得最新的文件索引信息。
+查看文件内容:
+	查看文件：cat vi head tail more
+	$cat -n	xxx	//显示xxx文件内容时,同时显示行号
+	$ls -al | more		//按页显示列表内容
+	$head -n 10 xxx		//只看xxx文件前10行
+	$head -1 xxx		//只显示xxx文件第一行
+	$tail -5 xxx	//显示xxx文件倒数第五行
+	$diff file1 file2	//查看两个文件间的差别
+	$tail -f xxx		//动态显示文本最新信息
+	egrep '裁切' pcb画图经验	//查找 'pcb画图经验' 文件里的 '裁切' 内容所在行
+批命令书写格式:
+	批处理命令连接执行，使用 |
+	串联: 使用分号 ;
+	前面成功，则执行后面一条，否则，不执行:&&
+	前面失败，则后一条执行: ||
+	ls /proc && echo  suss! || echo failed.	//先ls /proc 成功便执行echo suss! 否则执行 echo failed
+	与上述相同效果的是:
+	if ls /proc; then echo suss; else echo fail; fi
+	重定向:
+	ls > kkk	//把ls得到的标准输出内容重定向到 kkk文件里 而不是终端屏幕
+	ls &> kkk	//把ls得到的标准输出 和标准错误的内容 都重定向到 kkk文件里, 而不是显示到终端屏幕
+	:> kkk		//清空kkk文件里的内容
+	echo aa >> kkk	//把 aa 这个标准输出的内容 重定向添加到 kkk 文件里
+	echo aa > kkk	//把 aa 这个标准输出的内容 重定向并且完全替换 kkk 文件的所有内容!!
+	综合案例:
+	cat pcb画图经验 | grep pcb | grep -v '!!' | wc -l	
+	//先cat pcb画图经验 显示所有内容到标准输出文件, 
+	//然后, grep pcb 从标准输出文件里 筛选所有含 pcb 的内容行,覆盖标准输出文件
+	//然后, grep -v '!!' 从标准输出文件里 筛选所有含 !! 的内容行去掉,剩下的 重新覆盖标准输出文件
+	//然后, wc -l 统计标准输出文件里有多少行内容,得到的结果 重新覆盖标准输出文件 
+	//最后,标准输出文件 的内容 全部 发送到终端屏幕, 标准输出文件自身被清空!!
+终端快捷键:
+	shift + ctrl + C/V	//复制粘贴
+	ctrl + U	//删光 整行 已输入的命令行字符 (注意只能删单行内容,即使使用\符号组合的多单行组合命令字符,也只能删光标所在单行)
+	ctrl + W	//删字符串内容至 最近的空格
+文本处理:
+	find 文件查找
+	find . \( -name "*.txt" -o -name "*.pdf" \) -print	//查找txt和pdf文件,'.'指当前路径
+	find . -name ".h" -o ! \( -name "*.txt" -o -name "*.pdf" -o -name "*.c"  \)  //查找h文件,但排除txt,pdf,c文件
+	find . -regex  ".*\(\.txt|\.pdf\)$"	//正则方式查找.txt和pdf	补充:-iregex： 忽略大小写的正则
+	find . ! -name "*.txt" -print		//否定参数 "!" ,查找所有非txt文本:
+	find . -maxdepth 1 -type f	//指定搜索深度,打印出当前目录的文件（深度为1）
+	定制搜索
+	find . -type d -print  //只列出所有目录	补充:-type f 文件, -type l 符号链接, -type d 目录
+	//find支持的文件检索类型可以区分普通文件和符号链接、目录等，但是二进制文件和文本文件无法直接通过find的类型区分出来；
+	file命令可以检查文件具体类型（二进制或文本）:
+	$file xxx  //识别二进制文件
+		xxxi: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked (uses shared libs), 
+	for GNU/Linux 2.6.9, not stripped
+	$file kkk  //识别文本文件
+	kkk: ASCII text
+	所以,可以用以下命令组合来实现查找本地目录下的所有二进制文件:
+		ls -lrt | awk '{print $9}'|xargs file|grep  ELF| awk '{print $1}'|tr -d ':'
+	按时间搜索
+            -atime 访问时间 (单位是天，分钟单位则是-amin，以下类似）
+            -mtime 修改时间 （内容被修改）
+            -ctime 变化时间 （元数据或权限变化）
+	find . -atime 7 -type f -print		//最近 第7天 被访问过的所有文件
+	find . -atime -7 -type f -print		//最近 7天内 被访问过的所有文件
+	find . -atime +7 type f -print		//查询 7天前 被访问过的所有文件
+	按大小搜索：
+	find . -type f -size +2k	//寻找大于2k的文件  补充: w(字=word=32bits) k(kb) M(mb) G(gb) 
+	按权限查找:
+	find . -type f -perm 644 -print //找具有可执行权限的所有文件
+	按用户查找:
+	find . -type f -user weber -print// 找用户weber所拥有的文件
+	找到后的后续动作
+	find . -type f -name "*.swp" -delete		//删除当前目录下所有的swp文件
+	find . -type f -name "*.swp" | xargs rm		//删除当前目录下所有的swp文件
+	find . -type f -user root -exec chown weber {} \;	//将当前目录下的所有权变更为weber, 执行动作（强大的exec）
+								//注：{}是一个特殊的字符串，对于每一个匹配的文件，{}会被替换成相应的文件名
+	find . -type f -mtime +10 -name "*.txt" -exec cp {} OLD \;	//将找到的文件全都copy到另一个目录
+	结合多个命令
+	//-exec ./commands.sh {} \    :如果需要后续执行多个命令，可以将多个命令写成一个脚本。然后 -exec 调用时执行脚本即可:
+	-print的定界符		
+	//默认使用’\n’作为文件的定界符； -print0 使用’\0’作为文件的定界符，这样就可以搜索包含空格的文件；
+	grep 文本搜索
+	grep hllo kkk //grep最简单,不严谨的默认命令, 从 kkk文件 中搜索 hello 的字符内容, 
+	常用参数
+	-o 只输出匹配的文本行 VS -v 只输出没有匹配的文本行
+	-c 统计文件中包含文本的次数	// grep -c “text” filename
+	-n 打印匹配的行号
+	-i 搜索时忽略大小写
+	-l 只打印文件名
+	grep "class" . -R -n	//在多级目录中对文本递归搜索(程序员搜代码的最爱）
+	grep -e "class" -e "vitural" kkk	//匹配kkk文件里的多个搜索项,
+	grep "test" file* -lZ| xargs -0 rm	//grep输出以0作为结尾符的文件名（-z）	(未用过,涉及rm 需要比较谨慎)
+	cat LOG.* | tr a-z A-Z | grep "FROM " | grep "WHERE" > b	//综合应用：将日志中的所有带where条件的sql查找查找出来:
+	查找中文示例：(未成功)
+		工程目录中utf-8格式和gb2312格式两种文件，要查找字的是中文
+    		查找到它的utf-8编码和gb2312编码分别是E4B8ADE69687和D6D0CEC4
+		查询:
+		grep：grep -rnP "\xE4\xB8\xAD\xE6\x96\x87|\xD6\xD0\xCE\xC4" *即可
+		汉字编码查询：http://bm.kdd.cc/
+	xargs 命令行参数转换
+	xargs 能够将输入数据转化为特定命令的命令行参数；这样，可以配合很多命令来组合使用。比如grep，比如find； - 将多行输出转化为单行输出
+	cat xxx| xargs	//这里是把 xxx 文件输出到 标准输出文件,然后把标准输出文件里的内容全部看作为一行 参数 然后print出 
+	cat single.txt | xargs -n 3	//将单行转化为多行,然后print出 -n：指定每行显示的字段数,
+					//即把一整行内容分成多行输出,每行显示三段内容,每段内容由源文档固有的空格或者回车做分割
+	xargs参数说明
+		d 定义定界符 （默认为空格 多行的定界符为 n）
+		-n 指定输出为多行
+		-I {} 指定替换字符串，这个字符串在xargs扩展时会被替换掉,用于待执行的命令需要多个参数时
+		-0：指定0为输入定界符
+	cat file.txt | xargs -I {} ./command.sh -p {} -1	//具体未测试过
+	find source_dir/ -type f -name "*.cpp" -print0 |xargs -0 wc -l	//统计程序行数
+	./redis-cli smembers $1  | awk '{print $1}'|xargs -I {} ./redis-cli get {}  
+		//综合例子:redis通过string存储数据，通过set存储索引，需要通过索引来查询出所有的值
+	sort 排序
+	字段说明
+		-n 按数字进行排序 VS -d 按字典序进行排序
+		-r 逆序排序
+		-k N 指定按第N列排序
+	sort -nrk 1 kkk		//把文档每行按照 条件重新排序,然后显示出来
+	sort -bd data 		//忽略像空格之类的前导空白字符
+	sort unsort.txt | uniq	//先是重新排序,然后排序后的内容放入 标准输出文件, 然后在标准输出文件里 消除重复行, 最后显示
+	sort unsort.txt | uniq -c	//统计各行在文件中出现的次数
+	sort unsort.txt | uniq -d	//找出重复行
+	//补充:uniq 命令中可指定每行中需要比较的重复内容的参数：-s 开始位置 -w 比较字符数 (没有例子)	
+	tr命令
+	echo 12345 | tr '0-9' '9876543210' //加解密转换，替换对应字符
+	cat text| tr '\t' ' '  		//制表符转空格
+	cat file | tr -d '0-9' 		// 删除所有数字
+	cat file | tr -c '0-9' 		//获取文件中所有数字
+	cat file | tr -d -c '0-9 \n'  	//删除非数字数据
+	cat file | tr -s ' '		//tr -s 压缩文本中出现的重复字符；最常用于压缩多余的空格:
+	tr中可用各种字符类：
+		alnum：字母和数字
+		alpha：字母
+		digit：数字
+		space：空白字符
+		lower：小写
+		upper：大写
+		cntrl：控制（非可打印）字符
+		print：可打印字符
+		使用方法：tr [:class:] [:class:]
+		tr '[:lower:]' '[:upper:]'	//把 upper 转 lower
+	cut -f2,4 filename		//截取文件的第2列和第4列
+	cut -f3 --complement filename	//去文件除第3列的所有列
+	cat -f2 -d";" filename		//-d 指定定界符
+	cut 取的范围
+		N- 第N个字段到结尾
+		M 第1个字段为M
+		N-M N到M个字段
+	cut 取的单位
+		-b 以字节为单位
+		-c 以字符为单位
+		-f 以字段为单位（使用定界符）
+	cut -c1-5 file 			//打印第一到5个字符
+	cut -c-2 file  			//打印前2个字符
+	$echo string | cut -c5-7	//截取文本的第5到第7列
+	将两个文本按列拼接到一起;
+		$ cat file1
+		1
+		2
+		$ cat file2
+		colin
+		book		
+		$ paste file1 file2	//	paste 按列拼接文本
+		1 colin
+		2 book
+		$ paste file1 file2 -d ","	//默认的定界符是制表符，可以用-d指明定界符:
+		1,colin
+		2,book
+	wc -l file 	// 统计行数
+	wc -w file 	// 统计单词数
+	wc -c file 	// 统计字符数
+	sed 's/text/replace_text/' file   //替换 每一行的 第一处匹配的text,替换换成replace_text ,然后print,注意并不会改写 原file文件
+	sed 's/text/replace_text/g' file  //替换 每一行的   所有的text,	  替换换成replace_text ,然后print,注意并不会改写 原file文件
+	sed -i 's/text/repalce_text/g' file	//默认替换后，输出替换后的内容，如果需要直接替换原文件,使用-i:
+	sed '/^$/d' file	//移除空白行 然后print出
+	sed 's/text/\ &++++\ /g' kkk	// & 引用符号, 这里 &引用内容就是 匹配内容text, 这里把所有 "text" 转换成 "\ &++++\ "
+					//即 text 转换成 [空格]text++++[空格], 注意,这里的 "\ ",表示的是空格
+	变量转换 (未证实例子)
+		echo this is en example | sed 's/\w+/[&]/g'	//已匹配的字符串通过标记&来引用.
+		$>[this]  [is] [en] [example]		
+	sed 's/hello\([0-9]\)/\1/'	//例如 例子:hello39878,其中 hello\([0-9]\) 匹配的是hello3,即 \([0-9]\) 匹配到的是3
+					//然后 \1,指的是那个 \([0-9]\) , 即hello3 被替换成3  
+	sed 's/hello\([0-9]\)\([0-9]\)/\2\1/' kkk	//扩展知识,例子: hello39878
+							//hello\([0-9]\)\([0-9]\) 匹配到 hello39
+							//第一个\([0-9]\)\ 匹配的是3,所以 \1 指的是3
+							//第二个\([0-9]\)\ 匹配的是9,所以 \2 指的是9
+							//hello\([0-9]\)\([0-9]\) 被替换成 \2\1,即 hello39 被替换成 93
+	sed 引号关系:
+		p=patten
+		echo pattenjjk_\$p | sed 's/$p/zzz/'	//单引号: $参数符号不起作用 得到 pattenjjk_zzz
+		echo pattenjjk_\$p | sed "s/$p/zzz/" 	//双引号: $参数符号起作用 得到 zzzjjk_$p
+	sed 's/^.\{3\}/&\//g' kkk	//把kkk文件 每行 的前三个任意字符  ^.\{3\} ,被 &\/ 替换
+					//& 引用的是 ^.\{3\} ,结果例子如下:
+					//替换前:		替换后:
+					//llllllllll		lll/lllllll
+					//abcdefghij		abc/defghij
+					//popopopopo		pop/opopopo
+	awk 数据流处理工具:
+	awk最简单脚本结构
+		awk ' BEGIN{ statements } statements2 END{ statements } ' file
+		工作方式
+		1.执行begin中语句块；
+		2.从文件或stdin中读入一行，然后执行statements2，重复这个过程，直到文件全部被读取完毕；
+		3.执行end语句块；
+	echo -e "line1\nline2" | awk 'BEGIN{print "start"} {print } END{ print "End" }'	//使用不带参数的print时，会打印当前行
+	print 的综合例子:
+		echo | awk ' {var1 = "v1" ; var2 = "V2"; var3="v3"; \		
+		print var1, var2 , var3; }'
+		//上述实为 一行命令,通过 \ 符号分两行写, 上述 awk 并没有执行 begin 和 end 两段内容!!
+		//echo 输出了 空白 的内容到 标准输出文件,虽然内容空白, 但标准输出文件"名义上"还是有一行内容的
+		//awk 读取这行内容, 然后执行 var1 = "v1" ; var2 = "V2"; var3="v3"; print var1, var2 , var3; 这组;号分割的命令
+		//屏幕输出:v1 V2 v3
+		echo hello | awk ' {var1 = "v1" ; var2 = "V2"; var3="v3"; print var1, var2 , var3; }'
+		//屏幕依然输出:v1 V2 v3
+		//这时,虽然 标准输出文件已经有 hello 这串字符,awk 也引入了一行费空白的内容,
+		//但是这时,print 带参数, 但没有一个参数指向 awk引入行的内容,所以 print 出的内容 并没有 hello 
+		echo | awk ' {var1 = "v1" ; var2 = "V2"; var3="v3"; print var1"-"var2"-"var3; }'  
+		//使用-拼接符的方式（”“作为拼接符）;
+		//屏幕输出:v1-V2-v3
+	特殊变量： NR NF $0 $1 $2
+		NR:表示记录数量，在执行过程中对应当前行号；
+		NF:表示字段数量，在执行过程总对应当前行的字段数；
+		$NF:表示当前行的最后一字段的文本内容;
+		$0:这个变量包含执行过程中当前行的文本内容；
+		$1:第一个字段的文本内容；
+		$2:第二个字段的文本内容；
+		$3:.....
+	echo -e "line1 f2 f3\n line2 \n line 3" | awk '{print NR":"$0"-"$1"-"$2}'
+		//屏幕输出:
+		//	1:line1 f2 f3-line1-f2
+		//	2: line2 -line2-
+		//	3: line 3-line-3
+	awk '{print $2, $3}' file	//打印每一行的第二和第三个字段
+	awk ' END {print NR}' file	//统计文件的行数
+	echo -e "1\n 2\n 3\n 4\n" | awk 'BEGIN{sum = 0 ; print "begin";} {sum += $1;} END {print "=="; print sum }'	
+		//累加每一行的第一个字段
+	传递外部变量
+		输入来自stdin:
+			var=1000
+			echo | awk '{print vara}' vara=$var // 注意shell上手动设的变量都暂时放在 标准输入文件
+		输入来自文件
+			awk '{print vara}' vara=$var file
+	awk扩展结构,用样式对awk处理的行进行过滤
+		awk 'NR < 5' 			//行号小于5
+		awk 'NR==1,NR==4 {print}' file 	//行号等于1和4的打印出来
+		awk '/linux/' 			//包含linux文本的行（可以用正则表达式来指定，超级强大）
+		awk '!/linux/' 			//不包含linux文本的行
+	awk -F : '{print $NF}' /etc/passwd 	//使用-F来设置定界符（默认为空格) 而这里的定界符是 ":"
+						//-F : 是 针对 $NF的,
+						//例如某一行内容是  games:x:5:60:games:/usr/games:/usr/sbin/nologin
+						//:界定符 把整行内容划分成 6 个字段段内容:
+						// games, x, S, 60, games, /usr/games:/usr/sbin/nologin
+						//$NF 指即保留并print出最后一个字段 /usr/games:/usr/sbin/nologin
+						//如果 -F : 改为 bin, 那么界定符就是 bin,
+						//把整行内容划分成 2 个字段段内容:
+						// games:x:5:60:games:/usr/games:/usr/s, /nologin
+						//那么只保留bin后的内容,即print出: /nologin
+	echo | awk '{"grep root /etc/passwd" | getline cmdout; print cmdout }'	
+		//使用getline，将外部shell命令的输出读入到变量cmdout中:
+		//这里,把grep 得到的 多行内容 的 第一行内容 getline 读入到 awk里,然后print出
+	在awk中使用循环
+		awk '{ for(i=0;i<10;i++){print i ;}; }'	//成功例子
+		for(i=0;i<10;i++){print $i;}		//未测试例子
+		for(i in array){print array[i];}	//未测试例子
+	综合例子:
+		echo '2015_04_02 20:20:08: mysqli connect failed, please check connect info'| \
+		awk -F : '{ for(i=1;i<=3;i++) printf("%s:",$i)}'
+			//echo 一行内容到 标准输出文件
+			//以 :为界定符号分出 4 个字段: 
+			//	2015_04_02 20
+			//	20
+			//	08
+			//	[空格]mysqli connect failed, please check connect info
+			//循环print出 第一,第二,第三个字段 最终print出:  2015_04_02 20:20:08:
+			//这种方式会将最后一个冒号打印出来
+		echo '2015_04_02 20:20:08: mysqli connect failed, please check connect info'|awk -F':' '{print $1 ":" $2 ":" $3; }'
+			//最终print出: 2015_04_02 20:20:08  
+			//比上一个方法好.
+		echo '2015_04_02 20:20:08: mysqli connect failed, please check connect info'| \
+		awk -F':' '{print $1 ":" $2 ":" $3; print $4;}'
+			//这个就分别print出两行内容:
+			//	2015_04_02 20:20:08
+			//	mysqli connect failed, please check connect info
+		seq 9| awk '{lifo[NR] = $0; lno=NR} END{ for(;lno>-1;lno--){print lifo[lno];}} '
+			//以逆序的形式打印行：(tac命令的实现）:
+			//seq 9 输出:
+			//	1
+			//	2
+			//	3
+			//	4
+			//	5
+			//	6
+			//	7
+			//	8
+			//	9
+			//也就说,seq,输出9行内容到 标准输出文件,
+			//awk '{lifo[NR] = $0; lno=NR} END{ for(;lno>-1;lno--){print lifo[lno];}} ' 处理9行内容后,覆盖标准输出文件
+			//最后print得:
+			//	9
+			//	8
+			//	7
+			//	6
+			//	5
+			//	4
+			//	3
+			//	2
+			//	1
+	ps -fe| grep msv8 | grep -v MFORWARD | awk '{print $2}' | xargs kill -9;	//awk结合grep找到指定的服务，然后将其kill掉
+	awk 'NR<=10{print}' filename	//相当于 head命令
+	awk '{buffer[NR%10] = $0;} END{for(i=0;i<11;i++){ print buffer[i %10]} } ' filename	//相当于 tail命令
+	ls -lrt | awk '{print $6}'	//相当于打印指定列
+	ls -lrt | cut -f6		//相当于cut方式实现
+	cat kkk	| awk 'NR==4,NR==30{print}'	//print出kkk文件的第 4 - 30 行的 内容.
+	awk '/start_pattern/, /end_pattern/' filename	//打印含start_pattern的行 直到 含end_pattern的行 的文本.
+	seq 100 | awk '/13/,/15/'	//例子 注意,这里 把 {print}一步 也省略了, 但是结果一样的
+	cat /etc/passwd| awk '/mai.*mail/,/news.*news/' //例子 
+	awk常用内建函数
+		index(string,search_string):返回search_string在string中出现的位置
+		sub(regex,replacement_str,string):将正则匹配到的第一处内容替换为replacement_str;
+		match(regex,string):检查正则表达式是否能够匹配字符串；
+		length(string)：返回字符串长度
+		//为在 awk 里做过正则表达式,所以未尝试
+	echo | awk '{"grep root /etc/passwd" | getline cmdout; print length(cmdout) }'
+	seq 10 | awk '{printf "->%4s\n", $1}'	//printf 类似c语言中的printf，对输出进行格式化:
+	迭代每一行内容----依次print出文本每行内容:
+		传统 shell 方法:(while循环法)
+		while read line; do echo $line; done < kkk // 注意,这是一条完整的shell命令,并非复合命令 !!!
+		//这里有必要 复习 shell 的while循环命令!!
+		//上述 while read line; do echo $line; done 是一条,而非多条,完整命令,单条命令完整性如 ls,cd....一般 
+		// < kkk 是一个命令参数,表示先把 kkk 文件的内容输入到 标准输出文件,然后 这条命令再对标准输出文件操作,最后print出
+		//这条命令相当独特,可以分多行写,而不需要额外写 "\" 分行符,像以下样子:
+		//	kingders@kingders-ThinkPad-T420:~/other$ while read line;
+		//	> do echo $line;
+		//	> done < kkk
+		cat file.txt | (while read line;do echo $line;done)	//也可以这样,注意,这是两条命令拼合的复合命令
+		awk法
+		cat file.txt| awk '{print}'
+	迭代每一个字段----依次print出 行内容里的 每个字段
+		read pp < kkk && for word in $pp; do echo $word; done
+		//read 把 kkk文件里的第一行内容,写入到 标准输入文件的 pp 变量, 然后再执行 && 后一条命令!!
+		//然后 以空格为界定符,把每个字段分别取出写入 标准输出文件,并显示出屏幕来
+		//这里 一定要使用 && 多命令组合符,而非 | 多命令组合符号,
+		//使用 | 拼接命令时,read 读出kkk第一行内容,但未刷入标准输入文件的 pp 变量, 
+		//	接着就执行 for 命令, for命令用到pp变量,pp变量未存在,矛盾了
+		//使用 && 拼接命令时,确保read pp < kkk 执行完毕并正确,才执行for命令, 所以for命令正常执行
+		//for word in $oo; do echo $word; done  这也是一条完整命令,从标准输入文件里读取 pp 变量,
+		//这里有必要 复习 shell 的 for循环命令!!
+		//这条命令也是可以分行写而没有问题!!
+		//	kingders@kingders-ThinkPad-T420:~/other$ for word in $pp;
+		//	> do echo $word;
+		//	> done
+	迭代每一个字符----显示一个字段里的每一个字符
+		//${string:start_pos:num_of_chars}：从字符串中提取num个字符；(bash文本切片）
+		//${#word}:返回变量word的长度
+		传统 shell 方法:(for循环法)
+		for((i=0;i<${#word};i++)) do echo ${word:i:1}; done
+		//这是一条完整的命令,这是for命令的另一种写法, 注意 for() do 之间没有";"号 ,也可以分行写
+		//	kingders@kingders-ThinkPad-T420:~/other$ for((i=0;i<${#word};i++))
+		//	> do
+		//	> echo ${word:i:1};
+		//	> done
+	$od -c filename		//以ASCII字符显示文件:
+
+
+
+
+
 
 
 
