@@ -1,3 +1,5 @@
+以下操作全部操作在AD14
+
 pcb设计经验
 线与线之间间隔 >0.254mm 可以跑 80 mhz 高速线路不受干扰
 VCC GND 线 一般 至少 0.5mm ~ 1mm
@@ -41,10 +43,99 @@ find similar objects 的用法!
 	shift+f -> 选某网络某点,弹出的窗口 net 选 same  下面选select matched
 布完pcb一定要分析有没有出错:
 	Tools->Design rule check...->Run design rule check
+	
 	特别是检查画线是不是都连上了!!!!
 
 输出bom表
 reports -> bill of material -> export
+注意要设置选项,输出bom表要显示每一颗元器件的参数值
 注意按照 元器件的值来区分一项项元器件,把 ALL Columns 里的Value选择并拉到 group columns
 	
+
+误关各种类型的消息框,重开方法:软件右下方System, Design Compiler, Help, SCH, instrument项找到打开
+屏幕回到原点处 e+j+l(0.0)
+画图屏幕坐标显示切换: q 
+设计铺铜间距: design -> rules
+画线时,按tab键实时修改属性
+放via过孔时, 如何选择露出铺铜还是铺上绿油?:via属性 勾选 force complete tenting on top 表示时 顶层铺绿油!!
+尺子工具: ctrl+m
+快速切换toplayer bottomlayer 层: 小键盘 * 号键
+pcb布线,永远不要让布线绕到芯片底部!!
+
+修改添加元件库!!!!!
+先添加元件到原理图库 xx.schlib
+	注意重点是放pin,
+	放pin时,pin的针序号会自动递增,重置数值的方法是,
+		停止放新pin,然后双击一根新针把顺便某针里的Displayname和Designator改过来
+	Displayname是显示标识
+	Designator是原理图与pcb图色联系标记 (designator是像 r1,c1,之类的名称)
+	为了按方格距离放置pin或其他什么的,点击菜单栏里栅格图案里的选项设置!!
+再添加对应的元件到pcb库 xx.Pcblib
+	注意重点是放pad,不用放via,放via一般没有意义!!	
+	注意,只要配置好pad 的 designator(与实际和对应原理图元件对应)即可
+	另外,配置pad 比较讲究各种层内容,和是否开孔,,,
+	放置pad快速技巧: p->p 快捷键后开始放pad, 这时先按tab键,调整pad样式,然后后面放置pad都会按记忆的样式来放!!
+	pad面长度要比芯片的针脚长 0.6-0.8mm!!
+
+画电路板:
+先建立一项目工程:
+添加新原理图,并开始画原理图
+	注意,每一个加入的零件都要在其属性(properties...)处
+	->Models->add footprint->选择对应的pcb元件
+	(在之前应该检查原理图元件的designator,与pcb元件的designator位置关系,以免出错)
+添加新pcb图,(与原理图同名)
+	菜单栏design->Update PCB Document xxxxx 来到 Engineering Change Order
+	-> Excute changes ->Validate changes
+	原理图生成pcb图时注意点!!
+	每个元器件都有自己的独一无二标识符,即 designator (此designator不同于元件的针口的designator)
+	注意,每条网络线net 都连上东西,不能为空,
+	
+
+
+ams1117-1.5 稳压芯片,永远保持vout针与GND/ADJ针为1.5v不变化,而且,GND/ADJ针永远没有电流流过!!!!
+	因此除了稳压1.5V外,还可以设计成其他电压的稳压电路例如2.8V
+
+
+
+电路设计!!!!
+	一般作为输出端的主电源并联10uf 和100nf电容滤波
+	而作为输入端的电源针口,也需要并联100nf电容滤波
+	有些电源输入端会串联一个电感起保护作用
+
+简单多原理图pcb
+	先做一张模块图!! 标出各种对接口 (sheet entrry)
+		单线网络的对接口,接口颜色黄色 根据实际标出 接口属性(input,output,等等,)
+		包含多个网络的对接口,例如各类总线bus对接口,接口颜色蓝色,要标出接口属性harness
+	然后在模块上 右键 -> sheet symbol action -> create sheet from sheet symbol 创建对应模块的原理图sheet
+		这时,原理图上会预置模块的对接口!!
+		画原理图时,吧对应的针口连到对接口即可!!
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
