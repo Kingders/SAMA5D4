@@ -101,19 +101,68 @@ ams1117-1.5 稳压芯片,永远保持vout针与GND/ADJ针为1.5v不变化,而且
 	一般作为输出端的主电源并联10uf 和100nf电容滤波
 	而作为输入端的电源针口,也需要并联100nf电容滤波
 	有些电源输入端会串联一个电感起保护作用
+	高频信号输入针前需要串个电阻,防止高频信号反射,因为反射信号会消耗在串联电阻上,不会返回来影响高频信号输出源!
 
 简单多原理图pcb
 	先做一张模块图!! 标出各种对接口 (sheet entrry)
 		单线网络的对接口,接口颜色黄色 根据实际标出 接口属性(input,output,等等,)
-		包含多个网络的对接口,例如各类总线bus对接口,接口颜色蓝色,要标出接口属性harness
+		包含多个网络的bus对接口,例如各类总线bus对接口,接口颜色蓝色,要标出接口属性harness
 	然后在模块上 右键 -> sheet symbol action -> create sheet from sheet symbol 创建对应模块的原理图sheet
 		这时,原理图上会预置模块的对接口!!
 		画原理图时,吧对应的针口连到对接口即可!!
+	注意单线网络的对接口使用:
+		例如, a原理图出现 VDDQ 和 VDD 接口,其实都是3.3v的电源接口,但是,在a原理图上不要都接到 标记为3.3v的net网络中去
+		而是需要分别 用不同的 net 标记!! 假如两个接口都接到 同一个标记net中,会出错,表示net不能有一个以上的入口!!
+		实际这个问题,跟后面谈及的 Duplicate Net Names Wire XXX 问题有关系,这种改法只是权益之计!!
+	注意多个网络的bus对接口使用:
+		出现Duplicate Net Names Wire XXX 解决办法:
+		多张原理图的标识符作用域的设置问题，最简单方法:
+		Project -> Project options -> Options -> Net Identifier Scope（网络标识符作用范围）由原来的Automatic改为Global
+		随后编译了一下，几十个Duplicate Net Names Wire XXX error全部消失，
+		以下是深入内容:
+		所以是网络标识符的作用域的问题，这个问题发生在多张原理图设置中.
+		Altium Designer中网络标识符的几种方式：
+			Automatic、
+			Flat、
+			Global、
+			hierarchical四种方式，
+		这四种方式的用法为： 
+			（1）设置为Flat方式，不同页之间只有Port（端口）具有全局属性，即在不同的sheet之间进行同名端口的连接。缺点是难于追踪 
+			（2）设置为Global方式，不同页之间Port和netlabel都具有全局属性，缺点也是难于追踪。 
+			（3）设置为Hierarchical方式，这种适合于分等级的原理图设计中，必须有顶层和底层（每一页），
+			     顶层和底层之间是只通过SheetEntry（页入口）和各页的Ports建立对应关系，
+			     这种方式适合多页分等级的设计，各页之间的关系比较明晰，也容易追踪。 
+			（4）设置为Automatic方式，根据判据自动判断选择上述三种方式中的一种进行设置，
+			     具体是这样：当检查到原理图中具有页符号采用Sheet Entry和/或Ports连接子图，则自动选择HIerarchical方式；
+			     若没有Sheet Entry则判断有没有Ports，如果有Ports，则采用Flat方式进行设置作用域范围；如果没有Ports，
+			     则自动设置为Global方式。
+			     也就是说，若采用Automatic方式，当电路图中有SheetEntry时采用Hierarchical方式；
+			     当电路图中有Ports（不管不同页之间有没有同名的netlabel）时采用Flat方式；
+			     当电路图中仅有Netlabel时才采用Global方式。 
+		出现编译错误的原因也就在于Automatic方式时软件采用的判据，如果电路中没有SheetEntry，既有natlabel又有Ports，
+			当设置为Automatic时会按照（4）所述的判据自动设置为Flat方式，
+			由（1）可知是微微Flat方式只有Port在不同页之间具有全局属性，
+			所以软件不认为不同页之间的同名netlabel是连接在一起的，
+			进而出现了“Duplicate Net Names Wire XXX”的错误提示，这里边字面意思是网络名重名，
+		个人认为出现这种错误时，是设计Altium Designer的人人为设定的，不然的话设计软件的难度太大，
+		需要检测有没有netlabel和port，一共有四种情况，况且每一种情况具有包含与被包含的关系。 
+		解决办法： 
+			（1）将作用域设置为Global方式，这是最简单但比较懒惰的方式，是不同页之间的netlabel和Ports都具有全局属性，
+			     然后就可以在不同页之间的同名的Ports之间、同名的Netlabels之间建立连接关系。 
+			（2）采用层次原理图设计，顶层的SheetEntry仅仅和子页的Port之间建立连接关系。 
+			（3）将不同页之间同名netlabel修改为port，然后通过port建立连接关系，作用域设置为Flat或者Global或Hierarchical。 
+			备注：当将出现上述错误信息的原理图工程作用域设置为Hierarchical时，尽管很多错误都消失了，
+			但是会有一个“Multiple Top Level Documents”的错误，即多个顶层文档。
+	由于多张原理图最终会做到同一块pcb板子上!!所以需要检测各个元器件是否标记相对于pcb是否唯一!!
+		例如不要出现同一pcb两个电容都是 C21 标记的情况,即a原理图出现了C21,b原理图就不要再出现用C21标记某电容了
+		Reports -> Bill of materials -> 窗口空白处右键 -> Report -> 查看器件表的标记和封装
+	然后其实就可以新建一个 与 最上层图(即开始时的模块图)同名的pcb图,然后 update PCB Document xxxx了,
+		和单张原理图生pcb的过程没有区别!!
 
 
-
-
-
+其他:
+	按 q 快捷键快速改变单位制度 mil ~ mm
+	选中整条网络布线 s+n 后 点击网络线顺便某处!!
 
 
 
