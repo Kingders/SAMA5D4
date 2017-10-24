@@ -12692,10 +12692,64 @@ sdram的知识,例如 etron的em636165
 	由于有两个Lbank 所以 A11 针是Lbank片选,低电平LbankA,高电平LbankB
 	关于A10地址针, 输入rows地址时,计入并口地址的最高位, 输入colums地址时,为低电平	
 	关于sdram的布线还是传统的来吧,关于打乱地址线和数据线的做法先不实现,或者说,数据线可以打乱,但是地址线不能打乱!!!
+	开发板的 IS42S16100F-5Bl 是 200mhz 的,但是并未知道mpu支持多大频率的时钟
+	暂且认为开发板sdramc输出时钟只是100mhz !!!!,
+		不对,经过对 SDRAMC_CR 的一些内容反算,发现 时钟应该是200mhz!!!
+		还是不知道这个200mhz是怎么来的
+		后来发现这个推算的结果应该是错误的,因为张工说,SDCK就是MCK,所以应该只有 125mhz左右!!! 
+	芯片还没有告诉sdram的clk频率,但是发现 PMC并没有 sdramc 的时钟开关!!!
+		(PMC_EnablePeripheral(ID_SDRAMC)实际什么都没干),这是通用代码在个别型号里的亢余部分
+	考虑到布线的困难,可以混乱接部分针口,这时,虽然数据放在sdram上是错乱的,但是读取出来时的内容u准确无变化
+	根据 sdram的内存框架,乱接也有规则
+		mpu-A11 接 sdram-A11 不变  因为控制 bank 片选  net标记: A11
+		mpu-A10~A8 可与 sdram-A10~A8 交叉相接  因为这三针仅用于rows地址的,不能共用到cloum地址去
+			mpu-A8(76) 接 sdram-A8(31)	net标记: A8
+			mpu-A9(16) 接 sdram-A10(20)	net标记: mA9sA10
+			mpu-A10(88) 接 sdram-A9(32)	net标记: mA10sA9
+		mpu-A7~A0 可与 sdram-A7~A0 交叉相接  因为这八针共用于rows地址和cloum地址
+			mpu-A0(120) 接 sdram-A7(30)	net标记: mA0sA7			
+			mpu-A1(122) 接 sdram-A6(29)	net标记: mA1sA6			
+			mpu-A2(124) 接 sdram-A3(24)	net标记: mA2sA3	
+			mpu-A3(127) 接 sdram-A2(23)	net标记: mA3sA2			
+			mpu-A4(130) 接 sdram-A5(28)	net标记: mA4sA5			
+			mpu-A5(133) 接 sdram-A4(27)	net标记: mA5sA4			
+			mpu-A6(13) 接 sdram-A0(21)	net标记: mA6sA0
+			mpu-A7(12) 接 sdram-A1(22)	net标记: mA7sA1
+		mpu-DQ0~DQ15 可与 sdram-DQ0~DQ15 交叉相接 数据虽然存放时错位,但可以准确读出 
+			mpu-DQ0(11) 接 sdram-DQ2(5)	net标记: mD0sD2
+			mpu-DQ1(38) 接 sdram-DQ7(12)	net标记: mD1sD7
+			mpu-DQ2(39) 接 sdram-DQ15(49)	net标记: mD2sD15
+			mpu-DQ3(40) 接 sdram-DQ14(48)	net标记: mD3sD14
+			mpu-DQ4(41) 接 sdram-DQ13(46)	net标记: mD4sD13
+			mpu-DQ5(58) 接 sdram-DQ8(39)	net标记: mD5sD8
+			mpu-DQ6(54) 接 sdram-DQ9(40)	net标记: mD6sD9
+			mpu-DQ7(48) 接 sdram-DQ11(43)	net标记: mD7sD11
+			mpu-DQ8(4) 接 sdram-DQ6(11)	net标记: mD8sD6
+			mpu-DQ9(6) 接 sdram-DQ5(9)	net标记: mD9sD5
+			mpu-DQ10(7) 接 sdram-DQ4(8)	net标记: mD10sD4
+			mpu-DQ11(10) 接 sdram-DQ3(6)	net标记: mD11sD3
+			mpu-DQ12(27) 接 sdram-DQ1(3)	net标记: mD12sD1
+			mpu-DQ13(28) 接 sdram-DQ0(2)	net标记: mD13sD0
+			mpu-DQ14(49) 接 sdram-DQ10(42)	net标记: mD14sD10
+			mpu-DQ15(45) 接 sdram-DQ12(45)	net标记: mD15sD12
+
+		 
+电路中的 mpu电源连接需要串联一个电感, 现在电感取值未知 暂时认为是 10uh~68uh之间,所以 暂时留下一个0603的封装位置
 
 
 
 
+
+
+
+20171013
+小米6 通过还原备份方式构建 google框架服务!!! 不用root!!!
+	网上下载了的 Mi-pad-3-googleplay 把techtablets文件目录解压到 用户根目录->MIUI->backup->AllBackup->techtablets
+	然后在 设置 -> 备份和重置 -> 本地备份 -> 4月18日 下午10:09 ->开始恢复
+	然后登vpn 就可以使用googleplay了
+	手机开了vpn后, dukto不正常!!,需要先退出vpn
+	还有认识了一个好用的vpn atomvpn,还有蓝灯vpn!!!
+	所有备份在 other -> xiaomi6-googleplay-vpn 目录里
 
 
 
