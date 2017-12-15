@@ -42,9 +42,11 @@ pcb软件技巧:
 find similar objects 的用法! 
 	shift+f -> 选某网络某点,弹出的窗口 net 选 same  下面选select matched
 布完pcb一定要分析有没有出错:
-	Tools->Design rule check...->Run design rule check
-	
+	Tools->Design rule check...->Run design rule check 但不一定检查到是否漏布线	
 	特别是检查画线是不是都连上了!!!!
+	Reports -> Board information -> Report -> Routing information 打勾 -> Report
+	但是这个只是 显示 有多少个没连上,不能具体看到哪里没连上!!!
+
 
 输出bom表
 reports -> bill of material -> export
@@ -164,6 +166,11 @@ ams1117-1.5 稳压芯片,永远保持vout针与GND/ADJ针为1.5v不变化,而且
 	按 q 快捷键快速改变单位制度 mil ~ mm
 	选中整条网络布线 s+n 后 点击网络线顺便某处!!
 
+漏线检测:
+	Reports->Board Informmation->report->routing information->report
+	如果看到connections remaining 有数字,表示有露线
+	回到pcb l快捷键, hide top layer/buttom layer/top overlay/buttom overlay
+	然后就很快看到漏画的线了!!
 
 
 

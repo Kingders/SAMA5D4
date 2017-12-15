@@ -12716,8 +12716,8 @@ sdram的知识,例如 etron的em636165
 			mpu-A6(13) 接 sdram-A0(21)	net标记: mA6sA0
 			mpu-A7(12) 接 sdram-A1(22)	net标记: mA7sA1
 		mpu-DQ0~DQ15 可与 sdram-DQ0~DQ15 交叉相接 数据虽然存放时错位,但可以准确读出 
-			mpu-DQ0(11) 接 sdram-DQ2(5)	net标记: mD0sD2
-			mpu-DQ1(38) 接 sdram-DQ7(12)	net标记: mD1sD7
+		x	mpu-DQ0(11) 接 sdram-DQ2(5)	net标记: mD0sD2
+		x	mpu-DQ1(38) 接 sdram-DQ7(12)	net标记: mD1sD7
 			mpu-DQ2(39) 接 sdram-DQ15(49)	net标记: mD2sD15
 			mpu-DQ3(40) 接 sdram-DQ14(48)	net标记: mD3sD14
 			mpu-DQ4(41) 接 sdram-DQ13(46)	net标记: mD4sD13
@@ -12730,8 +12730,8 @@ sdram的知识,例如 etron的em636165
 			mpu-DQ11(10) 接 sdram-DQ3(6)	net标记: mD11sD3
 			mpu-DQ12(27) 接 sdram-DQ1(3)	net标记: mD12sD1
 			mpu-DQ13(28) 接 sdram-DQ0(2)	net标记: mD13sD0
-			mpu-DQ14(49) 接 sdram-DQ10(42)	net标记: mD14sD10
-			mpu-DQ15(45) 接 sdram-DQ12(45)	net标记: mD15sD12
+		x	mpu-DQ14(49) 接 sdram-DQ10(42)	net标记: mD14sD10
+		x	mpu-DQ15(45) 接 sdram-DQ12(45)	net标记: mD15sD12
 
 		 
 电路中的 mpu电源连接需要串联一个电感, 现在电感取值未知 暂时认为是 10uh~68uh之间,所以 暂时留下一个0603的封装位置
@@ -12739,6 +12739,79 @@ sdram的知识,例如 etron的em636165
 
 
 
+
+
+20171201
+板子整改
+	usb正常!!
+	板子焊好好了,先测试整体电路,电源 e70-cam v1 再焊上主芯片!!!
+	u9 的 ams1117  vin vout 反了 ,  而且散热片连接的是 vout不是gnd !!!
+	ldo芯片供电e70到达极限,转用dcdc方案!!
+	mcu data0-7 接 sensor data2-9 多出的mpu 多出的 data线接地,sensor多出的data线先悬空!!!
+	usart 是 ttl硬件协议,需要加个共地线 
+	usb接口往外
+	按钮该标签 reset user
+	sdram  LDQM UDQM 各管理 d0-7, d8-15. 所以数据线乱接,d0-7 单独一区域, d8-15 单独一区域
+		mpu-DQ0~DQ15 可与 sdram-DQ0~DQ15 交叉相接 数据虽然存放时错位,但可以准确读出 
+			mpu-DQ0(11) 接 sdram-DQ2(5)	net标记: mD0sD2
+			mpu-DQ1(38) 接 sdram-DQ7(12)	net标记: mD1sD7
+			mpu-DQ2(39) 接 sdram-DQ15(49)	net标记: mD2sD15
+			mpu-DQ3(40) 接 sdram-DQ14(48)	net标记: mD3sD14
+			mpu-DQ4(41) 接 sdram-DQ13(46)	net标记: mD4sD13
+			mpu-DQ5(58) 接 sdram-DQ8(39)	net标记: mD5sD8
+			mpu-DQ6(54) 接 sdram-DQ9(40)	net标记: mD6sD9
+			mpu-DQ7(48) 接 sdram-DQ11(43)	net标记: mD7sD11
+		udqm区域
+			mpu-DQ8(4) 接 sdram-DQ6(11)	net标记: mD8sD6
+			mpu-DQ9(6) 接 sdram-DQ5(9)	net标记: mD9sD5
+			mpu-DQ10(7) 接 sdram-DQ4(8)	net标记: mD10sD4
+			mpu-DQ11(10) 接 sdram-DQ3(6)	net标记: mD11sD3
+			mpu-DQ12(27) 接 sdram-DQ1(3)	net标记: mD12sD1
+			mpu-DQ13(28) 接 sdram-DQ0(2)	net标记: mD13sD0
+		X	mpu-DQ14(49) 接 sdram-DQ10(42)	net标记: mD14sD10
+			mpu-DQ15(45) 接 sdram-DQ12(45)	net标记: mD15sD12
+	pwm灯改为3极管 (ss8050)驱动的0.5w白光补灯!!
+	
+sram 对比: ISI4216100   				em63636165
+	A11 slect bank					A11 slect bank
+	2048 refresh cycles every32ms			4096 refresh cycles every64ms
+	(未完,深入学习sram 内容!!!)
+加入pwm,使用pwmdemo,控制灯!!!
+	注意,examples 的许多例子编译后不可用,未知问题所在,但是把main函数的pwm操作部分函数发放到 usb_video 后可以工作
+	注意,即使搬到usb_video里,也讲究放置的位置!!!
+		sensor_setup会读取 ov7725_config定义的内容  const 内容
+		但在 sensor_setup 前, pwm功能初始化会 初始化一个dma_buffer块:
+		COMPILER_ALIGNED(32) static uint16_t dwDutys[DUTY_BUFFER_LENTH];
+		而给这个块初始化赋值时,却居然没有识别到 ov7725_config定义的内容  const 内容占用了内存的位置
+		因为未知这块空间已使用,而强制在const内容的位置里 初始化 dwDutys[DUTY_BUFFER_LENTH] buffer,错误刷写了const的内容
+		然后导致 sensor_setup 读取到 错误的const内容而出错!!
+		假如在pwm程序块初始化 COMPILER_ALIGNED(32) static 前先 sensor_setup,可能这样就先访问到const位置的内容,
+		而后续初始化 COMPILER_ALIGNED(32) static 缓存就不会触到这块已知空间??
+		实践证明可行,但不代表上述假设成立,可能是更复杂的内存冲突问题!!
+	简述这芯片的pwm运行原理,
+		基础:
+		一般pwm是通过计数器累加来统计pwm输出针数据信号的持续时间,
+		一开始计数器从0开始数,直到起始值标记,会反相数据信号
+		一旦计数器数到,终点值标记就overcount,也会又一次反相数据信号,计数器重置
+		计数器又从0开始数.....
+		而e70的pwm添加了很多功能, 譬如 DMA功能,
+		譬如改变 终点值标记/起始值标记 可以改变信号的持续时间,一般是修改对应寄存器
+		而这里是通过pwm自动访问dma的数据,自己定时自动改变 终点值标记/起始值标记, 来达到更复杂的信号控制功能
+		不需要用户去主动修改对应寄存器,只需要把一段数据放到dma,让pwm自己定时逐条读取dma内容自动 改变终点值标记/起始值标记!!
+		所以修改 pwm信号,只需要修改 dma,不需要做复杂的寄存器读写工作
+		例如
+		如果想pwm输出恒定信号,dma里写满同一个值!
+		如果想pwm输出渐变信号,dma里写一堆渐变数据!
+添加用户按钮 (针64.pa11)
+	最好是中断方式!!
+	一定要 通过 source_insight 在程序包里找一下,肯定会有的!!!
+	移植注意是否与当前设置兼容
+	按键去抖:
+		进入handler函数时,一定要先关闭中断,不然因为抖动会陆陆续续有好多嵌套中断产生,
+		这样就保证当前只产生一个handler函数
+		我发现抖动间隙特别长,handler里做的延时要足够长 125mhz_mck 的芯片,建议 i=10000;while(i--);
+		退出时打开重新打开中断!! 
+	
 
 
 
