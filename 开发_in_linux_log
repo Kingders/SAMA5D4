@@ -12905,6 +12905,28 @@ sram 对比: ISI4216100   				em63636165
 					DC
 		DC电路 与 AC电路 的 地/源 要分路，之间甚至需要 一个电阻 分隔
 
+摄像头横条纹噪音 处理：
+	2.7V的AVDD，1.8V和1.2V的DVDD，纹波均控制在40mV，还能有什么原因导致横条纹，不是个例，不存在sensor坏
+	低照度的时候出现条纹的情况，一般都是由于电源纹波引起的，
+	你可以测一下你板子上面的纹波，其中内核电压和模拟电压上面的纹波会低照度的影响是最大的，
+	我也在调试sensor板，发现其实滤波效果最好的还是在板子上面的电源上面加容值大点的高分子电容或者钽电容，
+	这两种电容的滤波效果是最明显的，它们的ESR比较小，不过有点贵，
+	还想问一下，你板子上面的模拟电压是怎么产生的呢，是用LDO来输出的么，还是直接通过数字电源来转的呢，中间有加一个合适的磁珠么？
+	还有DGND和AGND的layout也是很重要的，这两地处理不好的话，低照度效果也会很差的，
+	检查一下你的PCB布板。
+
+	修改sensor的图片采样率！！ 
+		直接修改 0d 地址 的 pll 为6x
+		修改 e70提供的 isipck ： _isiPckInit(Void)
+
+	注意修改usb descriptor 只是改变了usb传输速率，而不是sensor的图片采样率！
+
+换ldo，减纹波：
+	e70 总电流 150ma，3.3v 工作压
+	sensor 总功率 120mw 保守电流 66ma
+	sram Operating Current 150ma
+	总电流：380ma左右！！
+	最后换了 主电源芯片 MP1470H 后，还有细调了外部电路， 电源输出纹波，示波器没有显示改善多少，但是摄像头横杠问题解决了！！
 
 
 
@@ -12913,6 +12935,90 @@ sram 对比: ISI4216100   				em63636165
 
 
 
+
+
+
+20180226
+SAMA5D2-xplained
+开机：
+	usb-EDBG 或者 usb-A 供电， DEBUG串口交互调试信息。115200/8/noparity/1-stopbit
+	不使用 usb-EDBUG 本身 交互调试信息，因为，reset按键也会重启EDBG辅助芯片，造成本连接好的串口通讯断开
+	这个与 a5d4的板子是有重大区别的！！，a5d4板子可以直接用usb-EDBUG 本身 交互调试信息，即使按reset按键也不受影响
+编译裸机包：
+	裸机包在ubuntu上尝试编译，不是在win-IAR上，
+		make TARGET=sama5d2-xplained VARIANT=ddram CROSS_COMPILE=arm-linux-gnueabihf-
+	补充：
+		可以修改softpack_sama5_2.3/scripts/Makefile.vars: CROSS_COMPILE 
+		(这样make命令上不用加CROSS_COMPILE项)
+	出错：
+		arm-linux-gnueabihf-gcc: 错误：nano.specs：没有那个文件或目录
+		softpack_sama5_2.3/scripts/Makefile.vars: CROSS_COMPILE 定义的link选项！
+		nano.specs是 arm-none-eabi- 的文件之一，我们的arm-linux-gnueabihf- 并没有！！
+		所以还是安装一个 arm-none-eabi- 编译器吧！！
+	安装 arm-none-eabi- 编译器 （现成安装，非源码编译安装）
+		网址：https://launchpad.net/gcc-arm-embedded/+download
+		下载 gcc-arm-none-eabi-5_4-2016q3-20160926-linux.tar.bz2
+		安装：
+			sudo tar xjf gcc-arm-none-eabi-5_4-2016q3-20160926-linux.tar.bz2 -C /opt
+		gedit ～/.bashrc 
+			添加：export PATH=$PATH:/opt/gcc-arm-none-eabi-5_4-2016q3/bin
+			save
+			立即生效：source ～/bashrc
+		安装的 arm-none-eabi- 与本来存在的 arm-linux-gnueabihf- 是可以共存的，
+		arm-linux-gnueabihf- 也是这样安装上的，
+		由于使用两者中的一个编译项目时，工具的前缀不一样，所以不会冲突
+	重新编译：
+	make TARGET=sama5d2-xplained clean	//清除
+	make TARGET=sama5d2-xplained		
+	make TARGET=sama5d2-xplained VARIANT=ddram 	//这时回到默认使用 arm-none-eabi-XX 编译			
+烧写官方linux demo：
+	预说明：
+		官方使用 sam-ba 3.2, 现有是sama5d4时候的 sam-ba 3.1 试图用 3.1，而非3.2
+		a5d2使用 spiflash 和 emmc-flash 复合存储模式，不像 a5d2 使用的 nand-flash 单存储模式
+		a5d2使用 spiflash 写 bootstrap，uboot-env，uboot，emmc-flash 写 rootfs 而且是 .wic格式的，不是.ubi格式
+		a5d2 使用ttyACM0 usb端口烧写，还有发现，edbg与usb-a共用ttyACM0 usb端口，
+		所以usb-a烧录与edbg输出串口信息冲突，不能共用，
+		对比 a5d4 edbg用ttyACM0，ubb-a烧录用ttyACM1,所以可共用不冲突！！
+	闭合boot_dis跳针，reset按钮，打开boot_dis跳针
+	擦除 spiflash：（spiflash 4194304 bytes）
+	sudo sam-ba -p serial:ttyACM0:115200 -b sama5d2-xplained -a serialflash -c erase
+	写 bootstrap 到 spiflash
+	sudo sam-ba -p serial:ttyACM0:115200 -b sama5d2-xplained -a serialflash -c writeboot:at91bootstrap-sama5d2_xplained.bin
+	写 uboot-env 到 spiflash
+	sudo sam-ba -p serial:ttyACM0:115200 -b sama5d2-xplained -a serialflash -c write:u-boot-env.bin:0x00006000
+	写 uboot 到 spiflash
+	sudo sam-ba -p serial:ttyACM0:115200 -b sama5d2-xplained -a serialflash -c write:u-boot-sama5d2-xplained.bin:0x00008000
+	写 打包镜像（kernel+dtb+rootfs）到 emmc
+	sudo sam-ba -p serial:ttyACM0:115200 -b sama5d2-xplained -a sdmmc:0:0 -c write:atmel-xplained-demo-image-sama5d2-xplained.wic:0
+	成功开机，说明 sam-ba3.1 可用于a5d2
+	注意，-a sdmmc:0:0 因为在sam-ba3.1的a5d2没有做默认参数，所以要自己填上:0:0,表示 sdmmc0,partiton0，参考（sam-ba3.2做了的默认参数）
+编译烧写 bootstrap：
+	获取，用之前下载在a5d3的。拷贝过来！
+	make proper //清理
+	make sama5d2_xplaineddf_uboot_defconfig //配置
+	（注意：make sama5d2_xplaineddf_uboot_defconfig //这个配置，表示bootstrap加了sdcard功能）
+	make CROSS_COMPILE=arm-none-eabi- -j8 //编译
+	烧写 binaries/sama5d2_xplained-dataflashboot-uboot-3.8.7.bin 成功运行！！
+编译烧写 uboot：
+	获取，用之前下载在a5d3的。拷贝过来！
+	$ git branch -r		//查看版本分支
+	$ git checkout origin/u-boot-2016.03-at91 -b u-boot-2016.03-at91	//选用版本分支
+	make sama5d2_xplained_spiflash_defconfig	//配置 uboot放在spiflash上的
+	make CROSS_COMPILE=arm-none-eabi- -j8 	//编译
+	烧写可用！
+	但是发现，因为这个uboot居然没有 ext4load 命令，所以，无法继续加载 linux
+	所以直接到 https://github.com/linux4sam/u-boot-at91 下载了一个新版的，
+	注意在 github下载u-boot-at91 时，git clone 是全部分支链都会下载下来，而直接打包zip下载，只下载到最新的分支版本。
+	所以打包zip的u-boot-at91 不可以做 git xxx 其他操作
+	由于git clone太慢，我直接打包zip下载uboot包了
+	最后编译烧写可用，可加载 demo-linux
+	补充，
+	uboot-env.bin 是commandline，bootargs自定义信息的数据包，放到指定位置后，uboot会优先使用该地方的env参数内容！
+	例如，把uboot-env.txt 编译成 uboot-env.bin 由于env保存在 0x6000 - 0x8000 之间，所以大小设置为 0x2000
+	./tools/mkenvimage -s 0x2000 -o u-boot-env.bin u-boot-env.txt	//编译 env.bin
+splflash烧录问题！！！
+	烧写spiflash并不可以中途替换其中的一个模块就烧一个模块！！如果要换其中的 bootstrap，uboot，uboot-env时，
+	要全部替换，erase全芯片，重新烧录
 
 
 
