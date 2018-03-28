@@ -12927,7 +12927,17 @@ sram 对比: ISI4216100   				em63636165
 	sram Operating Current 150ma
 	总电流：380ma左右！！
 	最后换了 主电源芯片 MP1470H 后，还有细调了外部电路， 电源输出纹波，示波器没有显示改善多少，但是摄像头横杠问题解决了！！
-
+继续让体积缩1/3
+	出现了轮廓黑点！！（只有一块出现，未解决，初步认为是 sdram的问题，轮廓黑点可以说是特定rgb像素点，传输到sdram时出错）
+	很多时候是 sdram sensor 等焊接问题！！
+	芯片不过工作，注意晶震的并联电容容值问题。
+	首先不怀疑 mcu的问题，
+	试了把拆机片焊回去，工作。
+	布线不要轻易有过孔，并口数据排线尽量等长，
+	这次缩板工作，妥协打破了好多并不肯定的布线规则，出来效果也不算太差，值得为后面的设计做参考
+	电源的滤波电容根据更小的新板子数值做了修改，完美工作
+	e70-cam结案！
+	
 
 
 
@@ -12960,20 +12970,26 @@ SAMA5D2-xplained
 		下载 gcc-arm-none-eabi-5_4-2016q3-20160926-linux.tar.bz2
 		安装：
 			sudo tar xjf gcc-arm-none-eabi-5_4-2016q3-20160926-linux.tar.bz2 -C /opt
-		gedit ～/.bashrc 
+		gedit ~/.bashrc 
 			添加：export PATH=$PATH:/opt/gcc-arm-none-eabi-5_4-2016q3/bin
 			save
-			立即生效：source ～/bashrc
+			立即生效：source ~/.bashrc
 		安装的 arm-none-eabi- 与本来存在的 arm-linux-gnueabihf- 是可以共存的，
 		arm-linux-gnueabihf- 也是这样安装上的，
 		由于使用两者中的一个编译项目时，工具的前缀不一样，所以不会冲突
 	重新编译：
 	make TARGET=sama5d2-xplained clean	//清除
-	make TARGET=sama5d2-xplained		
-	make TARGET=sama5d2-xplained VARIANT=ddram 	//这时回到默认使用 arm-none-eabi-XX 编译			
+	make TARGET=sama5d2-xplained VARIANT=ddram 	//这时回到默认使用 arm-none-eabi-XX 编译	
+	sudo sam-ba -p serial:ttyACM0:115200 -b sama5d2-xplained -a serialflash -c erase	//必须先擦除spiflash
+	sudo sam-ba -p serial:ttyACM0:115200 -b sama5d2-xplained -a serialflash -c writeboot:xxx_ddram.bin //烧到spiflash启动失败！！
+	再一次：
+	make TARGET=sama5d2-xplained //默认编译 VARIANT=sram，等于make TARGET=sama5d2-xplained VARIANT=sram ）
+	sudo sam-ba -p serial:ttyACM0:115200 -b sama5d2-xplained -a serialflash -c erase	//必须先擦除spiflash
+	sudo sam-ba -p serial:ttyACM0:115200 -b sama5d2-xplained -a serialflash -c writeboot:xxx_sram.bin //烧到spiflash成功启动！！	
+
 烧写官方linux demo：
 	预说明：
-		官方使用 sam-ba 3.2, 现有是sama5d4时候的 sam-ba 3.1 试图用 3.1，而非3.2
+		官方使用 sam-ba 3.2, 现有是sama5d4时候的 sam-ba 3.1 继续用 3.1，不用 3.2
 		a5d2使用 spiflash 和 emmc-flash 复合存储模式，不像 a5d2 使用的 nand-flash 单存储模式
 		a5d2使用 spiflash 写 bootstrap，uboot-env，uboot，emmc-flash 写 rootfs 而且是 .wic格式的，不是.ubi格式
 		a5d2 使用ttyACM0 usb端口烧写，还有发现，edbg与usb-a共用ttyACM0 usb端口，
@@ -12994,11 +13010,14 @@ SAMA5D2-xplained
 	注意，-a sdmmc:0:0 因为在sam-ba3.1的a5d2没有做默认参数，所以要自己填上:0:0,表示 sdmmc0,partiton0，参考（sam-ba3.2做了的默认参数）
 编译烧写 bootstrap：
 	获取，用之前下载在a5d3的。拷贝过来！
-	make proper //清理
+	make mrproper //清理
 	make sama5d2_xplaineddf_uboot_defconfig //配置
 	（注意：make sama5d2_xplaineddf_uboot_defconfig //这个配置，表示bootstrap加了sdcard功能）
 	make CROSS_COMPILE=arm-none-eabi- -j8 //编译
 	烧写 binaries/sama5d2_xplained-dataflashboot-uboot-3.8.7.bin 成功运行！！
+	注意，bootstrap 拷贝 uboot到ddr运行！
+	拷贝uboot的参数：	uboot在 flash 位置 0x8000, uboot大小 0x80000， 拷到ddr的位置 0x26f00000 
+				image name u-boot.bin
 编译烧写 uboot：
 	获取，用之前下载在a5d3的。拷贝过来！
 	$ git branch -r		//查看版本分支
@@ -13019,6 +13038,1174 @@ SAMA5D2-xplained
 splflash烧录问题！！！
 	烧写spiflash并不可以中途替换其中的一个模块就烧一个模块！！如果要换其中的 bootstrap，uboot，uboot-env时，
 	要全部替换，erase全芯片，重新烧录
+emmc文件系统分析：
+	官方 demo 的文件系统是一个 .wic 镜像，
+	file atmel-xplained-demo-image-sama5d2-xplained.wic //显示该镜像是 x86 boot sector（启动扇区） 不能直接 mount 镜像
+	fdisk -l atmel-xplained-demo-image-sama5d2-xplained.wic	//查看整个启动扇区的 分区结构
+		Disk atmel-xplained-demo-image-sama5d2-xplained.wic: 459 MB, 459705344 bytes
+		4 heads, 32 sectors/track, 7014 cylinders, total 897862 sectors
+		Units = 扇区 of 1 * 512 = 512 bytes
+		Sector size (logical/physical): 512 bytes / 512 bytes
+		I/O size (minimum/optimal): 512 bytes / 512 bytes
+		Disk identifier: 0x4376234b	
+		                                         设备 启动      起点          终点     块数   Id  系统
+		atmel-xplained-demo-image-sama5d2-xplained.wic1               8      897861      448927   83  Linux
+		可见，里面的atmel-xplained-demo-image-sama5d2-xplained.wic1 才是文件系统镜像所在！
+		可见，一个扇区单元 512 bytes，只有分了一个分区atmel-xplained-demo-image-sama5d2-xplained.wic1
+	mkdir test && mount -o offset=4096 atmel-xplained-demo-image-sama5d2-xplained.wic1 test/
+		mount 这个分区，因为这个分区在 起点块8 开始，所以 偏移 8x512=4096
+刷新emmc镜像内容方案1：
+	sudo chmod 777 ./test/*   
+	/*修改操作...*/
+	sudo umount ./test   		
+		修改权限，这样就可以直接修改镜像里的内容，比如添加一个文件，然后重新烧到板上emmc，开发板成功看到修改内容！！
+刷新emmc镜像内容方案2：
+	mkdir demo-emmc-rootfs && sudo cp -R ./test/* ./demo-emmc-rootfs/   
+		/**/先把镜像里的东西全部拷出来
+	（自己弄一个新镜像，方法待续）
+刷写kernel：
+	把a5d4的kernel拷过来，直接拷文件夹过来，不要压缩包，因为压缩包解压各种问题
+	按a5d4的方法编译，
+	使用刷新镜像内容方案1 直接把镜像里 /boot里 dtb，和zIamge 替换成自己编译的！！
+	烧录 .wic 镜像！！ 成功!
+	进一步修改kernel去掉之前遗留下来的调试信息！！
+刷写kernel方法2，tftp下载：
+	编译好kernel， 拷到tftpboot
+	开发板 tftp -gl zImage 200.200.200.103	//下载
+	cp zImage /boot/zImage	//替换
+	重启开发板成功！！	
+编辑Yocto/Poky 系统镜像
+	由于，a5d2开发板 rootfs与kernel捆绑了，所以单单编译kernel，并未知道如何捆绑rootfs成一个wic整体镜像烧录！
+	所以直接从 yocto 项目探索！！
+	a5d4 已经下载了一个完整的yocto包，先复制一份！！
+
+
+
+
+
+
+
+
+20180302
+移植usb_host
+官网下载iar8 安装，然后把 arm/config/devices/Microchip 拷到 7.3 对应地方去
+然后7.3就支持 sama5d2了，还有，debug支持模块也是这样操作
+重新建立project， 对比 张一风的项目的ewp文件， 把要用的.c.s文件add到羡慕里去
+还有注意 根据张一风的项目的ewp文件在options添加宏定义的注释，不然项目编译不成功
+现在出现了 static __(atrribute)__ (const) 无发编译的问题！！ 
+	atrribute 是 gnu 规范， iar编译器不可通过
+	__(atrribute)__ (（aligned（32））) gun的字节对齐规则，在iar编译器上好像也用不着
+目前，字节对齐修改问题！！，已经可编译并烧录到spiflash上运行
+手动改对齐问题！成功运行协议检测，
+并未能执行文件系统的读写！继续开通文件读写功能
+编译出现以下错误：
+	Error[Lp011]: section placement failed 
+	unable to allocate space for sections/blocks with a total estimated minimum size of 0x52658 bytes (max align 0x100) in  
+	<[0x00200000-0x0021ffff]> (total uncommitted space 0x1ffc4). 
+		由于 linker 是 sram.icf，即程序在sram上执行，sram空间不够大，不足够空间添加文件读写功能，
+		改为 ddram.icf 就可以通过编译了，但未知烧录运行如何，
+	Error[Li005]: no definition for "__write" [referenced from puts.o(dl5E_aln.a)] 
+		这是iar 的公共链接库问题！！现在使用的库没有puts.o，所以无法地定位	__write
+		project-options-general options-library configuration
+		 -library full
+		 -library lowlevel interface implementation-semihosted
+基于ddram布局bin文件无法运行解决：
+	之前试过编译出对应的 ddram文件后，并无法执行文件，
+	张一封之所以成功并不是因为把文件拷到spiflash上，而是直接在上电情况下，在iar里通过jlink线上拷到ddram进行调试！！
+	现在的一个思路是，上电先运行bootstraps，把对应的ddram文件拷贝到ddram 0x20000000 上，然后在跳转执行，之前9x35板子成功！
+	在这里却失败，原因在于源代码包给的 ddram linker文件有bug！！使之只适合线上调试！！
+	gnu的 ddram linker文件要这么改：
+/* ddram.ld */
+...
+SECTIONS
+{
+	.fixed0 :
+	{
+		. = ALIGN(4);
+		_sfixed = .;
+		/*by william 把中断向量放在ddram地址开头*/
+		KEEP(*(.vectors .vectors.*))
+		*(.textEntry)
+		*(.text .text.* .gnu.linkonce.t.*)
+		*(.glue_7t) *(.glue_7)
+		*(.rodata .rodata* .gnu.linkonce.r.*)
+		*(.ARM.extab* .gnu.linkonce.armextab.*)
+...	
+	.relocate :
+	{
+		. = ALIGN(4);
+		_srelocate = .;
+		/*by william,不要把中断向量放在 sram上*/
+		/* KEEP(*(.vectors .vectors.*)) */
+		/* *(.ramfunc) */
+		. = ALIGN(4);
+		_erelocate = .;
+	} >sram AT>ddr
+/* ddram.ld */
+	最后，用gnu（ubuntu，arm-gcc）编译的基于ddram布局bin文件，成功在 0x20000000 执行！
+	后来发现，其实不用改，照样执行！！
+尝试结合iar 和bootstrap
+莫名其妙iar不能编译了，表示 unknown cpu core
+(softpack软件包出错，重新解压，原来是移植张工的project时，修改了的文件导致其他example出这个错误)
+还是不行，涉及到复杂的重定位，中断向量位置，和代码搬运问题！！
+iar说明书 109页！，多次修改iar linker，都无法实现通过 bootstrap 搬运程序到ddram上运行
+比对过iar和gnu linker，发现没有什么不一样的地方，未知为何不能成功
+不成功的因素是多方面的，涉及到复杂的重定位，中断向量位置，和代码搬运问题，甚至是 gnu编译的bootstrap与iar编译的app的冲突问题！！
+现在，搁置iar编app，全力使用gnu版本
+官方现在只提供 gnu softpack_v2.12 之前的2.3反而没了！！
+使用2.12版本，
+2.12版本成功 bootstrap 搬运 app，并运行成功！！
+发现2.12 make 脚本很有问题！！，不能clean!!
+在gnu上移植usb_host,并掌握 makefile 
+勉强在移植 usb_host 到 gnu 成功！！
+	先在 V2.12 建立 examples/usb_host: 添加张工的代码后，建立makefile：
+/*...examples/usb_host/Makefile*/
+CONFIG_LIB_USB_HOST = y		#我们移植的usb_host为一个单独的模块
+
+TOP := ../..			
+
+BINNAME = usb_host
+
+obj-y += examples/usb_host/main.o
+
+include $(TOP)/scripts/Makefile.rules	#真正的编译脚本都在这
+/*...examples/usb_host/Makefile*/
+	再 V2.12 的lib添加 文件夹usb_host，把张工对应的内容都放这，然后修改Makefile.inc 添加：
+		#by william
+		include $(TOP)/lib/usb_host/Makefile.inc
+	lib/usb_host,新建Makefile.inc
+/*...lib/usb_host/Makefile.inc*/
+# ----------------------------------------------------------------------------
+#         SAM Software Package License
+# ----------------------------------------------------------------------------
+# by william
+# 20180310
+# ----------------------------------------------------------------------------
+
+ifeq ($(CONFIG_LIB_USB_HOST),y)		#显然，我们在examples/usb_host下make时才加进来的LIB_USB_HOST模块
+
+CFLAGS_INC += -I$(TOP)/lib/usb_host	#把include路径添加到编译环境里去，方便编译
+
+lib-y += lib/usb_host.a			#编译出来的 静态库文件名
+
+usb_host-y := lib/usb_host/fat.o	#要编译的.o 文件
+usb_host-y += lib/usb_host/file.o
+usb_host-y += lib/usb_host/cmd_usb.o
+usb_host-y += lib/usb_host/devices.o
+usb_host-y += lib/usb_host/ohci_hcd.o
+usb_host-y += lib/usb_host/part.o
+usb_host-y += lib/usb_host/part_dos.o
+usb_host-y += lib/usb_host/usb.o
+usb_host-y += lib/usb_host/usb_kbd.o
+usb_host-y += lib/usb_host/usb_ohci.o
+usb_host-y += lib/usb_host/usb_storage.o
+usb_host-y += lib/usb_host/yf.o
+
+
+USB_HOST_OBJS := $(addprefix $(BUILDDIR)/,$(usb_host-y))	#建立一个.o文件组参数
+
+-include $(USB_HOST_OBJS:.o=.d)		#把所有.o变成.d文件
+
+$(BUILDDIR)/lib/usb_host.a: $(USB_HOST_OBJS)	#把所有.d文件链接成usb_host.a静态库放到build/lib里 
+	@mkdir -p $(BUILDDIR)/lib
+	$(ECHO) AR $@
+	$(Q)$(AR) -cr $@ $^
+endif
+/*...lib/usb_host/Makefile.inc*/
+	然后，避免其他琐碎麻烦，把drivers，scripts，target，utils拷贝过来替代
+	然后以sram linker编译， 以在sram运行方式。
+	编译到lib/usb_host时，会出现很多说memset，strcp等等找不到的问题，认为缺少头文件，
+		所以统一在yf.h添加上：
+		//by wiliam
+		#include <ctype.h> 
+		#include <string.h>
+		#include <stdio.h>
+		#include <stdlib.h>		
+		然后在对应的，如cmd_usb.c 添加 #include <yf.h>
+		include可以用 <> 是因为 makefile.inc添加了CFLAGS_INC += -I$(TOP)/lib/usb_host 
+	编译到lib/usb_host/usb_kbd.c时，出现没找到memscan，首先memscan不是标准函数，是张工在main.c上定义的函数
+		但是，还没有编译main.c所以就得不到memscan，（也不知道iar是怎么编译通过的）
+		于是另外在 lib/usb_host,新建yf.c,把这个函数放进去！
+	编译 ohci_hcd.c 发现，没有定义 pmc_xxxx之类的函数，于是，查看pmc.h,补上没声明
+		然后在 ohci_hcd.c 添加 #include <peripherals/pmc.h>
+		(也不知道，iar是怎么编译通过的)
+		另外pmc_enable_upll_clock() 和 pmc_enable_upll_clock() 都没有输出，所以不能嵌入if（）
+		(也不知道，iar是怎么编译通过的)
+	然后编译main.c,说找不到 file_detectfs, file_read, usb_display_desc, usb_dispaly_config
+		在 yf.h 编译添加 file_detectfs, file_read, 声明，让main.c include
+		至于usb_display_desc, usb_dispaly_config，以上做法又说会出错说conflicting type什么的
+		所以直接在 main.c 开头用extern 声明！！
+	然后编译又说sram空间不够，于是尝试ddram linker 编译，
+		一举成功，并可bootstrap搬运，最后在 ddram上运行！！
+		但是，显然卡死在初始化usb上了！！
+寻找死机位置：
+	usb_scan_device
+		->memset没有问题,
+		->usb_alloc_new_device 没有问题，
+		->usb_new_device()->usb_get_descriptor
+		跟踪到 usb_ohci.c->submit
+	(未完)
+
+
+第二次重新使用iar，发现编译成功，但不能工作，显示 ohci unrecoverable error，
+	记录，之前第一次是合并文件夹的，而之后的第二次是替换文件夹的
+	重新移植编译并详细记录
+	重做：
+	使用第二次的　examples/usb_host
+	合并文件夹并把第二次重新修改好的lib/usb_host 拷过来，
+	ohci unrecoverable error，
+	重做：
+	使用第二次的　examples/usb_host
+	合并文件夹并把未修改的（张工给的）lib/usb_host 拷过来，
+	swab.h:
+		注释掉　__attibude__((const)) 注释替换掉
+	usb_kbd:
+		static unsigned char leds __attibude__((aligned (0x4)));
+		改为：
+		#pragma pack(4)
+		static unsigned char leds;
+		#pragma pack()	
+	usb_ohci
+		#pragma pack(16)
+		struct ed {...
+		};
+		#pragma pack()
+		...			
+		#pragma pack(32)
+		struct td {...
+		};
+		#pragma pack()
+		...
+		#pragma data_alignment=256
+		struct ohci_hcca {
+			__u32	int_table[NUM_INTS];	/* Interrupt ED table */
+		#if defined(CONFIG_MPC5200)
+		#pragma data_alignment=256
+			__u16	pad1;			/* set to 0 on each frame_no change */
+		#pragma data_alignment=256
+			__u16	frame_no;		/* current frame number */
+		#else
+		#pragma data_alignment=256
+			__u16	frame_no;		/* current frame number */
+		#pragma data_alignment=256
+			__u16	pad1;			/* set to 0 on each frame_no change */
+		#endif
+		#pragma data_alignment=256
+			__u32	done_head;		/* info returned for an interrupt */
+		#pragma data_alignment=256
+			u8		reserved_for_hc[116];
+		//} __attribute((aligned(256)));
+		};
+		// #pragma pack()
+		...
+		#pragma pack(32)
+		struct ohci_regs {...
+		};
+		#pragma pack()
+	出现 HCCA not aligned!!等．．
+	usb_ohci:
+		#pragma data_alignment=256
+		struct ohci_hcca ghcca[1];
+		#pragma data_alignment=８
+		struct ohci_device ohci_dev;	
+	然后就好了！！！真好了！！！，没有出现　ohci unrecoverable error，的问题
+	好了;开始试错！！
+	1,usb_ohci:
+		#pragma data_alignment=256
+		struct ohci_hcca {...
+		};
+		#pragma pack()
+		改为：
+		#pragma data_alignment=256
+		struct ohci_hcca {...
+		};
+		并没有问题！！
+	2,替换文件夹,而非合并文件夹　重新编译
+		也没有问题！！
+	3,替换来自linux修改后的usb.ｃ文件！！
+		我去，也没有问题，那么那个　ohci unrecoverable error　怎么发生的已经成迷！！
+		不管了
+着手解决 iar 在ddram上运行的引导问题！！
+	反汇编bin文件：arm-none-eabi-objdump -D -b binary -m arm usb_host.bin>usb_hoat.s
+	查看了反汇编，发现并没有像入口不对的问题！！
+	笔记　bl　指令：
+		200000a4  eb002381  bl 0x8eb0  //意思是跳到　20008eb0,是i相对跳转指令,非绝对地址跳转!
+		具体指令运作：
+		eb002381取[23,0]即2381,
+		然后扩成32位,[31,24]为0[23,0]不变,结果也是2381
+		左移两位得8e04,
+		加此刻pc值(200000ac)等于20008eb0
+	查看中断向量的remap问题
+	gnu的编译的bin可以看到:bin文件放到ddram上运行的时候,一直都是相对地址跳转,所以顺利执行
+		然后运行到relocate时,把存在 _etext的标记的 _srelocate至_erelocate位置存放的中断向量拷贝到sram:0x20000位置上
+		然后remap,把芯片0x0到某地址A 的这段地址对正sram: 0x20000上去!
+	现在是怀疑iar的 __iar_data_init3 函数并没有好好工作!!可是找不到真正的位置
+	ucos可以ddram启动,把对应的sram.ddram的linker文件代入发现,
+		sram可启动,但是ddram依旧不行!!
+		因为ucos的ddram是测试过可运行的,所以应该不是linker的问题, 重点看cstartup.s区别!
+		uocos的那个cstartup是先remap再relocation中断向量,而2.12的相反
+		uocos的那个cstartup有个low_level_init,而2.12的是board_init代替
+		最后修了下v2.12的,sram可动,ddram不可动
+		怀疑不是cstartup入口的问题了,而是其他!!
+	最后手段建立点灯调试!!,同时了解的 a5d2 的 PIO 框架设置
+		开发板led灯,相关参数
+/* RGB LED index */
+#define LED_RED   0
+#define LED_GREEN 1
+#define LED_BLUE  2
+
+/** LED #0 pin definition (Red). */
+#ifndef CONFIG_BOARD_SAMA5D2_XPLAINED_PROTO
+#define PIN_LED_0 { PIO_GROUP_B, PIO_PB6, PIO_OUTPUT_1, PIO_OPENDRAIN }
+#else
+/* on prototype board, LED_0 shares a pin with SDMMC0 (eMMC) card detect */
+#define PIN_LED_0 { PIO_GROUP_A, PIO_PA13, PIO_OUTPUT_0, PIO_OPENDRAIN }
+#endif
+
+/** LED #1 pin definition (Green). */
+#define PIN_LED_1 { PIO_GROUP_B, PIO_PB5, PIO_OUTPUT_1, PIO_OPENDRAIN }
+
+/** LED #2 pin definition (Blue). */
+#define PIN_LED_2 { PIO_GROUP_B, PIO_PB0, PIO_OUTPUT_1, PIO_OPENDRAIN }
+
+/** List of all LEDs definitions. */
+#define PINS_LEDS { PIN_LED_0, PIN_LED_1, PIN_LED_2 }
+
+#define NUM_LEDS  3
+		ldr 把"内容",放入寄存器
+		str 一个寄存器的装载内容, 另一个寄存器里装载的地址, 把内容放到地址里去!!
+		在cstartup.s任意一段值得怀疑的地方插入这段点灯代码!
+        ; by william lighting-debug
+        ; dis interrupt pb0,5,6
+        ldr     r0, =0xfc038064
+        ldr     r1, =0x61      
+        str     r1, [r0]
+        ; no-secure pb0,5,6
+        ldr     r0, =0xfc039070
+        ldr     r1, =0x61      
+        str     r1, [r0]
+        ; set data be drived by output (lighting-off)
+        ldr     r0, =0xfc038050
+        ldr     r1, =0x61
+        str     r1, [r0]
+	; mask pb0,5,6
+        ldr     r0, =0xfc038040
+        ldr     r1, =0x61      
+        str     r1, [r0]
+        ; config PB output opendrain
+        ldr     r0, =0xfc038044
+        ldr     r1, =0x4100
+        str     r1, [r0]
+        ; clear data be drived by output (lighting-on)
+        ldr     r0, =0xfc038054
+        ldr     r1, =0x61
+        str     r1, [r0]      
+        b       loop4		//这是跳到死循环,看情况使用
+		代码参考 pio4.c board_led.c 相关的:
+        board_cfg_led();
+        led_set(1);
+        led_set(2);
+        led_set(3); 
+		先关中断
+		a5d2提供了,secureio,和no-secureio,我们做led控制,只要no-secureio就好了
+		a5d2设置pin脚参数的寄存器框架跟以往的不一样,设计得更加紧凑,使用了更少的寄存器
+		要设置具体某些pin脚,需要先 使用mask寄存器记下要设置的脚
+		然后在cfg设置的内容就仅仅会对 mask记下的pin脚生效,
+		cfg 仅设置 output,和opendrain,两个属性
+		set output data 等于 set data be drived by output 等于设置输出1,高电平,
+		clear output data 等于 clear data be drived by output 等于设置输出0,低电平,
+		set/clear output data寄存器在cfg设置前设置并没有问题!!
+		据pcb,电流是从3.3V流向led流回pb0,5,6的,所以  clear output data 才是真正的开灯操作
+		最后,发现不管写在哪都不亮,
+		原来是运行到 board_sama5d2-xplained.c:board_init()->board_cfg_pmic() 以后,io才工作!!
+	开始点灯调试
+		__iar_program_start开始,先设置led并开灯,但是由于board_cfg_pmic()后的,pin脚才真正的亮起了灯?
+		所以入口没有问题,在board_init开始出问题!!!!
+		重点在  board_cfg_pmic() 如果在它之前做了事情,就会崩溃,怀疑进入board_init(),先做 board_cfg_pmic()
+		而且不做,cfg_loelevel和dma_init时,通过 boardinit!! 成功跳到 main!!
+		自console开始又开始跳不过了
+		还原源代码的修改,编译选项选择不优化!! (不是优化的问题)
+		怀疑是中断向量没有拷贝到位!!即使 __iar_data_init3 的问题!!,然而ucos的ddram例子可以好好工作!!
+		(未完搁置)
+	同样的代码,gnu编译成功,iar却出现这样难缠的问题.
+		所以还是搁置了,直接把代码移植到ucos()
+
+
+
+移植uoos
+ucos官网有直接针对a5d2的版本的包，直接下载，官网的构建是基于iar7.7的，但是我们使用iar7.1可以打开
+iar打开 ～～/OS3/iar/OS3.eww
+project->options:
+	general options: target-devices ATSAMA5d27, target-FPU(VFPUv4),
+	output convert: 选择输出bin文件
+	linker：选择 ucos代码包自带的 sram.icf
+重点： 一定要勾上 FPU ，即使用VFP硬件浮点运算模块，不然，编译过程中*.s文件会说没有找到FPEXC
+编译后，通过sam-ba3 命令烧录到 spiflash：
+	sudo sam-ba -p serial:ttyACM0:115200 -b sama5d2-xplained -a serialflash -c erase
+	sudo sam-ba -p serial:ttyACM0:115200 -b sama5d2-xplained -a serialflash -c writeboot:OS3.bin
+成功运行，演示中只有，灯在闪，没有debug串口输出！！
+移植到ddram上工作:
+	ucos源码有两套启动方案:
+		方案1:BSP/IAR:cstartup.s和sram.icf
+		方案2:BSP/Atmel/target/sama5d2/toolchain/iar: cstartup和sram.icf,ddram.icf
+	注意方案要配合使用,不能交叉使用
+	使用方案2 cstartup.s + ddram.icf  配合 之前gnu编写的bootstrap 成功把ucos放在ddram上启动!!
+	
+补充:
+/* ASSIC码对照表*/
+ASCII值 控制字符 ASCII值 控制字符 ASCII值 控制字符 ASCII值 控制字符
+0 	NUT 	32 	(space) 	64 	@ 	96 	、
+1 	SOH 	33 	！ 	65 	A 	97 	a
+2 	STX 	34 	” 	66 	B 	98 	b
+3 	ETX 	35 	# 	67 	C 	99 	c
+4 	EOT 	36 	$ 	68 	D 	100 	d
+5 	ENQ 	37 	% 	69 	E 	101 	e
+6 	ACK 	38 	& 	70 	F 	102 	f
+7 	BEL 	39 	, 	71 	G 	103 	g
+8 	BS 	40 	( 	72 	H 	104 	h
+9 	HT 	41 	) 	73 	I 	105 	i
+10 	LF 	42 	* 	74 	J 	106 	j
+11 	VT 	43 	+ 	75 	K 	107 	k
+12 	FF 	44 	, 	76 	L 	108 	l
+13 	CR 	45 	- 	77 	M 	109 	m
+14 	SO 	46 	. 	78 	N 	110 	n
+15 	SI 	47 	/ 	79 	O 	111 	o
+16 	DLE 	48 	0 	80 	P 	112 	p
+17 	DCI 	49 	1 	81 	Q 	113 	q
+18 	DC2 	50 	2 	82 	R 	114 	r
+19 	DC3 	51 	3 	83 	S 	115 	s
+20 	DC4 	52 	4 	84 	T 	116 	t
+21 	NAK 	53 	5 	85 	U 	117 	u
+22 	SYN 	54 	6 	86 	V 	118 	v
+23 	TB 	55 	7 	87 	W 	119 	w
+24 	CAN 	56 	8 	88 	X 	120 	x
+25 	EM 	57 	9 	89 	Y 	121 	y
+26 	SUB 	58 	: 	90 	Z 	122 	z
+27 	ESC 	59 	; 	91 	[ 	123 	{
+28 	FS 	60 	< 	92 	\ 	124 	|
+29 	GS 	61 	= 	93 	] 	125 	}
+30 	RS 	62 	> 	94 	^ 	126 	~
+31 	US 	63 	? 	95 	— 	127 	DEL
+
+NUL 		VT 垂直制表 	SYN 空转同步
+SOH 标题开始 	FF   走纸控制 	ETB 信息组传送结束
+STX 正文开始 	CR   回车 	CAN 作废
+ETX 正文结束 	SO   移位输出 	EM   纸尽
+EOY 传输结束 	SI    移位输入 	SUB 换置
+ENQ 询问字符 	DLE 空格 	ESC 换码
+ACK 承认 	DC1 设备控制1 	FS   文字分隔符
+BEL 报警 	DC2 设备控制2 	GS   组分隔符
+BS   退一格 	DC3 设备控制3 	RS   记录分隔符
+HT   横向列表 	DC4 设备控制4 	US   单元分隔符
+LF   换行 	NAK 否定 	DEL 删除
+
+键盘常用ASCII码
+ESC键 		VK_ESCAPE (27)		回车键： 	VK_RETURN (13)
+TAB键： 	VK_TAB (9)		Caps Lock键： 	VK_CAPITAL (20)
+Shift键： 	VK_SHIFT ($10)		Ctrl键： 	VK_CONTROL (17)
+Alt键： 	VK_MENU (18)		空格键： 	VK_SPACE ($20/32)
+退格键： 	VK_BACK (8)		左徽标键： 	VK_LWIN (91)
+右徽标键： 	VK_LWIN (92)		鼠标右键快捷键： VK_APPS (93)
+Insert键： 	VK_INSERT (45)		Home键： 	VK_HOME (36)
+Page Up： 	VK_PRIOR (33)		PageDown： 	VK_NEXT (34)
+End键： 	VK_END (35)		Delete键： 	VK_DELETE (46)
+方向键(←)： 	VK_LEFT (37)		方向键(↑)： 	VK_UP (38)
+方向键(→)： 	VK_RIGHT (39)		方向键(↓)： 	VK_DOWN (40)
+F1键： 		VK_F1 (112)		F2键： 		VK_F2 (113)
+F3键： 		VK_F3 (114)		F4键： 		VK_F4 (115)
+F5键： 		VK_F5 (116)		F6键： 		VK_F6 (117)
+F7键： 		VK_F7 (118)		F8键： 		VK_F8 (119)
+F9键： 		VK_F9 (120)		F10键： 	VK_F10 (121)
+F11键： 	VK_F11 (122)		F12键： 	VK_F12 (123)
+Num Lock键： 	VK_NUMLOCK (144)	小键盘0： 	VK_NUMPAD0 (96)
+小键盘1： 	VK_NUMPAD0 (97)		小键盘2： 	VK_NUMPAD0 (98)
+小键盘3： 	VK_NUMPAD0 (99)		小键盘4： 	VK_NUMPAD0 (100)
+小键盘5： 	VK_NUMPAD0 (101)	小键盘6： 	VK_NUMPAD0 (102)
+小键盘7： 	VK_NUMPAD0 (103)	小键盘8： 	VK_NUMPAD0 (104)
+小键盘9： 	VK_NUMPAD0 (105)	小键盘.： 	VK_DECIMAL (110)
+小键盘*： 	VK_MULTIPLY (106)	小键盘+： 	VK_MULTIPLY (107)
+小键盘-： 	VK_SUBTRACT (109)	小键盘/： 	VK_DIVIDE (111)
+Pause Break键： VK_PAUSE (19)		Scroll Lock键： VK_SCROLL (145)
+/* ASSIC码对照表*/	
+
+
+
+
+
+
+	
+
+	
+
+
+
+
+
+
+20180320
+ucos u盘移植!
+建立printf调试环境!!
+	方案1:BSP/IAR:cstartup.s和sram.icf 下调试
+	旧版atmel库,board_cfg_console 在 board_support:
+	a5d2-xpl的 debug串口参数:
+/* =================== PIN CONSOLE definition ================== */
+
+/** CONSOLE pin definition: use UART1 IOSET1 */
+/* Note that these definitions could be omitted if the console is configured in
+ * the active boot config word. */
+#define BOARD_CONSOLE_PINS     PINS_UART1_IOS1
+#define BOARD_CONSOLE_ADDR     UART1
+#define BOARD_CONSOLE_BAUDRATE 115200
+	只需要 board_cfg_console 初始化,会链接到 console.c 最后链接到debug串口,完成一系列初始化,
+	但是不知道为啥,printf会死机!
+	由于张工提供的源码也是基于旧版旧版atmel库!!,从张工usbhost例子中回溯最终找到原因:
+	除了board_cfg_console, 还有修改有关printf的重定位链接信息:
+		project_option->general_options->library_configuration->library_low_level interface:none
+		而不是 semohosted
+		项目util中添加:自带的 syscalls.c
+	printf重定位事情非常难搞,几乎不同芯片,对应的改法都不一样,引起重视
+	另外:ucos没有做 board_cfg_console(0);所以printf不起作用,所以,在main函数开始初始化时要加上!!
+project里driver树下的文件是芯片的外围设备的驱动文件,这个不需要为了简化项目而去掉不用的驱动,
+	因为编译时,如果不需要不会链接到执行bin文件去
+	而且相对用户编写的执行程序独立,用户只管调用合适函数就好了
+移植到 ddram, 实现printf 
+	方案2:BSP/Atmel/target/sama5d2/toolchain/iar: cstartup和sram.icf,ddram.icf
+	以上情况下只转变linker文件ddram.icf,出现printf死机问题!!
+	即:
+		library_low_level interface:none + utils/syscalls.c + printf 死机
+		library_low_level interface:none + utils/syscalls.c  闪灯
+		library_low_level interface:semohosted + utils/syscalls.c  闪灯 
+		library_low_level interface:semohosted + utils/syscalls.c + printf  成功通过!!
+	把成功设置启发 usb_host移植ddram上,却是又失败了!
+	连v2.12这样设置,也不能工作!!
+	不管这些代码了!!
+继续在ddram上移植 usb_host
+	把main对应代码拷到 对应app.c:main对应位置上去,
+	在app.c添加对应外部函数声明!!
+	在app.c添加对应include
+	把lib/usb_host文件夹的所有文件拷到 BSP/USB_HOST
+	在BSP/USB_HOST 添加yf.c 把张工补写的代码放入!!,并在yf.h添加声明
+	调试:
+	出现TDS NOT aligned!!:
+		usb_ohci.h: td_t gtd[NUM_TD+1] 前加 #pragma data_alignment=32
+	在usb_ohci.c:hc_reset -> readl处死机了,在 (*((u32*)(0x400004))) 这种算法下死机!!
+	正确是一旦读取 usb 寄存器 的时候就死机!!!,表明usb的硬件可能没电,未正确初始化
+	找到了,的确是pmc的问题,对应的usb_host时钟没有开
+	原因在于,ucos的atmel库与张工的库不一样,即 pmc.c和pmc.h不一样!!!
+	在ohci_hcd.c:pmc_enable_system_clock(2)改为pmc_enable_system_clock(PMC_SYSTEM_CLOCK_UHP)
+	因为这个枚举量的PMC_SYSTEM_CLOCK_UHP 位置变了不是2,是4
+继续调试:
+	usb_stor_info();有问题!!
+	file_detectfs();有问题,最后发现是 part.c 的 puts()出问题,诱发了 Software interrupt 错误
+	涉及puts的重定向问题!!
+	看来要好好学习 puts 和 printf 的重定向问题!!!
+	暂时,在yf.c加入了 #include<stdio.h>和 重写了无内容的puts()
+	找不到 FAT fs !! : read_bootsectandvi()出错
+	回溯 看看是哪些地方存储了 u盘信息:
+		cur_dev
+		cur_dev -> blockread: 把cur-dev指向的第0个block(startblock)的内容拷贝到 boot_sector *bs
+		但是读出来的数据是错的??
+		换成nfs系统也是错??
+		怀疑存储boot_sector信息的不在block0
+	其实从fat_register_device()开始,就出错了!!
+	重新梳理
+	usb_host应该是挂载成功了,
+	part.h: block_dev_desc_t :usb_sev_desc 是usb块设备的描述结构!!
+		usb_start() 里执行的usb_stor_scan已经成功读出!
+	因此 usb_stor_info()可以从 usb_sev_desc 成功读出相关信息:
+		Device 0: Vendor: SMI      Rev: 1100 Prod: USB DISK        
+            	Capacity: 7800.0 MB = 7.6 GB (15974400 x 512)
+	main函数的stor_dev就是指usb_sev_desc
+	其中usb_sev_desc 有两个io接口函数,用于读写u盘物理block!!
+		usb_dev_desc.block_read=usb_stor_read;  lib/usb_host/usb_storage.c:236
+		block_write,未定义,功能未实现!!
+	至此,usb块设备全部初始化完毕!!
+	也就说,开发板到u盘的硬件通路及驱动全部打通,接下来应该就剩下建立在这之上的fatfs文件系统!!
+	现在是对比 bootsector 里是内容 看看是 block_read 有问题,还是代码有问题!!
+Fat32 的bootsector 一般放在 flash的第一个512字节的 block!
+	FAT32 Boot Record Information
+	This information is located in the first sector of every partition.
+	Offset 	Description 							Size
+	00h 	Jump Code + NOP 						3 Bytes
+	03h 	OEM Name (Probably MSWIN4.1) 					8 Bytes
+	0Bh 	Bytes Per Sector 						1 Word
+	0Dh 	Sectors Per Cluster 						1 Byte
+	0Eh 	Reserved Sectors 						1 Word
+	10h 	Number of Copies of FAT 					1 Byte
+	11h 	Maximum Root DirectoryEntries (N/A for FAT32) 			1 Word
+	13h 	Number of Sectors inPartition Smaller than 32MB (N/A for FAT32) 1 Word
+	15h 	Media Descriptor (F8h forHard Disks) 				1 Byte
+	16h 	Sectors Per FAT in Older FATSystems (N/A for FAT32) 		1 Word
+	18h 	Sectors Per Track 						1 Word
+	1Ah 	Number of Heads 						1 Word
+	1Ch 	Number of Hidden Sectors inPartition 				1 Double Word
+	20h 	Number of Sectors inPartition 					1 Double Word
+	24h 	Number of Sectors Per FAT 					1 Double Word
+	28h 	Flags (Bits 0-4 IndicateActive FAT Copy) 
+	        (Bit 7 Indicates whether FAT Mirroringis Enabled or Disabled ) 
+	        (If FATMirroring is Disabled, the FAT Information 
+	        is onlywritten to the copy indicated by bits 0-4) 		1 Word
+	2Ah 	Version of FAT32 Drive (HighByte = Major Version, 
+	        Low Byte = Minor Version) 					1 Word
+	2Ch 	Cluster Number of the Startof the Root Directory 		1 Double Word
+	30h 	Sector Number of the FileSystem Information Sector (See 
+	        Structure Below)(Referenced from the Start of the Partition) 	1 Word
+	32h 	Sector Number of the BackupBoot Sector 
+	        (Referenced from the Start of the Partition) 			1 Word
+	34h 	Reserved 							12 Bytes
+	40h 	Logical Drive Number ofPartition 				1 Byte
+	41h 	Unused (Could be High Byteof Previous Entry) 			1 Byte
+	42h 	Extended Signature (29h) 					1 Byte
+	43h 	Serial Number of Partition 					1 Double Word
+	47h 	Volume Name of Partition 					11 Bytes
+	52h 	FAT Name (FAT32) 						8 Bytes
+	5Ah 	Executable Code 						420 Bytes
+	1FEh 	Boot Record Signature (55hAAh) 					2 Bytes
+对应fat.h的结构体!!
+	typedef struct boot_sector {    //0x0地址开始
+	__u8	ignored[3];	/* Bootstrap code */
+	char	system_id[8];	/* Name of fs */
+	__u8	sector_size[2];	/* Bytes/sector */
+	__u8	cluster_size;	/* Sectors/cluster */
+	__u16	reserved;	/* Number of reserved sectors */
+	__u8	fats;		/* Number of FATs */
+	__u8	dir_entries[2];	/* Number of root directory entries */
+	__u8	sectors[2];	/* Number of sectors */
+	__u8	media;		/* Media code */
+	__u16	fat_length;	/* Sectors/FAT */
+	__u16	secs_track;	/* Sectors/track */
+	__u16	heads;		/* Number of heads */
+	__u32	hidden;		/* Number of hidden sectors */
+	__u32	total_sect;	/* Number of sectors (if sectors == 0) */
+
+	/* FAT32 only */
+	__u32	fat32_length;	/* Sectors/FAT */
+	__u16	flags;		/* Bit 8: fat mirroring, low 4: active fat */
+	__u8	version[2];	/* Filesystem version */
+	__u32	root_cluster;	/* First cluster in root directory */
+	__u16	info_sector;	/* Filesystem info sector */
+	__u16	backup_boot;	/* Backup boot sector */
+	__u16	reserved2[6];	/* Unused */
+} boot_sector;
+
+typedef struct volume_info		// 0x40 地址开始
+{
+	__u8 drive_number;	/* BIOS drive number */
+	__u8 reserved;		/* Unused */
+	__u8 ext_boot_sign;	/* 0x29 if fields below exist (DOS 3.3+) */
+	__u8 volume_id[4];	/* Volume ID number */
+	char volume_label[11];	/* Volume label */
+	char fs_type[8];	/* Typically FAT12, FAT16, or FAT32 */
+	/* Boot code comes next, all but 2 bytes to fill up sector */
+	/* Boot sign comes last, 2 bytes */
+} volume_info;
+
+
+	跳过file_detectfs() -> read_bootsectandvi修改其识别成功!!,强制认为fat32, printf_26后直接return
+	严重出错!! 改回来
+	既然u盘的读写桥梁已经搭好,那么先检查 block_read 有没有出错!!
+	开发板打印 block_read 读取第0个block的(fat bootsector) 的所有信息:
+		FA 31 C0 8E D8 8E C0 8E D0 BC 00 7C FB FC 89 E6 
+		BF 00 06 B9 00 01 F3 A5 EA DC 06 00 00 10 00 01 
+		00 00 7C 00 00 00 00 00 00 00 00 00 00 80 3F 00 
+		FF 00 E2 03 1E 0E 1F 3A 16 10 00 74 06 1F EA 36 
+		E7 00 F0 3D FB 54 75 05 8C D8 FB EB 1D 80 FC 08 
+		75 1B E8 81 00 8A 36 13 00 FE CE 8B 0E 15 00 86 
+		CD C0 E1 06 0A 0E 11 00 31 C0 F8 EB 65 80 FC 02 
+		72 CB 80 FC 04 77 C6 60 80 CC 40 50 BE 00 00 C7 
+		04 10 00 30 E4 89 44 02 89 5C 04 8C 44 06 66 31 
+		C0 66 89 44 0C 88 F0 F6 26 11 00 88 CF 88 EB C0 
+		EF 06 81 E1 3F 00 01 C8 48 89 C7 A1 13 00 F7 26 
+		11 00 F7 E3 01 F8 81 D2 00 00 89 44 08 89 54 0A 
+		58 30 C0 8A 16 10 00 E8 0C 00 88 26 03 00 61 A1 
+		02 00 1F CA 02 00 9C FF 1E 22 00 C3 80 FA 8F 7F 
+		04 88 16 2D 06 BE 87 07 E8 8D 00 BE BE 07 31 C0
+		B9 04 00 F6 04 80 74 03 40 89 F5 81 C6 10 00 E2 
+		F2 48 74 02 CD 18 BF 05 00 BE 1D 06 C7 44 02 01 
+		00 66 8B 46 08 66 89 44 08 B8 00 42 8A 16 2D 06 
+		CD 13 73 0D 4F 74 49 30 E4 8A 16 2D 06 CD 13 EB 
+		D8 A1 FE 7D 3D 55 AA 75 37 FA 66 A1 4C 00 66 A3 
+		3F 06 BE 13 04 8B 04 48 89 04 C1 E0 06 8E C0 31 
+		FF BE 1D 06 B9 60 00 FC F3 A5 C7 06 4C 00 17 00 
+		A3 4E 00 FB 8A 16 2D 06 89 EE FA EA 00 7C 00 00 
+		BE AA 07 E8 02 00 EB FE AC 20 C0 74 09 B4 0E BB 
+		07 00 CD 10 EB F2 C3 53 74 61 72 74 20 62 6F 6F 
+		74 69 6E 67 20 66 72 6F 6D 20 55 53 42 20 64 65 
+		76 69 63 65 2E 2E 2E 0D 0A 00 42 6F 6F 74 20 66 
+		61 69 6C 65 64 00 00 00 EA EB D4 CA 00 00 00 00 
+		00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+		00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+		00 00 00 00 00 00 00 00 00 00 00 00 00 00 80 04 
+		05 00 0B FE FF E1 00 01 00 00 00 BF F3 00 55 AA 
+	u盘插入ubuntu,命令: dd if=/dev/sdb of=./bootsector1 count=1 bs=512 //读出一个block,block大小512字节,默认从第0个开始读取
+	读出u盘block0 的信息到bootsector1这个文件!!
+	用wxmedit 16进制格式的读出bootsector1这个文件!!
+	比较 发现读出数据都是一样的,所以,block_read 并没有出错!
+	那剩下的问题就是 u盘的 bootsector 信息不标准导致,简单的fatfs 无法识别!!!
+	不,u盘插入u插入ubuntu 检查到u盘有分区,sdb 被分了个sdb4!!
+	dd if=/dev/sdb4 of=./bootsector2 count=1 bs=512,打开ootsector2,发现这个才是fat32的bootsector
+	那么这个block在哪:
+	sudo fdisk -l /dev/sdb
+		Disk /dev/sdb: 8178 MB, 8178892800 bytes
+		255 heads, 63 sectors/track, 994 cylinders, total 15974400 sectors
+		Units = sectors of 1 * 512 = 512 bytes
+		Sector size (logical/physical): 512 bytes / 512 bytes
+		I/O size (minimum/optimal): 512 bytes / 512 bytes
+		Disk identifier: 0xcad4ebea
+		
+		   Device Boot      Start         End      Blocks   Id  System
+		/dev/sdb4   *         256    15974399     7987072    b  W95 FAT32
+	在第256个block上
+	即 dd if=/dev/sdb4 of=./bootsector2 count=1 bs=512 等于
+	   dd if=/dev/sdb of=./bootsector2 skip=256 count=1 bs=512 //跳过前面256个block,从第256个block开始读入
+		EB 58 90 4D 53 44 4F 53 35 2E 30 00 02 08 60 06 
+		02 00 00 00 00 F8 00 00 3F 00 FF 00 00 01 00 00 
+		00 BF F3 00 D0 3C 00 00 00 00 00 00 02 00 00 00 
+		01 00 06 00 00 00 00 00 00 00 00 00 00 00 00 00 
+		80 01 29 A6 BF 9E 0A 4E 4F 20 4E 41 4D 45 20 20 
+		20 20 46 41 54 33 32 20 20 20 33 C9 8E D1 BC F4 
+		7B 8E C1 8E D9 BD 00 7C 88 4E 02 8A 56 40 B4 41 
+		BB AA 55 CD 13 72 10 81 FB 55 AA 75 0A F6 C1 01 
+		74 05 FE 46 02 EB 2D 8A 56 40 B4 08 CD 13 73 05 
+		B9 FF FF 8A F1 66 0F B6 C6 40 66 0F B6 D1 80 E2 
+		3F F7 E2 86 CD C0 ED 06 41 66 0F B7 C9 66 F7 E1 
+		66 89 46 F8 83 7E 16 00 75 38 83 7E 2A 00 77 32 
+		66 8B 46 1C 66 83 C0 0C BB 00 80 B9 01 00 E8 2B 
+		00 E9 2C 03 A0 FA 7D B4 7D 8B F0 AC 84 C0 74 17 
+		3C FF 74 09 B4 0E BB 07 00 CD 10 EB EE A0 FB 7D 
+		EB E5 A0 F9 7D EB E0 98 CD 16 CD 19 66 60 80 7E 
+		02 00 0F 84 20 00 66 6A 00 66 50 06 53 66 68 10 
+		00 01 00 B4 42 8A 56 40 8B F4 CD 13 66 58 66 58 
+		66 58 66 58 EB 33 66 3B 46 F8 72 03 F9 EB 2A 66 
+		33 D2 66 0F B7 4E 18 66 F7 F1 FE C2 8A CA 66 8B 
+		D0 66 C1 EA 10 F7 76 1A 86 D6 8A 56 40 8A E8 C0 
+		E4 06 0A CC B8 01 02 CD 13 66 61 0F 82 75 FF 81 
+		C3 00 02 66 40 49 75 94 C3 42 4F 4F 54 4D 47 52 
+		20 20 20 20 00 00 00 00 00 00 00 00 00 00 00 00 
+		00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+		00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+		00 00 00 00 00 00 00 00 00 00 00 00 0D 0A 52 65 
+		6D 6F 76 65 20 64 69 73 6B 73 20 6F 72 20 6F 74 
+		68 65 72 20 6D 65 64 69 61 2E FF 0D 0A 44 69 73 
+		6B 20 65 72 72 6F 72 FF 0D 0A 50 72 65 73 73 20 
+		61 6E 79 20 6B 65 79 20 74 6F 20 72 65 73 74 61 
+		72 74 0D 0A 00 00 00 00 00 AC CB D8 00 00 55 AA 
+	然后把block_read 第0个block的 都改为第256个! 就好了
+	最好的办法是在 fat.h 添加 宏 #defing BOOT_SECTOR_LLOCATION 256
+	然后把block_read为0的都改为 BOOT_SECTOR_LLOCATION
+	fat_register_device()内容读取 boot_sector,然后读出partition 信息
+		我们的 
+		fat_register_device() 跑到 get_partition_info,然后根据设定 CONFIG_DOS_PARTITION
+		跑到part_dos.c:get_partition_info_dos会执行block_read 第 0 block的操作
+		改回 BOOT_SECTOR_LLOCATION
+
+
+	最终fat32像是挂载成功了,开始调试读写文件 
+	file_fat_read()->do_fat_read()
+	发现 bootsector 获取不完整!!
+	发现 read_bootsectandvi -> disk_read -> block_read:前 16个字节获取错误!!!!!
+	直接调用  block_read 反而没事???
+	发现对fat32不了解无法进一步调试:先学习fat32格式!!!
+
+FAT32: http://www.cnblogs.com/fantacity/p/3895771.html
+	磁盘介质一般以扇区为单位进行读写,读写字节数必须是512的倍数,即 1block=1扇区=512bytes
+	分析引导区,一般是第0个block,而我们的u盘却做了分区,fat32的bootsector在第256个block
+	FAT32文件系统硬盘分布:
+			引导区 （BOOT区）、
+			保留扇区
+			文件分配表区（FAT区）: FAT1,FAT2
+			数据区（DATA区）
+	引导扇区后面紧跟这若干保留扇区,保留扇区的后面紧跟着的是FAT1和FAT2。
+	FAT1表的起始地址并不是（引导扇区+保留扇区）*扇区字节数,注意:保留扇区数这个参数其实包含了引导扇区，
+	所以计算FAT1表位置的时候直接通过保留扇区数这个参数来计算偏移。
+	这一点需要特别注意(有的文献说包含,有的又说不包含!!!,注意实际验证)
+	文件所占用的存储空间（簇链）及空闲空间的管理都是通过FAT实现的，
+	FAT1,FAT2是相同的两个文件分配表.因为FAT重要，保存两个以便第一个损坏时，还有第二个可用
+
+引导区 （BOOT区/bootsector）
+读出的bootsector数据是:
+struct boot_sector {    //0x0地址开始
+	__u8	ignored[3];	/* Bootstrap code */			eb 58 90	
+		//最开始3字节分别是跳转指令与空指令，因为在汇编当中0xEB是跳转指令，0x58是跳转的地址，而0x90则是空指令
+		//为什么要在这里放上一句跳转指令:
+		//	一般第一个扇区叫做启动区，cpu把扇区当中的数据当作指令来执行，
+		//	当读取到EB 58 这个指令时，遍跳转到0x58这个地址并继续读取指令来执行，
+		//	而0x58地址之后的内容通常都是载入操作系统的指令。
+		//	详情参考《30天自制操作系统》这本书，第一天结尾部分有很详细的说明。
+		//	总之FAT32规定这3字节的内容必须是 EB 58 90 对应汇编代码即为JUMP 0x58; NOP;)	
+	char	system_id[8];	/* Name of fs */			4D 53 44 4F 53 35 2E 30 = MSDOS5.0
+		//0x03~0x0A这8个字节的数据表示OEM，这里即为“MSDOS5.0”。
+	__u8	sector_size[2];	/* Bytes/sector */			0x200
+		//从0x000B开始的79个字节的数据叫做BPB（BIOS Paramter Block）,即至到包含全部volume_info内容
+		//每扇区字数 0x200 即 512 bytes
+	__u8	cluster_size;	/* Sectors/cluster */			0x8
+		//每簇扇区数 0x8
+	__u16	reserved;	/* Number of reserved sectors */	0x660
+		//保留扇区数 0x660
+	__u8	fats;		/* Number of FATs */			0x2
+		//文件分配表 FAT 个数 0x2
+	__u8	dir_entries[2];	/* Number of root directory entries */  0
+		//根目录项数，FAT32因为突破该限制，所以弃用,为0 
+	__u8	sectors[2];	/* Number of sectors */			0
+		//扇区总数，硬盘空间小于32M使用,所以弃用,为0
+	__u8	media;		/* Media code */			0xf8
+		//存储介质描述符 0xf8 (默认)
+	__u16	fat_length;	/* Sectors/FAT */			0
+		//每FAT表占用扇区数，硬盘空间小于32M使用,所以弃用,为0 
+	__u16	secs_track;	/* Sectors/track */			0x3f
+		//逻辑每磁道扇区数 0x3f (默认,兼容磁道硬盘和flash介质)
+	__u16	heads;		/* Number of heads */			0xff
+		//逻辑磁头数 0xff (默认,兼容磁道硬盘和flash介质)
+	__u32	hidden;		/* Number of hidden sectors */		0x100
+		//系统隐含扇区数 0x100
+	__u32	total_sect;	/* Number of sectors (if sectors == 0) */ 0xf3bf00
+		//扇区总数，硬盘空间大于32M使用, 0xf3bf00
+		//这里是整个磁盘的总扇区数,不只是data区, 
+		//这里我的u盘,FAT32分区的前有256个扇区,未知是否包括!!
+		//如果包括: U盘容量 = data区容量
+		//	= ( 总扇区数 - 保留扇区数 - FAT32分区的前256个扇区 - FAT表扇区数 * FAT表个数 ) * 512 B
+	/* FAT32 only */
+	__u32	fat32_length;	/* Sectors/FAT */			0x3cd0
+		//每FAT表扇区数，硬盘空间大于32M使用 
+	__u16	flags;		/* Bit 8: fat mirroring, low 4: active fat */  0
+		//标记 0
+	__u8	version[2];	/* Filesystem version */		0
+		//版本 (通常为零)
+	__u32	root_cluster;	/* First cluster in root directory */	0x2
+		//根目录起始簇 0x2
+	__u16	info_sector;	/* Filesystem info sector */		0x1
+		//bootsector占用扇区数  0x1
+	__u16	backup_boot;	/* Backup boot sector */		0x6
+		//备份引导扇区位置 0x6
+	__u16	reserved2[6];	/* Unused */				0
+		//保留 14个字节的0x00 
+} boot_sector;		
+typedef struct volume_info		// 0x40 地址开始
+{
+	__u8 drive_number;	/* BIOS drive number */			0x80
+	__u8 reserved;		/* Unused */				0x1
+	__u8 ext_boot_sign;	/* 0x29 if fields below exist (DOS 3.3+) */ 0x29
+		//扩展引导标记 0x29 (默认)
+	__u8 volume_id[4];	/* Volume ID number */			A6 BF 9E 0A = ~id[0],~id[1],~id[2],~id[3]
+		//序列号: 0x0A9ebfa6
+	char volume_label[11];	/* Volume label */			4E 4F 20 4E 41 4D 45 20 20 20 20 = NO NAME空格4个
+		//卷标 NO NAME
+	char fs_type[8];	/* Typically FAT12, FAT16, or FAT32 */  46 41 54 33 32 20 20 20 = FAT32空格3个
+		//文件系统标识: FAT32		
+	/* Boot code comes next, all but 2 bytes to fill up sector */
+	/* Boot sign comes last, 2 bytes */
+} volume_info;
+
+FAT表:
+	FAT1表偏移 = 保留扇区数 * 每扇区字节数	
+	FAT2表的偏移 = FAT1+FAT表的大小 = (保留扇区数 + FAT表扇区数) * 每扇区字节数
+		//如果是我的u盘,可能扇区数都要 + FAT32分区的前256个扇区
+	FAT表即文件分配表(File Allocation Table)。
+	FAT32文件表是由一个个32位表项组成的一张表，
+	每一表项表示数据区的对应的一个族,的当前状态!!
+	每个族有0x8个扇区,即每族 4kb
+	一个FAT表有  (0x3cd0 * 512) / 4 
+		   = (7970816 bytes) / 4
+		   = 1992704 项
+	表项值填写规则:
+			表项数值 		对应含义
+			0x00000000  		空闲簇,即表示可用
+			0x00000001 		保留簇,即表示这个族被保留不可用,
+			0x00000002 - 0x0FFFFFEF 族标,文件占用的data区数据族,对应的fat表,表项号
+						表项里填这填这些值,表示文件接下来占用的fat表表项和对应的data区数据族
+			0x0FFFFFF0 - 0x0FFFFFF6 保留值,即表示这些表项值不会填写到表项里,
+			0x0FFFFFF7  		坏簇,即表示当前族是物理坏道,不可用
+			0x0FFFFFF8 - 0x0FFFFFFF 文件最后一个簇,即表示个族是文件的占用的最后一个族空间
+	FAT表第0项(32位offet地址:0x00000000~0x00000003): 表项值 0x0FFFFF8
+	FAT表第1项(32位offet地址:0x00000004~0x00000007): 表项值 0xFFFFFFFF
+		这两项不代表任何簇的使用情况，是FAT表的表头，表征了介质描述，是固定值，
+		对应0x00和0x01这两个簇号是不用的，簇号的下标从2开始。
+		也就是,data区开始的第0个族,标号为 2 !!!
+		补充:FAT表第1项1表项可能被用于记录脏标志，以说明文件系统没有被正常卸载或者磁盘表面存在错误。
+       	FAT表第2项(32位offet地址:0x00000008~0x0000000B): 表项值0x3
+       	FAT表第3项(32位offet地址:0x0000000c~0x0000000f): 表项值0x0FFFFFFF
+		FAT表第2项代表数据区第0族,开始存放数据的族,通常第0簇存储的是文件系统的根目录
+		FAT表第2项值为0x0c ，表示根目录的数据内容还占据着FAT表第3项,即打他区的第1族
+		FAT表第3项值为0x0FFFFFFF,文件占的最后一个族,可看到 根目录占用且占用了2个簇。
+		虽然在FAT32文件系统中，根目录的位置不再硬性地固定，可以存储在分区内可寻址的任意簇内，
+		不过通常根目录是最早建立的(格式化就生成了)目录表。
+		所以，我们看到的情况基本上都是根目录首簇紧邻数据区的第0族，
+		同时，FAT32文件系统将根目录当做普通的数据文件来看，
+		所有没有了目录项数的限制，在需要的时候可以分配空簇，存储更多的目录项
+	例子:aa.c文件占18kb,数据分布在 数据区的第 8,10,5,6 个族上面,对应的FAT表的内容是
+	FAT表第10项(32位offet地址:0x00000028~0x0000002b): 表项值 0x12	//指向 FAT表第12项,即data区第10族
+	FAT表第12项(32位offet地址:0x00000030~0x00000034): 表项值 0x7	//指向 FAT表第7项,即data区第5族
+	FAT表第7项(32位offet地址:0x0000001c~0x0000001f): 表项值 0x8	//指向 FAT表第8项,即data区第6族
+	FAT表第8项(32位offet地址:0x00000020~0x00000023): 表项值 0x0FFFFFFF //表示文件的结束!!
+data区:
+	由于根目录是可以在 数据区 任意族位置,而 实际数据区 是从 根目录 开始的!!
+	而且 FAT表第2项 对应记录数据区的第0族位置,即表项号永远比对应的data区族号多2,
+	data区数据真正开始的地方从根目录的位置开始!!!,
+	起始簇标 = 根目录开始data区的族,对应的fat表表项号
+	所以:
+	实际数据区偏移 = 根目录位置
+		  = (保留扇区数 +  FAT表扇区数 * FAT表个数(通常为2) + (起始簇号-2) * 每簇扇区数) * 每扇区字节数
+	我们给u盘的修写的卷标,实际上不是 改写 volume_info ->volume_label "NO NAME"
+	而是放在的 实际数据区开始 offet(0x00~0x0A)11个字节的地方,即一般都是写在根目录的下的
+	规定是:根目录/实际数据区开始offet(0x0b)处的值为0x08,那么读取该项的前11个字节为卷标		
+	目录数据区:
+		也是以表的形式存放目录项数据,例如根目录区就是一个根目录表!
+		目录表中每一个目录项占用32个字节,指向一个文件或者另一个目录.
+	短文件名目录项:
+		文件名短的文件/目录使用的目录项,只使用一个 32字节目录项
+		offset		bytes	definition
+		0x0-0x7 	8	文件名
+		0x8-0xa 	3	扩展名
+		0xb		1	00000000(读写)
+					00000001(只读)
+					00000010(隐藏)
+					00000100(系统)
+					00001000(卷标)
+					00010000(子目录)
+					00100000(归档)
+		0xc		1	保留
+		0xd		1	创建时间的10毫秒位
+		0xe-0xf		2	创建时间 (高5位代表小时,次6位代表分钟,低5位值*2表示秒)
+		0x10-0x11	2	创建日期 (这里高7位值+1980表示年,次4位代表月份,低5位代表日期)
+		0x12-0x13	2	最后访问日期
+		0x14-0x15	2	文件起始起始簇标 的(data区所在的族号码 + 2)高16位
+		0x16-0x17	2	文件最近修改时间
+		0x18-0x19	2	文件最近修改日期
+		0x1A-0x1b	2	文件起始起始簇标 的低16位
+		0x1c-0xaf	4	文件长度(bytes)
+		文件起始地址 = (保留扇区数 + FAT表扇区数 * FAT表个数(2) + (文件起始簇标-2)
+				*每簇扇区数)*每扇区字节数
+	长文件名目录项:
+		文件名长的文件/目录使用的目录项, 使用多个 32字节目录项组合而成!!
+		前面多个 32字节目录项,都是用来存文件名的名字目录项,每个均有存储13个unicode编码的字符的能力
+		最后紧跟一个 文件属性目录项.
+		每个分别存长文件名的一部分,倒序存放.例如名字为"LongLengthFilenameTest"的文件(注意没有写扩展名)	
+		第一个 32字节目录项 存放 最后的 enameTest
+		第二个 32字节目录项 存放 13个字符 LongLengthFil
+		然后紧接着的第三个 32字节目录项 是这个长文件名文件 对应的 文件属性目录项:
+			这个文件属性目录项 与 短文件名目录项 结构一样,只是 文件名和扩张名区域有所规定
+			文件名区 取长文件名的 前6个字符转大写再转acsii编码得到的6个字符加上"~1"形成短文件名，扩展名不变
+			如果已存在这个文件名，则符号"~"后的数字递增，直到5
+			32字节目录项 0xb字节的值，如果为0x0F,系统认为这是 名字目录项,
+			否则,系统认为这是 文件属性目录项 或者 短文件名目录项
+			0xb字节本来设计存放属性的,文件属性目录项 或者 短文件名目录项,存放0xf会出错
+			所以FAT32系统认为 0xb字节的值，如果为0x0F,系统认为这是 名字目录项,
+		名字目录项:
+		offset		bytes	definition
+		0x0	 	1	位7 保留不使用
+					位6 1表示这是长文件名文件 最后一个 名字目录项
+					位5 保留不使用
+					位0,1,2,3,4 顺序号,表示 第几个名字目录项,从1开始数,非从0数
+		0x1-0xa 	10	unicode 编码的 5 个字符空间 (存放部分文件名) 
+		0xb		1	值为:0xf 标记这是 名字目录项
+		0xc		1	保留
+		0xd		1	检验值 根据文件属性目录i项的文件名和扩张名区计算
+		0xe-0x19	12	unicode 编码的 6 个字符空间 (存放部分文件名) 
+		0x1a-0x1b	2	文件起始起始簇标的一部分,文件特别大才会使用到,常置零
+		0x1c-0x1f	4	unicode 编码的 2 个字符空间 (存放部分文件名) 
+	分析一个例子:
+		文件名字为 "LongLengthFilenameTest"的文件,(没有扩展名)
+		addr\offset  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f 	
+		0x00000070   42 65 00 6e 00 61 00 6d 00 65 00 0f 00 1f 54 00	
+		0x00000080   65 00 73 00 74 00 00 00 ff ff 00 00 ff ff ff ff	
+		0x00000090   01 4c 00 6f 00 6e 00 67 00 4c 00 0f 00 1f 65 00
+		0x000000a0   6e 00 67 00 74 00 68 00 46 00 00 00 69 00 6c 00
+		0x000000b0   4c 4f 4e 47 4c 45 7e 31 20 20 20 10 00 7e db 76
+		0x000000c0   08 45 08 45 00 00 dc 76 08 45 04 00 00 00 00 00
+		地址		值 
+				//第1个目录项
+		0x70 		0x42 = (01000010)位6为1，说明是文件最后一个名字目录项目
+						低5位为顺序 0010(2进制) = 2(10进制)，说明这是第2个名字目录项，
+		0x71~0x7A  	65 00 6e 00 61 00 6d 00 65 00 10个字节的Unicode码  	
+						即字符串”ename”
+		0x7B 		0xf 标记这是 名字目录项	
+		0x7C		系统保留 
+		0x7d  		0x1f 校验值 
+		0x7E~0x89  	54 00 65 00 73 00 74 00 00 00 ff ff 12字节Unicode
+						即字符串"Test" 
+		0x8a~0x8B  	00 00 文件起始起始簇标的一部分 这里是0, 
+		0x8C~0x8F  	ff ff ff ff 4字节Unicode  这里没有字符了,全为ff	
+				//第2个目录项
+		0x90 		0x01 = (00000001)位6为0，说明不是文件最后一个名字目录项目
+						低5位为顺序 00001(2进制) = 1(10进制)，说明这是第1个名字目录项，
+		0x91~0x9A  	4c 00 6f 00 6e 00 67 00 4c 00 10个字节的Unicode码  	
+						即字符串“LongL”
+		0x9B 		0xf 标记这是 名字目录项	
+		0x9C		系统保留 
+		0x9d  		0x1f 校验值 
+		0x9E~0xa9  	65 00 6e 00 67 00 74 00 68 00 46 00 12字节Unicode
+						即字符串"engthF" 
+		0xaa~0xaB  	00 00 文件起始起始簇标的一部分 这里是0, 
+		0xaC~0xaF  	69 00 6c 00 4字节Unicode  即字符串"il"
+			 	//第3个目录项	
+		0xb0-0xb7 	4c 4f 4e 47 4c 45 7e 31	长文件名的 
+						前6个字符转大写再转acsii编码得到的6个字符加上"~1"
+						即字符串 "LONGLE~1"
+		0xb8-0xba 	20 20 20 扩展名"三个空格",即没有扩展名 (没有扩展名,并一定就是目录,注意实际情况)
+		0xbb		10 =	00010000(子目录),说明这是一个子目录,不是一个文件
+						非0xf所以这个是文件属性目录项
+		0xbc		1	保留
+		0xbd		7e	创建时间的10毫秒位
+		0xbe-0xbf	db 76	创建时间 
+		0xc0-0xc1	08 45	创建日期 
+		0xc2-0xc3	08 45	最后访问日期
+		0xc4-0xc5	00 00 	文件起始起始簇标 高16位
+		0xc6-0xc7	dc 76 	文件最近修改时间
+		0xc8-0xc9	08 45 	文件最近修改日期
+		0xcA-0xcb	04 00 	文件起始起始簇标 低16位
+		0xcc-0xcf	00 00 00 00	文件长度(bytes),因为是目录所以并没有长度
+		最后是校验码计算方法:
+		int i, j = 0, chksum=0;
+		for (i = 11; i > 0; i--)
+		chksum = ((chksum & 1) ? 0x80 : 0) + (chksum >> 1) + shortname[j++];
+		这里是把 文件属性目录项的文件名区(文件名+扩展名)算出校验码,
+		再存到各个 名字目录项对应位置
+FAT32主体学习到此结束!
+重新分析u盘:
+	0x0020000:(bootsector)
+		EB 58 90 4D 53 44 4F 53 35 2E 30 00 02 08 60 06 
+		02 00 00 00 00 F8 00 00 3F 00 FF 00 00 01 00 00 
+		00 BF F3 00 D0 3C 00 00 00 00 00 00 02 00 00 00 
+		01 00 06 00 00 00 00 00 00 00 00 00 00 00 00 00 
+		80 01 29 A6 BF 9E 0A 4E 4F 20 4E 41 4D 45 20 20 
+		20 20 46 41 54 33 32 20 20 20 33 C9 8E D1 BC F4 
+		7B 8E C1 8E D9 BD 00 7C 88 4E 02 8A 56 40 B4 41 
+		BB AA 55 CD 13 72 10 81 FB 55 AA 75 0A F6 C1 01 
+		74 05 FE 46 02 EB 2D 8A 56 40 B4 08 CD 13 73 05 
+		B9 FF FF 8A F1 66 0F B6 C6 40 66 0F B6 D1 80 E2 
+		3F F7 E2 86 CD C0 ED 06 41 66 0F B7 C9 66 F7 E1 
+		66 89 46 F8 83 7E 16 00 75 38 83 7E 2A 00 77 32 
+		66 8B 46 1C 66 83 C0 0C BB 00 80 B9 01 00 E8 2B 
+		00 E9 2C 03 A0 FA 7D B4 7D 8B F0 AC 84 C0 74 17 
+		3C FF 74 09 B4 0E BB 07 00 CD 10 EB EE A0 FB 7D 
+		EB E5 A0 F9 7D EB E0 98 CD 16 CD 19 66 60 80 7E 
+		02 00 0F 84 20 00 66 6A 00 66 50 06 53 66 68 10 
+		00 01 00 B4 42 8A 56 40 8B F4 CD 13 66 58 66 58 
+		66 58 66 58 EB 33 66 3B 46 F8 72 03 F9 EB 2A 66 
+		33 D2 66 0F B7 4E 18 66 F7 F1 FE C2 8A CA 66 8B 
+		D0 66 C1 EA 10 F7 76 1A 86 D6 8A 56 40 8A E8 C0 
+		E4 06 0A CC B8 01 02 CD 13 66 61 0F 82 75 FF 81 
+		C3 00 02 66 40 49 75 94 C3 42 4F 4F 54 4D 47 52 
+		20 20 20 20 00 00 00 00 00 00 00 00 00 00 00 00 
+		00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+		00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+		00 00 00 00 00 00 00 00 00 00 00 00 0D 0A 52 65 
+		6D 6F 76 65 20 64 69 73 6B 73 20 6F 72 20 6F 74 
+		68 65 72 20 6D 65 64 69 61 2E FF 0D 0A 44 69 73 
+		6B 20 65 72 72 6F 72 FF 0D 0A 50 72 65 73 73 20 
+		61 6E 79 20 6B 65 79 20 74 6F 20 72 65 73 74 61 
+		72 74 0D 0A 00 00 00 00 00 AC CB D8 00 00 55 AA 	
+		.....
+	0x1020000:(根目录)	
+		44 44 20 20 20 20 20 20 20 20 20 08 00 00 00 00 
+		00 00 00 00 00 00 E7 8C 76 4C 00 00 00 00 00 00 
+		E5 B0 65 FA 5E 87 65 2C 67 87 65 0F 00 D2 63 68 
+		2E 00 74 00 78 00 74 00 00 00 00 00 FF FF FF FF 
+		E5 C2 BD A8 CE C4 7E 31 54 58 54 20 00 36 F2 8C 
+		76 4C 76 4C 00 00 F3 8C 76 4C 00 00 00 00 00 00 
+		41 42 43 20 20 20 20 20 54 58 54 20 18 36 F2 8C 
+		76 4C 77 4C 00 00 FC 8C 76 4C 03 00 0C 00 00 00 
+		...
+	0x1021000:(abc.txt文件所在区域)
+		69 20 61 6D 20 77 69 6C 6C 69 61 6D 00 00 00 00 
+		00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+	从bootsector知道:
+		保留区0x660个扇区(包含bootsector区)		
+		每个fat表3cd0个扇区,两个fat表
+		根目录族标 0x2,即对应data区第0个族(从0开始数)
+		每个族4个扇区.
+		但是注意,这些参数都是以 FAT32文件系统开始地址为0x0 时的参数,
+		然而实际上FAT32放在偏移动256个block的位置上,
+		所以所有真正位置都需要额外移动 256(0x100)个扇区!!
+		所以,根目录位置:
+		=(实际FAT偏移扇区+保留扇区数+FAT表扇区数*FAT表个数+(根目录起始簇标-2)*每簇扇区数)*每扇区字节数 
+		=(0x100+0x660+0x3cd0*2+(0x2-2)*8)*512 
+		=0x1020000
+		根目录中:
+		第一个 32字节目录项 是一个卷标目录项,记录这个分区的信息,即不指向任何文件,子目录
+		第二个 32字节目录项 0Xb字节是0xf,是一个名字目录项!!
+		....
+	分析代码!!!
+	fat.c
+	发现 disk_read 会出错!! 直接调用cur_dev->block_read
+	fat.h	
+	结构fsdata的 short data_begin 应该改为 __u16 data_begin
+	因为,在iar的配置里 short 与 unsigned short 进行运算时,会出问题,
+	我这里就出现 data_begin = 33024 - 16 = (-32528)的奇怪事,
+	而这个-32528直接导致 block_read 寻址出错,读不到正确位置上的数据!!
+	还有,这套fat驱动,非常简陋,因为整个 FAT32文件系统是相对位置寻址的,
+	所以,默认FAT32文件系统的起始block为0,起始地址为0,
+	即认为bootsector所在的block是0,开始的地址为0
+	当fat32文件系统不是在物理介质0地址时,这套代码便出错,
+	所以需要添加对应的偏移, 定义一个宏偏移量 BOOT_SECTOR_LOCATION 记录fat32文件系统真正开始的地方!!
+	最终成功读出文件数据
+至此,超简陋 fat32文件系统 读文件 调试结束
+	整理一下:
+		usb_start() 初始化usb_host,并枚举连接的 usb设备
+		usb_stor_get_dev()从获取 usb存储设备
+		fat_register_device() 登记为fat文件系统设备
+		file_detectfs()检查文件系统
+		file_read()读取文件!!
+简单测试了下鼠标功能, 并没有反应!!!!(不弄了!!)
+	
+
+
+
+
+
+
+
+
+
+
+20180326
+移植 学习 fatfs 库(这个fatfs库,不是上面那样简陋只为测试功能)
+从sdcard 裸机代码分析:
+意外地发现,v2.12 的sdcard项目可以顺利用自带 ddrm.icf和cstartup.s 编译运行成功!!
+sdcard_menu t指令,在slot[0],slot[1]之间切换,即在emmc 和sdmmc 间切换,
+这里是sdcard例子,只初始化了sdmmc!!,所以只有sdmmc工作,emmc不工作
+所以切换到sdmmc,即sdcard时,其他指令才能执行,但是,读取文件指令并不能成功执行,原因f_open没加FA_WRITE
+read中多了一步sha编解码(不要影响工作),因为sha编解码不知道哪里出错,导致死机
+fatfs没有问题!可以完美写,如果要读写,必须f_open时,添加FA_READ,FA_WRITE的flag
+补充移植参考:介质是sd卡
+	fatfs,平台介质无关的是ff.c (一般不用改)
+	配置文件一般是 ffconf.h, ff.h 和 diskio.h (据实际配置)
+	物理介质与ff.c的接口: 是自定义文件,一般是diskio.c,我们例子是sdmmc_ff.c
+		一定include diskio.h 和 ffconf.h
+		主要接口有:
+		DSTATUS disk_initialize (BYTE pdrv);
+		DSTATUS disk_status (BYTE pdrv);
+		DRESULT disk_read (BYTE pdrv, BYTE* buff, DWORD sector, UINT count);
+		DRESULT disk_write (BYTE pdrv, const BYTE* buff, DWORD sector, UINT count);
+		DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff);
+	而物理介质的底层驱动:sdmmc_api.c sdmmc.c
+
+
+
+
+
+
+
+
+
+20180327
+移植 学习 lwip 库
+从把所有eth例子都去看:先 V2.12 eth 例子
+默认是sram启动的,同样改到ddram就崩溃了,现在怀疑是时钟冲突,怀疑要改 CONFIG_HAVE_XX之类
+一开始就卡死在 mac地址 获取失败,
+
+
+
+
+
+
+
+
+待处理
+重新建立emmc镜像
+移植 ucos 和 usb_host  在  ubuntu环境上，
+学习建立 动态，静态软件库！！
+统筹，可用 adc pwm 资源，因为以开发板标准 开设项目 所以先开 简单变阻，霍尔，磁电传感器测试板！！
 
 
 
