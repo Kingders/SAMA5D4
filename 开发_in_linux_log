@@ -11572,6 +11572,8 @@ ov7725的一些内容:
 		但是怎么调试还是出现断帧的情况!! 就是第一次打开摄像头没事,后面打开时就断帧了,
 		另外:软件打开时不能默认视频流是vga 后面发现:
 			VS Format Uncompressed 的 Payload uncompressed format 的 default frameformat选了1(QVGA)的,应该选2(vga)
+			注意这里好像有两个,VS Format Uncompressed,不要搞错!!所以有两个default frameformat
+			只修改其中一个有效!!
 			此外,不要忘记手动设frmW, frmH的初次声明给定值,设为 640,480,不然没有图像出来!!
 			还有,开发板给 sensor 的工作时钟改回 25mhz
 		怀疑是mck速度跟不上,或者是buffer不够大!!
@@ -14968,6 +14970,385 @@ CPSR     CPSR     CPSR       CPSR     CPSR      CPSR      CPSR
 
 
 
+
+
+20180416
+移植QRCode
+使用 openqr 和 opencv 解码
+	IplImage  *camera; //opencv的数据格式 , 帧图片属性
+	Cvsize size;	//opencv的数据格式 , 帧图片大小
+	size.height = IMAGE_HEIGHT;
+	size.width  = IMAGE_WIDTH;
+	type = IPL_DEPTH_8U;	//图像深度,指每个像素点是所用位数!!这里是8位像素点意思,0-255取值	   
+  	camera = cvCreateImageHeader(size,type,1);
+		//初始化一个 IplImage 数据变量 (opencv 数据结构)
+  	camera->imageData = camera->imageDataOrigin = (char*)cap_dest_buf;
+		//设置 帧图片地址.
+	QrdecoderHandle decoder = qr_decoder_open()	
+		//openqr 的函数 建一个 QRhandle
+		// QrdecoderHandle 是一个 void 指针,所以不代表任何数据结构
+		// qr_decoder_open() 得到一个ImageReader 类变量,(openqr的数据结构)
+		// 把地址传给了 QrdecoderHandle
+	qr_decoder_set_image_buffer( QrdecoderHandle decoder, _IplImage camera) 
+		//openqr 的函数 (用到了 opencv的数据结构)
+		//设置 imagebuffer
+	qr_decoder_is_busy(QrdecoderHandle decoder)
+		//检查 decoder 是否忙碌,如果空闲,就可以接下来讨论的decode工作!!
+	int flag = qr_decoder_detect(decoder);
+		//查看图片中是否有 QR图
+	if ((flag & QR_IMAGEREADER_NOT_FOUND_FINDER_PATTERN) ==0)
+		//这句话的意思是 如果发现了图片中有 QR 位图时!!
+	for(sz=25,flag=0; (sz>=19)&&((flag&QR_IMAGEREADER_DECODED)==0); sz-=2)
+	{flag= qr_decoder_decode(decoder,sz);}
+		//decode QR
+		//首先,通过给 cvAdaptiveThreshold 某程度值sz,把图片转成没噪点的黑白图片
+		//然后解码这张图片,
+		//假如解码不成功,
+		//用别的 sz 值,重复上述过程
+	QrCodeHeader header;
+	if((flag == 0x2000) || (flag == 0x2008)){	//如果成功 decode
+	  if( qr_decoder_get_header(decoder,&header)){
+	    if(text_size<header.byte_size+1){
+	      if(text)
+	         delete text;
+	      text_size=header.byte_size+1;
+	      text=new unsigned char[text_size];
+	    }
+	    qr_decoder_get_body(decoder,text,text_size);
+	    printf("QR Scanner Result:%s\n\r",text);
+	  }
+	}
+		//如果成功 decode 就返回 解码得到的数据
+学习建立 动态，静态软件库！！ (IAR)	
+	没什么特别就是 creat new project -> Externally built executable 新建一个空白工程
+	project -> options -> General Options -> output -> output_file -> Library
+	project -> options -> General Options -> target
+		大小端模式,一般是小端模模式,
+		处理器架构,设备无关时一般选 none,否则选合适处理器 和 合适浮点运算器.
+	project -> options ->library builder 设置 库文件最终的生成路径
+	然后就额可以了
+	然后添加自己的 c文件, h文件!!
+	最好,把h文件添加到 库项目的项目树里,而不是仅仅在project -> options 添加include路径
+	最后用一个 总 h 文件,囊括所有 h文件!!
+	写 配对的 h c文件有以下通用注意事项,以 abc.c abc.h 为例:
+	abc.c上定义函数和变量
+	abc.h上 extern声明 函数和变量, 还有定义一些宏 和 typedef
+	定义变量 的 书写习惯!!	
+
+
+
+
+
+
+20180417
+opencv学习: https://blog.csdn.net/w_k_l/article/details/74887145
+	分 2.4+ 和 3.0+ 两个不同框架的版本
+以2.4.13.6 为例子分析:
+	include目录，可以看到有opencv和opencv2这两个文件夹
+	opencv这个文件夹里面包含着旧版的头文件。
+	opencv2这个文件夹里面包含着具有时代意义的新版OpenCV2系列的头文件。
+modules包含着 opencv 基本模块:
+    	【calib3d】——其实就是就是Calibration（校准）加3D这两个词的组合缩写。
+		这个模块主要是相机校准和三维重建相关的内容。基本的多视角几何算法，
+		单个立体摄像头标定，物体姿态估计，立体相似性算法，3D信息的重建等等。
+	【contrib】——也就是Contributed/Experimental Stuf的缩写， 
+		该模块包含了一些最近添加的不太稳定的可选功能，不用去多管。
+		2.4.8里的这个模块有新型人脸识别，立体匹配，人工视网膜模型等技术。
+	【core】——核心功能模块，包含如下内容：
+                OpenCV基本数据结构
+                动态数据结构
+                绘图函数
+                数组操作相关函数
+                辅助功能与系统函数和宏
+                与OpenGL的互操作
+	【imgproc】——Image和Processing这两个单词的缩写组合。图像处理模块，这个模块包含了如下内容：
+                线性和非线性的图像滤波
+                图像的几何变换
+                其它（Miscellaneous）图像转换
+                直方图相关
+                结构分析和形状描述
+                运动分析和对象跟踪
+                特征检测
+                目标检测等内容
+	【features2d】 ——也就是Features2D， 2D功能框架 ，包含如下内容：
+                特征检测和描述
+                特征检测器（Feature Detectors）通用接口
+                描述符提取器（Descriptor Extractors）通用接口
+                描述符匹配器（Descriptor Matchers）通用接口
+                通用描述符（Generic Descriptor）匹配器通用接口
+                关键点绘制函数和匹配功能绘制函数
+	【flann】—— Fast Library for Approximate Nearest Neighbors，高维的近似近邻快速搜索算法库，包含两个部分：
+                快速近似最近邻搜索
+                聚类
+	【gpu】——运用GPU加速的计算机视觉模块
+	【highgui】——也就是high gui，高层GUI图形用户界面，
+		包含媒体的I / O输入输出，视频捕捉、图像和视频的编码解码、图形交互界面的接口等内容
+	【legacy】——一些已经废弃的代码库，保留下来作为向下兼容，包含如下相关的内容： 
+                运动分析
+                期望最大化
+                直方图
+                平面细分（C API）
+                特征检测和描述（Feature Detection and Description）
+                描述符提取器（Descriptor Extractors）的通用接口
+                通用描述符（Generic Descriptor Matchers）的常用接口
+                匹配器
+	【ml】——Machine Learning，机器学习模块， 基本上是统计模型和分类算法，包含如下内容：
+                统计模型 （Statistical Models）
+                一般贝叶斯分类器 （Normal Bayes Classifier）
+                K-近邻 （K-NearestNeighbors）
+                支持向量机 （Support Vector Machines）
+                决策树 （Decision Trees）
+                提升（Boosting）
+                梯度提高树（Gradient Boosted Trees）
+                随机树 （Random Trees）
+                超随机树 （Extremely randomized trees）
+                期望最大化 （Expectation Maximization）
+                神经网络 （Neural Networks）
+                MLData
+	【nonfree】，也就是一些具有专利的算法模块 ，包含特征检测和GPU相关的内容。最好不要商用，可能会被告哦。
+	【objdetect】——目标检测模块，包含Cascade Classification（级联分类）和Latent SVM这两个部分。
+	【ocl】——即OpenCL-accelerated Computer Vision，运用OpenCL加速的计算机视觉组件模块
+	【photo】——也就是Computational Photography，包含图像修复和图像去噪两部分
+	【stitching】——images stitching，图像拼接模块，包含如下部分：
+                拼接流水线
+                特点寻找和匹配图像
+                估计旋转
+                自动校准
+                图片歪斜
+                接缝估测
+                曝光补偿
+                图片混合
+	【superres】——SuperResolution，超分辨率技术的相关功能模块
+	【ts】——opencv测试相关代码，不用去管他
+	【video】——视频分析组件，该模块包括运动估计，背景分离，对象跟踪等视频处理相关内容。
+	【Videostab】——Video stabilization，视频稳定相关的组件，官方文档中没有多作介绍，不管它了。	
+OpenCV的命名空间
+	OpenCV中的C++类和函数都是定义在命名空间cv之内的，有两种方法可以访问。
+	第一种是，在代码开头的适当位置，加上 using namespace cv; 这句。
+	另外一种是在使用OpenCV类和函数时，都加入cv::命名空间。
+	不过这种情况难免会不爽，每用一个OpenCV的类或者函数，都要多敲四下键盘写出cv::，很麻烦。
+	所以，浅墨推崇大家在代码开头的适当位置，加上using namespace cv;这句。于是和opencv命名空间一了百了了。
+opencv2版本 重要的基本数据类型 Mat
+	cv::Mat类是用于保存图像以及其他矩阵数据的数据结构。默认情况下，其尺寸为0，
+	我们也可以指定初始尺寸,比如定义一个Mat类对象，就要写cv::Mat pic(320,640,cv::Scalar(100));
+	Mat类型作为OpenCV2新纪元的重要基本数据类型 ,它是对应于OpenCV1.0时代的IplImage,主要用来存放图像的数据结构
+	例子:
+		Mat myMat= imread("dota.jpg"); //从工程目录下把一幅名为dota.jpg的jpg类型的图像载入到Mat类型的myMat中
+OpenCV2版本中，最简单的图像载入和显示只需要3个函数，非常便捷。imread( ), namedWindow( )以及imshow( )	
+	imread( ) 图[片读入
+	namedWindow( ) 定义窗口
+	imshow( ) 显示图片
+roi 感兴趣的局部领域
+
+
+
+
+
+
+20180417
+移植 Qr 库到 e70
+首先 e70 摄像头的项目是 c项目,奇怪的是, 把他换成 C++ 标准编译时,却跑不了
+用到的 cv QR 单独生成库后在 用到摄像头项目
+cv qr 是C++ 标准编写的,所以必须 C++ 标准编译时,
+即: 
+	e70 摄像头的项目 C 标准编译,
+	cv qr 是C++ 标准编译
+e70 摄像头的项目 要用 cv qr 库,难免有 C 与C++ 冲突的地方
+cv qr 库接入 e70 摄像头的项目时
+	cxtypes.h
+		会用到 math.h 库, e70-softpack有个math.h 与cv qr要真正用到的math.h 冲突
+		cv qr要真正用到的math.h 是 IAR 自带的 C库 math.h
+		所以吧 e70-softpack有个math.h 屏蔽掉
+		还有 C++ 类型转换与 C类型转换 之间有 区别!!
+		C++ :  int (floor(value))
+		C   :  (int) (floor(value))
+	cxmisc.h
+		C 没有 函数默认参数的 规则;C++ 有
+		C++ : CV_INLINE void* cvAlignPtr( const void* ptr, int align=32 )
+		C   : CV_INLINE void* cvAlignPtr( const void* ptr, int align )
+		CvMat 定义 为 C++ 与 C 设置了 不同变量, 需要改成一至的!
+QR库完完全全是 C++项目,	e70 摄像头的项目要使用的话,必须 变成 C++规范的编译项目!!
+	
+使用 automode,即 c 文件用 c标准编译,cpp文件用c++标准编译
+如果能使 C++ 调用 C 的内容:
+在对应 .h文件 添加
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+///////////////////////
+代码段
+////////////////////
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+	现在添加了的有:
+	USBD_HAL.h,  
+	USBD.h,  
+	USBRequests.h,  
+	USBDDriver.h, 
+	USBDescriptors.h
+	usbhs.h
+	USBLib_Types.h
+	USBVideo.h 
+	timetick.h, 
+	.c文件也加上!!
+	board_memories.h,  isi.h,  image_sensor_inf.h,  xdmad.h, 
+换到 iar8 jlink-swd调试,可用,auto模式编译也没问题问题!!
+说到底还是 iar7 垃圾的问题!!
+开始调试,cvCreatseq
+	->Cvseq* = cvMemStorageAlloc( CvMemStorage*,sizeof( Cvseq) )	//申请一个Cvseq结构数据
+	->memset( Cvseq*, 0, sizeof( Cvseq) )				//给清空数据内容
+	
+	cvMemStorageAlloc 出问题!! 
+	由于 CvMemStorage ->free_space 小于 sizeof( Cvseq), 所以需要 icvGoNextMemblock 分配空间
+	icvGoNextMemblock 分配空间 是以 4096 每block算!! 明显就没有这么大的空间!!
+	所以要看初始化 CvMemStorage 时 free_space 设置大小
+	heap设置太小 所以 malloc 分配失败
+	该linker文件 icf 改heap 大小
+usb-video 与 cv库冲突, 所有cv操作在 usb等硬件初始化以后!! 
+由于没有处理好 isi取图像的方式, 所以 heap放在sram会与heap冲突
+所以 把heap暂时放回 inter-ram,
+开始检测 QR解码程序 在 qr_decoder_detect() 死循环:
+	会调用 cvCopy(),cvSmoth(),cvCopy() 就是在这里出问题了,导致死在后面 find_finder_pattern 的 for循环
+	继续追 发现是 刚开始初始化时 qr_decode_set_image_buffer()的错
+	由于我们的图片是 640x480, 16位像素点 yuv格式,
+	而 qr 库 是基于 320x240, 8位像素点,yuv格式, 这就大麻烦了!!
+	首先,重新 处理 usbvideo 问题,原来是 VIDD_PayloadSent() 的 IsiPrevBuffIndex
+		导致不能设置只有一张图片的缓存区时的uvc显示, 屏蔽了就好
+	qr库 imagereader类成员 有 5 个 iplimage图片缓存结构数据:
+		_img_src_internal, _img_src, _img_transformed
+		_img_binarized, _img_tem_lc
+		这样就起码有 缓存 5张图片的空间才行!!即要有 5 X 600 kb 空间
+	然后 qr_decoder_set_image_buffer() 会指定这几个空间!!!
+		然而我的sram只有 2mb 空间.....所以某几个要共用空间!!!
+	分析后面的 qr_decoder_detect 和 qr_decoder_decode 分析哪些空间可以共用!!!!
+	还有的是先测试使用 opencv 的函数!!
+	16位像素点改为 8位!! 因为 cv库只支持8位像素点!!
+		usb描述符数据 要改
+		isi 通讯 方式要改
+		sensor 图像格式要改
+	现在很迷的默认情况是这样子的:
+		senseor 是 YUV输出的
+		isi却以RGB的标准输入!!!
+		然后也不知道以什么标准发送数据到上位机了
+		反正就是成功了!
+		sensor:
+			0x12 0x00  //VGA YUV		
+			[0x0c 0x50][0x66 0x00]  //{COM3[4], DSP_Ctrl3[7]}=10 -> U0Y0, V1Y1, U2Y2, V3Y3, ...
+						//最后我怎么改都没有什么差别,最后我改成这样:
+						//[0x0c 0x40][0x66 0x00]
+						//{COM3[4], DSP_Ctrl3[7]}=00 -> Y0U0, Y1V1, Y2U2, Y3V3, ...
+			0x67 0x00  //表示 yuv或者RGB 格式输出,不是RAW格式输出		
+		UVC descriptor:
+			USBDDriverDescriptors:
+			VS Fromat Uncompressed -> PlayLoad uncompressed format:
+				guidYUY2,  //不知道是什么,好像相关的,其实并不相关
+				FRAME_BPP, //bits per-pixl  默认16位每像素点 
+					   //修改时,直接修改 FRAME_BPP 这个宏定义,因为要把相关参数也改变	
+		isi: 
+			ISI_setInputStream(RGB_INPUT) //为什么是RGB.难道不是YUV么
+			ISI_RgbpixelMapping(ISI_CFG2_RGB_CFG_MODE3) //RGB的模式
+	开始改参数看看:
+		没有什么意义.
+YUV:4:2:2 一定是16位prepixel的,现在我们用到 opencv 处理 要的是 8bit像素点!!
+观察了很多,发现 上述的 sensor: UVC descriptor: isi: 都不能轻松改变
+	不过确认了,isi设为RGB的方式很迷,但是 获取的视频流 和 usb 传送的视频流都是 YUV422
+	sensor:[0x0c 0x40][0x66 0x00] 设定了流格式是 Y0U0, Y1V1, Y2U2, Y3V3, ...
+	即单数字节是 Y 亮度  双数字节是 UV 参数
+		//把 Y信息拷出来
+                pict = (uint8_t *)(ISI_BASE + 0x96000);
+                pict2 = (uint8_t *)(ISI_BASE);
+                for( i=0; i < (640*480); i++ ){
+                       *pict = *pict2;
+                       pict++;
+                       pict2 += 2;
+                }
+                //对信息做 smooth 处理
+                cvSmooth(picture,picture2,CV_MEDIAN,3);
+                //把Y信息拷回去
+                pict = (uint8_t *)(ISI_BASE);
+                pict2 = (uint8_t *)(ISI_BASE + 0xe1000);
+                printf("cvtest\n\r" );
+                for( i=0; i < (640*480); i++ ){
+                       *pict = *pict2;
+                       pict +=2;
+                       pict2++;
+                }
+	我们知道 cvSmooth(..,CV_MEDIAN,..); 只能对 8bits-pixel 做处理
+	这里,我们就把 Y 信息当作为 8bits-pixel 做smooth处理了
+	这种做法可行!!
+	此外开启 cverror显示,在cverror.cpp的cvStdError()添加printf
+	发现 cvAdaptiveThreshold 内存溢出,linker文件 icf 增加 heap大小!!
+	至此,opencv测试比较成功!!
+	开始调试QR,发现 set_Image 还是直接用数字初始化帧缓存地址比较好
+	find_finder_pattern()有内存泄漏嫌疑!!
+	后面发现,吃内存吃太多了!!
+现在尝试降低 图片像素到 320x240
+	查看以前的内容 ,其实只改 ov7725 i2c控制的某个地方
+	修改main.cpp 之前320x240的地方都被备注了,现在是反过来备注 640x480的,释放320x240的
+	修改 usb设备描述符 的 一个默认帧格式内容
+	最后成功, 也成功地decode图片,只可惜识别率太低,而且这个使用的库有内存泄漏的毛病!!
+
+
+	
+	
+
+
+
+
+
+
+20180504
+尝试移植其他库例如 zbar 参考:http://www.cnblogs.com/greyorbit/p/8444961.html
+	下载了zbar-0.10
+	linux上解压, ./configure
+./configure出错:configure: error: test for video support failed! 
+	头文件检测问题，2.4以上内核中没有/usr/include/linux/videodev.h，
+	只有/usr/include/libv4l1-videodev.h,/usr/include/linux/videodev2.h，
+	解决方法如下:
+	修改configure.ac
+	AC_CHECK_HEADERS([linux/videodev.h] 改为 AC_CHECK_HEADERS([libv4l1-videodev.h]
+	修改zbar/video/v4l1.c
+	#include <linux/videodev.h> 改为 #include <libv4l1-videodev.h>
+	参考:ZBar在Windows上的使用（2）-OpenCV: https://blog.csdn.net/sunflower_boy/article/details/49275439
+	修改configure
+	for ac_header in linux/videodev.h 为 for ac_header in libv4l1-videodev.h 
+	参考:https://blog.csdn.net/s8848/article/details/46485307
+重新./configure 出错:configure: error: Unable to find ImageMagick >= 6.2.6:
+	安装 ImageMagick
+	...有什么缺的 装什么!!
+然后把得到config.h拷贝到win7下的codeblock IDE 的zar项目使用
+	zar里的源码虽然都是 .c 文件,却有大量 c++ 的语法,比如 inline namespace什么的
+	所以需要 把编译器编译c的工具改为 g++,而不是gcc
+	还有 zbar 源码 
+	codeblock 使用 GCC 编译器,编译 zbar 比较磨人
+	主要是 zbar明明是 c 语言,c文件,却用了大量的 C++ 语法, 所以必须用 g++ 编译
+	至于 compiler flags 选择C99
+	zbar里 大量代码没有按规范的标准写,但是许多 变量赋值格式不对的问题,需要强制转换格式
+	测试时生成的 是 win32 命令窗程序,需要用到 win的标准头文件说什么的,
+	比如 inttypes.h 但是不能很好识别,所以只能手动改适配内容
+	这次例子 仅仅需要zbar的:
+		zbar-0.10\zbar\decoder和zbar-0.10\zbar\qrcode
+		zbar-0.10\zbar\目录下的config.c,decoder.c,error.c,image.c, 
+		img_scanner.c, refcnt.c. scanner.c，symbol.c
+	添加时需要注意,避免无关紧要的内容加入,避免不必要的不必要的编译错误扰乱
+	添加库时,需要注意以下几点
+		最好把不同的库分别独立到一个一个文件夹里,包含 .h,.dll,.lib 等文件
+		需要添加 .h路径, 还要添加库路径,不然不能编译通过
+		特别是 当库文件是 .dll 形式存在时,.dll 不是 codeblock默认的库文件,
+		所以寻选择dll库路径时,需要换上allfile选项才可以看到 dll文件
+		此外,还要把所有 dll文件都拷贝到 bin/debug 里
+		这样,调试时, bin/debug的.exe文件执行时,程序才会找到dll里对应的函数内容执行
+	目前pc的 demo 只识别 条行码,未实现二维码的例子
+	换了一张 二维码的 图片, 原来demo例子也能直接识别二维码!!
+	添加 实现中文识别:http://www.cnblogs.com/greyorbit/p/8446382.html
+
+?????????
+
+
+
 	
 
 
@@ -14987,7 +15368,7 @@ ucos3 需要知道 中断处理和调度的关系!!
 
 
 
-?????????
+
  VBLANK: 显示器扫描线完成最后一行后,需要重返左上角,这个过程叫做: vblank,也叫VBI(vertical blank interval) ,因为扫描线变得blank,以防止看到一个斜线显示在屏幕上.?????
 开机没有出现小企鹅问题!!
 开发板的中断号与linux中断号的兑换表!!		 
