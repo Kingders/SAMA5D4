@@ -15344,13 +15344,1356 @@ YUV:4:2:2 一定是16位prepixel的,现在我们用到 opencv 处理 要的是 8
 	目前pc的 demo 只识别 条行码,未实现二维码的例子
 	换了一张 二维码的 图片, 原来demo例子也能直接识别二维码!!
 	添加 实现中文识别:http://www.cnblogs.com/greyorbit/p/8446382.html
+codeblock: 搭建opencv: https://blog.csdn.net/goomaple/article/details/45649305
+	使用cmake MinGW 重新编译 opencv24136 库
+	使用 cmake 出现 libintl-8.dll missing!!: 添加 MinGW/bin 路径到系统变量
+	cmake其实就是编译一个 MinGW 编译器的 makefile文件
+	而这个 MinGW 编译器 是装 codeblock 自带的, 需要把 MinGW 编译器 的路径加到系统变量上去!!
+	cmake后 既可以 使用 cmd 到指定位置 执行 mingw32-make 开始编译opencv库
+	make出错: modules\highgui\src\window_w32.cpp:2023:81: error: 'BTNS_AUTOSIZE' was not declared
+	修复:
+	"commctrl.h" in MinGW directory and something like
+	#if 0
+	#define _WIN32_IE   0x0300
+	#endif
+	//then change it to
+	#if 1
+	#define _WIN32_IE   0x0500
+	#endif
+	遇到了 编译perf_stitching 时 出现 g++: recipe for target fail, no input files 错误
+	并不是真的找不到文件,g++命令行 编译的路径太长了,
+	我去,把编译文件夹的路径改回 E盘上直接编译通过
+	最后 mingw32-make install 生成库和头文件包
+	最后在codeblock里的配置:
+		添加所有 include 路经
+		project build option->search direction->linker 添加库文件搜索路径
+		project build option->linkersettings 添加所有要用到的库
+		把 .dll动态库拷贝到 项目生成文件夹bin/debug上去
+ 		或者把 .dll 文件夹所在路径添加到 win7环境变量 path
+	注意,一旦出现 无法找到 cstdlib 等 一般是 编译器出问题了
+	因为这些都是 C++的语法,但是去写在.c文件上,所以需要把 c文件的编译器也换成 g++
+opencv打开摄像头!!
+	编译opencv时,添加 with_opengl	只是支持gl,但是并没有gl的内容!!
+	重新cmake,mingw32-make编译opcv24136,添加所有项,无法编译 opencv_world??
+	使用新版本mingw 也无法通过opencv_world编译
+	
+添加opengl:
+	gl glu  基础库 这几个好像是 系统硬件自带的 ????
+	glut:	opengl unity toolkit gl超集, 一个opengl实现窗口的辅助库
+	glew	不能用 mingw32-make ,反而是网上找了个脚本生成了必要的lib
+	freeglut :发现使用codeblock自带mingw无法比编译,下载了一个新版本的MinGW编译通过
+		MinGW 在win上有一个专门的套装管理软件,通过软件更新 MinGW 工具
+		所以 要替换 codeblock的 mingw 务求编译工具统一!!
+	mesa: 相当麻烦:
+		先安装python2.7
+		安装python套件Mako :python setup.py install
+		安装python套件scon
+		安装python套件pywin32
+		安装 mingw 的 flex bison,在mysy终端里命令安装 其实套件已经捆绑安装了!!
+		按炸安装 win_flex_bison
+		还是失败!!
+使用opengl 比我想i想象中要复杂!! :http://www.sci.brooklyn.cuny.edu/~goetz/codeblocks/glut/
+	原来最基础的 gl glu 并不能通过编译得到,而是硬件自带的,
+	我尝试编译的还编译不成功的glu,只不过是gl库的窗口显示实现库
+	codeblock如果要实现opengl项目,需要建议一个 glut 项目, 而不是在一个空白项目里移植opengl
+	这样就只需要解决 glut库的问题,而不需要处理 glu32.lib opengl32.lib等 gl,glu级别库的问题!!
+
+使用opencv 问题
+	主流 例子都是基于 opcv2.4.9 - 2.4.11
+	我去 用了 2.4.13 变化居然这么大 findcontours 机制直接换了, qnmb 
+
+凑齐代码片,可以对组装 二维码识别程序,但是定位代码还是不理想!!
+
+
+
+
+
+
+
+
+
+
+
+
+20180517
+opengl基本认识
+配置参数
+	编译参数加 -DGLUT_DISABLE_ATEXIT_HACK（也可以在代码里#define GLUT_DISABLE_ATEXIT_HACK），
+	链接参数加上-lopengl32 -lglu32 -lglut32
+	mingw 本身就是 32 位，所以不需要特别设置。如果是用的 mingw-w64，需要在参数里加上 -m32
+	但是我是在 codeblock 上的,而不是ubuntu的编译环境上,所以需要 在一个glut 项目下执行
+OpenGL函数库相关的API有核心库(gl)，实用库(glu)，辅助库(aux)、实用工具库(glut)，窗口库(glx、agl、wgl)和扩展函数库等。
+	gl是核心，
+	glu是对gl的部分封装。
+	glx、agl、wgl 是针对不同窗口系统的函数。
+	glut是为跨平台的OpenGL程序的工具包，比aux功能强大（aux很大程度上已经被glut库取代。）。
+	扩展函数库是硬件厂商为实现硬件更新利用OpenGL的扩展机制开发的函数。
+	gl 和 glu 都是 硬件平台相关的,可以认为编译工具,win7 ubuntu等等自带的!!
+	glut就得自己去编译安装了!! 
+OpenGL的竞争对手是Direct3D；OpenGL对应的开源实现是mesa 3D。
+glut：OpenGL工具库 OpenGL Utility Toolkit
+	这部分函数以glut开头，主要包括窗口操作函数，窗口初始化、窗口大小、窗口位置等函数；
+	回调函数：响应刷新消息、键盘消息、鼠标消息、定时器函数等；创
+	建复杂的三维物体；菜单函数；程序运行函数。
+	gult对应的开源实现是freegult。
+窗口库GLX
+	对于X窗口系统，它所使用的的OpenGL扩展（GLX：OpenGL extension for X.）是作为OpenGL的一个附件提供的，
+	所有的GLX函数都使用前缀glX。
+	apl、wgl分别用于apple、windows。
+glew
+	GLUT或者FREEGLUT主要是1.0的基本函数功能；GLEW是使用OPENGL2.0之后的一个工具函数。
+	不同的显卡公司，也会发布一些只有自家显卡才支 持的扩展函数，
+	你要想用这数涵数，不得不去寻找最新的glext.h,有了GLEW扩展库，你就再也不用为找不到函数的接口而烦恼，
+	因为GLEW能自动识别你的平台所支持的全部OpenGL高级扩展函数。也就是说，
+	只要包含一个glew.h头文件，你就能使用gl,glu,glext,wgl,glx的全部函数。
+glfw
+	GLFW无愧于其号称的lightweight的OpenGL框架，的确是除了跨平台必要做的事情都没有做，
+	所以一个头文件，很少量的API，就完成了任务。
+	GLFW的开发目的是用于替代glut的，从代码和功能上来看，我想它已经完全的完成了任务。
+	一个轻量级的，开源的，跨平台的library。支持 OpenGL及OpenGL ES，用来管理窗口，读取输入，处理事件等。
+	因为OpenGL没有窗口管理的功能，
+	所以很多热心的人写了工具来支持这些功能，比如早期的glut，现在的freeglut等。
+	那么GLFW有何优势呢？glut太老了，最后一个版本还是90年代的。
+	freeglut完全兼容glut，算是glut的代替品，功能齐全，但是bug太多。稳定性也不好（不是我说的啊），
+	GLFW应运而生。
+
+
+
+
+
+
+
+20180518
+opencv学习:
+	目前网上最广泛的是 2.4.9 版本
+	做二维码的时候 发现 opencv 很多基本内容还是需要掌握比较好!!
+	1.x版本 基本数据类型是 Iplimgge
+	2.x后 基本数据类型是 Mat
+Mat
+	通用矩阵类, 创建函数有
+	Mat::Mat()      //无参数构造方法
+	Mat::Mat(int rows, int cols, int type)  /*创建行数为rows，列数为cols，类型为type的图像*/
+	Mat::Mat(Size size, int type) /*创建大小为size，类型为type的图像*/
+	/*创建行数为rows，列数为cols，类型为type的图像并将所有元素初始化为s*/
+	Mat::Mat(int rows, int cols, int type, const Scalar& s)
+	ex:Mat(3,2,CV_8UC1, Scalar(0))  //三行两列所有元素为0的一个矩阵
+	Mat::Mat(Size size, int type, const Scalar& s) /*创建大小为size，类型为type，初始元素为s*/
+	Mat::Mat(const Mat& m)  //将m赋值给新创建的对象,此处不会发生数据赋值，而是两个对象共用数据
+	/*创建行数为rows，列数为cols，类型为type的图像
+	此构造函数不创建图像数据所需内存而是直接使用data所指内存
+	图像的步长由step指定*/
+	Mat::Mat(int rows, int cols, int type, void* data, size_t step = AUTO_STEP)
+	Mat::Mat(Size size, int type, void* data, size_t step = AUTO_STEP)  //同上
+	/*创建新的图像为m数据的一部分，其具体的范围由rowRange和colRange指定
+	此构造函数也不进行图像数据的复制操作，与m共用数据*/
+	Mat::Mat(const Mat& m, const Range& rowRange, const Range& colRange)
+	/*创建新的矩阵为m的一部分，具体的范围由roi指定
+	此构造函数同样不进行数据的复制操作与m共用数据*/
+	Mat::Mat(const Mat& m, const Rect& roi)
+	在构造函数中很多都涉及到type，type可以是:CV_8UC1, CV_8UC3, …，CV_64FC4等。这些type中:
+	8U表示8位无符号整数(unsigned int), 
+	16S表示16位有符号整数，
+	64F表示64位浮点数即double类型,
+	C表示channel表示图像通道，C后面的数字表示通道数。如C1表示单通道图像，C4表示4通道图像，以此类推。
+	如果需要更多的通道数，需要使用宏CV_8UC(n)重定义，其中n是需要的通道数。例如:
+		Mat M(3, 2, CV_8UC(5));     //创建3行2列通道为5的图像
+	也可以使用create()函数创建对象,值得注意的是使用create()函数无法初始化Mat类 例如:
+		M1.create(4,4,CV_8UC(2));
+	opencv也可以使用Matlab的风格创建函数如：zeros(),ones()和eyes()。
+	这些方法使得代码非常简洁，使用也非常方便。在使用这些函数时需要指定图像的大小和类型。例如	
+		Mat M1 = Mat::zeros(2,3,CV_8UC1); //0矩阵
+		Mat M2 = Mat::ones(2,3,CV_32F);	//1矩阵
+		Mat M3 = Mat::eye(4,4,CV_64F); //对角线为1的矩阵
+	在已有Mat类的基础上创建一个Mat类，即新创建的类是已有Mat类的某一行或某一列，可以使用clone()或copyTo()，
+	这样的构造方式不是以数据共享方式存在。可以利用setTo()函数更改矩阵的值进行验证， 例如
+		    Mat M1=(Mat_<double>(3,3) << 0,-1,0,-1,5,-1,0,-1,0);
+			    cout << "M1 = " << endl << " " << M1 << endl << endl;
+		    Mat M2 = M1;
+			    cout << "M2 = " << endl << " " << M2 << endl << endl;
+		    Mat RowClone = M1.row(0).clone();
+			    cout << "RowClone = " << endl << " " << RowClone << endl << endl;	
+		    Mat ColClone = M1.col(1).clone();
+			    cout << "ColClone = " << endl << " " << ColClone << endl << endl;
+		    Mat copyToM;
+		    M1.row(1).copyTo(copyToM);
+			    cout << "copyToM = " << endl << " " << copyToM << endl << endl;
+		
+		    //验证数据的共享方式		
+		    RowClone.setTo(1);
+			    cout << "M1(更改RowClone的值) = "<< endl  << " " << M1 << endl << endl;	
+		    ColClone.setTo(2);
+			    cout << "M1(更改ColClone的值) = "<< endl << " " << M1 << endl << endl;		
+		    M2.setTo(1);
+			    cout << "M1(更改M2值) = " << endl << " " << M1 << endl << endl;
+imread 图片加载   Mat imread( const String& 图片路径名, int flags = IMREAD_COLOR );
+	flags是一个枚举类型。对各个参数简单解释一下：
+	IMREAD_UNCHANGED:已经废除，不再使用
+	IMREAD_GRAYSCALE=0:将加载的图像转换为单通道灰度图。
+	IMREAD_COLOR=1:函数默认值，将图像转化为三通道BGR彩色图像
+	IMREAD_ANYDEPTH=2:若载入图像深度为16位或32为就返回其对应深度，否则将图像转换为8位图像
+	IMREAD_ANYCOLOR=4:保持图像原格式，可以读取任意可能的彩色格式
+	IMREAD_LOAD_GDAL=8:使用文件格式驱动加载图像，在现阶段用处不多。 
+	在使用flags时可能会同时使用多种flags，如果发生冲突，函数将自动采用较小数字值对应的加载方式。
+	如：IMREAD_COLOR | IMREAD_ANYCOLOR，
+	则imread()函数将自动载入IMREAD_COLOR所对应的3通道彩色图。
+	如果要载入图像原本的彩色格式和深度，则可以使用: IMREAD_ANYCOLOR | IMREAD_ANYDEPTH。
+	也可以利用flags是int类型的变量输入其他值以达到加载特定图像格式的目的，但符合一下标准：
+	flags > 0:返回一个三通道的彩色图像
+	flags = 0: 返回灰度图像
+	flags < 0: 返回包含Alpha通道的图像。
+	图像在默认情况下不是从Alpha通道进来的，如果需要载入Alpha通道的话就取负值
+namedwindow 创建窗口   void namedWindow(const String& 窗口名 int flags = WINDOW_AUTOSIZE);	
+	flags是一个枚举类型。对各个参数简单解释一下：
+	WINDOW_NORMAL:可以改变窗口大小（无限制），也可将一个满屏窗口转换成常用大小；
+	WINDOW_AUTOSIZE：程序会根据呈现内容自动调整大小且不能手动更改窗口大小；
+	WINDOW_OPENGL：创建支持OpenGL的窗口；
+	WINDOW_FULLSCREEN：创建一个充满屏幕的窗口；
+	WINDOW_FREETATIO：图像将尽可能展开;
+	WINDOW_KEEPRATIO：图像比例受到约束。
+	namedWindow()函数是通过指定的名字创建一个作为图像和进度条显示的窗口，
+	如果有相同名称的窗口已经存在，则函数不会重复创建窗口，而是什么都不做。
+	可以调用destroyWindows()或者destroyAllWindows()函数来关闭窗口并取消之前分配的与窗口相关的所有内存空间。
+imshow 显示图片   void imshow(const String& 窗口名, InputArray mat(要显示的图片的Mat矩阵));
+	如果没有对应窗口会自动建立一个
+imwrite 图片写入文件  bool imwrite( const String& 被保存的文件路径名(注意符号要用\引用), InputArray 被保存图片mat, 
+				const std::vector<int>& params = std::vector<int>());
+	const std::vector…:表示为特定保存格式的参数编码，在一般情况下不需要更改。
+	如果需要更改的话，对于不同的图片格式，其对应的值由不同功能。如下：
+	JPEG：这个参数表示从0-100的图片质量(CV_IMWRITE_JPEG_QUALITY),默认值是95.
+	PNG: 这个参数表示压缩级别(CV_IMWRITE_PNG_COMPRESSION)，范围为0-9，
+		数值越高说明压缩程度越大即尺寸更小，所花费的时间更长。默认值是3
+	PPM,PGM,PBM: 这个参数表示一个二进制标志(CV_IMWRITE_PXM_BINARY)，取值为0或1，而默认值为1。
+opencv计时函数:
+	double t = (double)getTickCount();
+	//...program....
+	t = ((double)getTickCount()-t)/getTickFrequency();
+opencv Mat 图像数据位置模型,例如:
+	(单通道)
+		column0 column1 column2 column3	...
+	row0	2	9	9	9
+	row1	7	7	7	5
+	row2	8	8	8	8
+	...
+	(多通道例如 3通道RGB, 不过是以BGR排序存储)
+		column0 column1 column2 column3	...
+	row0	b2g1r4	b2g1r6	b2g1r4	b2g4r49
+	row1	b2g1r4	b2g1r6	b2g1r4	b2g4r49
+	row2	b2g1r4	b2g1r6	b2g1r4	b2g4r49
+	...
+	很多情况下可以如果内存足够大可以实现连续存储。
+	连续存储有助于提升图像扫描速度，可以使用 isContinuous() 来判断矩阵是否是连续存储
+	一个遍历例子 看穿 图像数据存储框架结构
+	    Mat colorImage;
+	    for(int i = 0; i < colorImage.rows; ++i)         //遍历行
+	        for(int j = 0; j < colorImage.cols; ++j)     //遍历列
+	        {
+	            Vec3b pixel;            //定义三通道像素值变量
+	            pixel[0] = i % 255;     //Blue
+	            pixel[1] = j % 255;     //Green
+	            pixel[2] = 0;           //Red	
+
+	            colorImage.at<Vec3b>(i, j) = pixel;
+	        } 
+	  imshow("test",colorImage);
+	使用迭代器 iterator 的遍历例子更安全,
+	    Mat colorImage;
+	    int i = 0;
+	    MatIterator_<Vec3b> colorit, colorend;
+	    for(colorit = colorImage.begin<Vec3b>(), colorend = colorImage.end<Vec3b>(); colorit != colorend; ++colorit)
+	    {
+		i += 1
+	        (*colorit)[0] = i % 255;       //Blue
+	        (*colorit)[1] = rand() % 255;       //Green	rand()是随机数生成函数
+	        (*colorit)[2] = rand() % 255;       //Red
+	    }
+	使用指针遍历  时间最快
+	    for(int i = 0; i < colorImage.rows; ++i)
+	    {
+	        Vec3b* p = colorImage.ptr<Vec3b>(i);
+	        for(int j = 0; j < colorImage.cols; ++j)
+	        {
+	            p[j][0] = i % 255;      //Blue
+	            p[j][1] = j % 255;      //Gree
+	            p[j][2] = 0;            //Red
+	        }
+	     }
+
+卷积过滤运算: void filter2D( InputArray src(原图), OutputArray dst(目标图), int ddepth(图像深度),
+                            InputArray kernel(卷积核), Point anchor=Point(-1,-1),
+                            double delta=0, int borderType=BORDER_DEFAULT );
+	ddepth输入值为-1时，目标图像和原图像深度保持一致
+	InputArray kernel: 卷积核（或者是相关核）,一个单通道浮点型矩阵。
+		如果想在图像不同的通道使用不同的kernel，可以先使用split()函数将图像通道事先分开
+	Point anchor: 内核的基准点(anchor)，其默认值为(-1,-1)说明位于kernel的中心位置。
+		基准点即kernel中与进行处理的像素点重合的点。	
+	double delta: 在储存目标图像前可选的添加到像素的值，默认值为0
+	int borderType: 像素向外逼近的方法，默认值是BORDER_DEFAULT,即对全部边界进行计算。
+		该函数使用于任意线性滤波器的图像，支持就地操作。当其中心移动到图像外，
+		函数可以根据指定的边界模式进行插值运算。函数实质上是计算kernel与图像的相关性而不是卷积
+		也就是说kernel并不是中心点的镜像，
+	如果需要一个正真的卷积，使用函数flip()并将中心点设置为(kernel.cols - anchor.x - 1, kernel.rows - anchor.y -1).
+	该函数在大核(11x11或更大)的情况下使用基于DFT的算法，而在小核情况下使用直接算法(使用createLinearFilter()检索得到). 
+图像叠加:  void addWeighted(InputArray src1, double alpha, InputArray src2,
+                              double beta, double gamma, OutputArray dst, int dtype=-1);
+	src1: 第一幅输入图像
+	alpha: 线性混合时第一幅图像的权重
+	src2: 第二幅输入图像
+	beta: 第二幅输入图像的权重
+	dst: 图像线性混合后的目标图像
+	gamma: 添加到每一个线性叠加总和的gamma值
+	dtype: 目标图像深度，当两幅图像深度相同时可以将dtype置为-1,这样目标图像的深度将与输入图像相同
+	其中 beta = (1.0 - alpha);
+	dst = alpha*src1 + beta*src2 + gama
+	注意：两幅图像混合时必须要求两幅图像的尺寸和类型完全相同。
+ROI区域(感兴趣区域)
+	从图像左上角(100,100)的位置 获得ROI
+	ROIImage = srcImage(Rect(100,100,smallImage.cols,smallImage.rows));
+		从把整张 smallImage 作为一个区域,
+		在 srcImage 划分了一个 ROi区域 
+		得到 一张 ROI区域图,
+		ROI区域图 与 srcImage 的这个ROI区域 共用一个矩阵数据空间
+	ROIImage = srcImage(Range(100,smallImage.rows),Range(100,smallImage.cols));
+		Range()指定的区域是一个连续的存储序列。
+		同理也是的得到一个 ROI区域图, 与srcImage 的这个ROI区域共用矩阵空间
+	例子1:
+	Mat imageROI = srcImage(Rect(50,50,addImage.cols,addImage.rows));//得到 ROI区域图
+	addWeighted(imageROI,0.7,addImage,0.3,0,imageROI); //给这个ROI区域图 叠加效果
+	imshow("混合后图像",srcImage);//可以看到,先当于在 srcImage的 ROI区域做了叠加效果
+	例子2:
+	Mat imageROI = srcImage(Range(50,50+addImage.rows), Range(50,50+addImage.cols));//得到 ROI区域图
+	addImage.copyTo(imageROI,maskImage); //直接把addImage拷贝到这个ROI区域图,
+					     //maskImage是addImage的灰度图,这是copyto的规则
+	imshow("混合后图像",srcImage);//可以看到,先当于在 srcImage的 ROI区域做了叠加了addImage图片
+变化滑条观察参数变化: int createTrackbar(const string& trackbarname, const string& winname,
+                              int* value, int count,
+                              TrackbarCallback onChange = 0,
+                              void* userdata = 0);
+	const string& trackname: 滑动条名字
+	const string& winname: 想要把该滑动条依附到的窗口名字，在程序中可能该窗口名称由namedWindow()声明。
+	int* value: 创建滑动条时，滑动条的初始值
+	int count: 滑动条的最大值，即所有滑动条的数据变动都要在0-count之间，滑动条最小值为0
+	TrackbarCallback onChange = 0: 这是指的回调函数，每次滑动条数据变化时都对该函数进行回调
+	void* userdata = 0: 这个是用户传给回调函数的数据，用来处理滑动条数值变动。如果在创建滑动条时，
+		输入value实参是全局变量，则本参数userdata可使用默认值0.
+	例子:
+	const int g_nTrackbarMaxValue = 100;     //滑动条最大值
+	int g_nTrackbarValue;                    //滑动条对应的值
+	char trackBarName[100];
+	double g_dAlphaValue;                   //第一幅图权重
+	double g_dBetaValue;                    //第二幅图权重
+	Mat g_srcImage1, g_srcImage2, g_distImage;
+	main{
+		g_srcImage1 = imread("forest.jpg");
+		g_srcImage2 = imread("rain.jpg");	
+		sprintf(trackBarName, "透明度 %d", g_nTrackbarMaxValue); //滑条名字
+		namedWindow("混合后图像",WINDOW_NORMAL);     //滑动条依附的窗口
+		g_nTrackbarValue = 20;                      //设置滑动条初始值
+		createTrackbar(trackBarName, "混合后图像", &g_nTrackbarValue, g_nTrackbarMaxValue, on_Trackbar);
+		on_Trackbar(g_nTrackbarValue, 0);           //主动调用一次回调函数,开始实现on_Trackbar功能
+		waitkey(0)
+	}
+	on_Trackbar(int, void*)	{ //回调函数参数类型必须是(int滑动条位置,void*用户数据)
+		//滑动条变化时,createTrackbar的int* value也对应发生变化,即g_nTrackbarValue 变化
+		//然后会触发 on_Trackbar 并把int* value 传递到这里的 int
+		//用户数据是 是 createTrackbar的 void* userdata 传递过来的数据
+		//createTrackbar的 void* userdata 默认一直传递0,
+		//所以 on_Trackbar void* 也一直得到 0
+		//图像融合的权重在0-1之间，转换输入值和权重之间的比例
+		g_dAlphaValue = (double) g_nTrackbarValue / g_nTrackbarMaxValue;
+		g_dBetaValue = 1.0 - g_dAlphaValue;     //第二幅图像权重	
+		//使用addWeighted函数对图像进行线性混合
+		addWeighted(g_srcImage1, g_dAlphaValue, g_srcImage2, g_dBetaValue, 0.0, g_distImage);
+		imshow("混合后图像", g_distImage);
+	}
+int getTrackbarPos(const string& trackbarname, const string& winname);
+	获取当前轨迹条的位置并返回
+	const string& trackbarname: 滑动条名称
+	const string& winname: 滑动条所依附窗口的名称
+常见数据类型:
+	Point 点
+		template<typename _Tp> class Point_
+		typedef Point_<int> Point2i;
+		typedef Point2i Point;
+		Point_与Point2i和Point是等价的
+		例子:
+			Point pt = Point(10,8);
+	Scalar 颜色
+		template<typename _Tp> class Scalar_ : public Vec<_Tp, 4> {
+			public:
+			    //! various constructors
+			    Scalar_();
+			    Scalar_(_Tp v0, _Tp v1, _Tp v2=0, _Tp v3=0);
+			    Scalar_(const CvScalar& s);
+			    Scalar_(_Tp v0);
+			...
+		从定义语句Scalar_(_Tp v0, _Tp v1, _Tp v2=0, _Tp v3=0);中
+		可以看出Scalar最后两个参数都有默认值，故在不适用第四个参数时可以直接忽略。
+		typedef Scalar_<double> Scalar;
+		例子:
+			Scalar colr = Scalar(a, b, c);
+			//Scalar代表了一个四元素的vector容器，在opencv中常用来传递像素值。
+			//本例子将主要用来表示BGR三个像素的值。如果不使用则最后一个参数不用设置。
+	Size 尺寸
+		template<typename _Tp> class Size_{
+			public:
+			    typedef _Tp value_type;			
+			    //! various constructors
+			    Size_();
+			    Size_(_Tp _width, _Tp _height);
+			    Size_(const Size_& sz);
+			    Size_(const CvSize& sz);
+			    Size_(const CvSize2D32f& sz);
+			    Size_(const Point_<_Tp>& pt);
+			....
+		typedef Size_<int> Size2i;
+		typedef Size_<double> Size2d;
+		typedef Size2i Size;
+		例子:	
+			Size s = Size(20,50);
+基本图形绘画: https://blog.csdn.net/keith_bb/article/details/53313202
+文字处理: https://blog.csdn.net/keith_bb/article/details/53366674
+
+split()函数 颜色通道分离函数，其定义如下所示：(两种形式)
+	CV_EXPORTS void split(const Mat& src, Mat* mvbegin);
+	CV_EXPORTS void split(const Mat& m, vector<Mat>& mv );
+		第一个参数是输入分离通道的图像
+		第二个参数是一个Mat类型的vector容器，用来存放分离后的通道
+	例子:
+		vector<Mat>channels;
+		split(srcImage, channels);
+		Mat imageBlueChannel;
+		imageBlueChannel = channels.at(0);  //提取蓝色通道
+merge()函数 颜色通道合并函数 (两种形式)
+	CV_EXPORTS void merge(const Mat* mv, size_t count, OutputArray dst);
+	CV_EXPORTS void merge(const vector<Mat>& mv, OutputArray dst );
+		第一个参数是一个Mat类型的vector容器，
+		第二个参数是合并通道后的图像
+	例子:
+		vector<Mat>channels;
+		split(srcImage, channels);
+		Mat imageBlueChannel;
+		imageBlueChannel = channels.at(0);  //提取蓝色通道
+		//在提取的蓝色通道上，指定ROI区域叠加logoImage
+		addWeighted(imageBlueChannel(Rect(50, 50, logoImage.cols, logoImage.rows)), 1.0, logoImage, 0.7,
+			0.0, imageBlueChannel(Rect(50, 50, logoImage.cols, logoImage.rows)));
+		//把 imageBlueChannel 区域图 + logo图后,还是赋值回 imageBlueChannel 区域图 里
+		//注意, 两次调用的 imageBlueChannel(Rect(50, 50, logoImage.cols, logoImage.rows)) 
+		//得到的是两个 独立的 ROI区域图,但是他们和imageBlueChannel 共用 imageBlueChannel的一个区域
+		//所以在,其中一个区域图修改这个空间,相当于修改  imageBlueChannel 的这个区域!!
+		merge(channels, image); //将叠加logo后的蓝色通道与另外两个颜色通道重新融合
+
+图像傅里叶变换dft https://blog.csdn.net/keith_bb/article/details/53389819 
+	具体未清晰 dft 的应用领域!!
+颜色空间转换 void cvtColor(InputArray src, OutputArray dst, int code, int dstCn=0 );
+	大多数彩色图片都是RGB类型，而图像处理时，需要用到灰度图、二值图、HSV、HSI等颜色制式
+	InputArray src: 输入图像即要进行颜色空间变换的原图像，可以是Mat类
+	OutputArray dst: 输出图像即进行颜色空间变换后存储图像，也可以Mat类
+	int code: 转换的代码或标识，即在此确定将什么制式的图片转换成什么制式的图片，
+	int dstCn = 0: 目标图像通道数，如果取值为0，则由src和code决定
+	在opencv中，其默认的颜色制式排列是BGR而非RGB
+	对于24位颜色图像来说，前8-bit是蓝色，中间8-bit是绿色，最后8-bit是红色。
+	常见的R,G,B通道的取值范围为：
+		0-255 :CV_8U类型图片
+		0-65535: CV_16U类型图片
+		0-1: CV_32F类型图片 
+	需要注意的是cvtColor()函数不能直接将RGB图像转换为二值图像(Binary Image)，
+	需要借助threshold()函数，其具体用法请查阅threshold().
+	例子:
+		//将图像转换为灰度图，采用CV_前缀
+		Mat grayImage;
+		cvtColor(srcImage, grayImage, CV_BGR2GRAY);     //将图像转换为灰度图
+		//将图像转换为HSV，采用COLOR_前缀
+		Mat HSVImage;
+		cvtColor(srcImage, HSVImage, COLOR_BGR2HSV);    //将图像转换为HSV图
+XML和YAML文件:训练人脸模型进行人脸识别时会用得特别多
+	opencv提供了对XML和YAML文件进行读写操作的FileStorage类
+	FileStorage::FileStorage()
+	FileStorage::FileStorage(const string& source, int flags, const string& encoding=string())
+	两种构造 FileStore类型数据 方法 :
+	一:
+		FileStorage fs;
+		fs.open("123.xml",FileStorage::WRITE);		
+	二:	
+		FileStorage fs("123.xml",FileStorage::WRITE)
+	写入变量内容:
+		fs << "iterationNr" << 100; //值100赋给变量 iterationNr 然后写入 文件
+	读取变量内容:
+		int itNr;
+		fs["iterationNr"] >> itNr;	//读取方式1
+		itNr = (int)fs["iterationNr"];	//读取方式2
+	例子:
+		Mat R = Mat_<uchar>::eye(3, 3);
+		T = Mat_<double>::zeros(3, 1);
+		fs << "R" << R;     //将R数据写入文件
+		fs << "T" << T;     //将T数据写入文件
+		fs["R"] >> R;           //从文件中读取数据R
+		fs["T"] >> T;           //从文件中读取数据T
+	如果数据类型是vector和array类，要在元素前面加上”[“在元素后面加上”]”符号，如下：
+		fs << "string" << "[";
+		fs << "image1" << "Awesomeness" << "baboon";
+		fs << "]";
+		//有三个成员的 string 数组
+	对于数据结构是maps类型，需要在元素前面和最后加上”{“和”}”符号，如下：
+		fs << "Mapping";
+		fs << "{" << "One" << 1;
+		fs        << "Two" << 2 <<"}"; 
+		//一个 Maping (结构体/类)数据的存储
+	从文件中读取这些数据的时候我们需要用到 FileNode和FileNodeIterator 数据结构。
+	FileStorage类操作符”[]”返回的是一个FileNode数据类型，
+	对于连续的节点，可以通过FileNodeIterator进行迭代遍历，其函数功能和C++中iterator一样。
+		FileNode n = fs["string"];
+		if(n.type() != FileNode::SEQ){
+		    cerr << "string is not a sequence! FAIL" << endl;
+		    return 1;
+		}
+		FileNodeIterator it = n.begin(), it_end = n.end();
+		for(; it != it_end; ++it)
+		{
+		    cout << (string)*it << endl;
+		}
+	对于maps类型的数据结构可以再次使用”[]”操作符来访问给定的变量对象如下：
+		n = fs["Mapping"];
+		cout << "Two " << (int)(n["Two"]) << "; ";
+		cout << "One " << (int)(n["One"]) << endl << endl;
+	其他补充: https://blog.csdn.net/keith_bb/article/details/53576453
+初步认识 opencv中imgproc库,顾名思义就是image process包括:
+	图像处理，像图像滤波、图像形态学（膨胀腐蚀、开运算、闭运算等）、图像缩放等一些图像处理相关知识。
+	图像平滑(smoothing)也称为图像模糊(blurring),这里重点介绍使用平滑操作降低图片噪声。
+	因为在图像中，噪声的能量大都集中在幅度谱的低频和中频部分，
+	而在较高的频段，一些重要的细节信息往往被噪声淹没。
+	在一幅图像中，所谓的高频部分是指图像中像素值落差很大的部分，
+	而低频则是指像素值与旁边的像素值相差不大甚至相同，
+	图像的一些细节的部分往往由高频信息来展现，图像中掺杂的噪声往往也处于高频段，
+	这就造成了一些细节信息被噪声淹没，可以根据不同的噪声类型用不同的滤波器进行处理。
+	滤波的目的有两个即：
+		1.抽出对象的特征作为图像识别的特征模式；
+		2.为适应图像处理要求，消除数字图像所混入的噪声 
+平均滤波,即模糊滤波,即方框滤波 
+	void boxFilter(InputArray src, OutputArray dst, int ddepth, 
+		Size ksize, Point anchor=Point(-1,-1), bool normalize=true, int borderType=BORDER_DEFAULT )
+	InputArray src: 输入图像，可以是Mat类型
+	OutputArray dst: 经滤波后输出图像
+	int ddepth: 目标图像的深度，若设置为-1,则深度与原图像深度相同
+	Size ksize: Size类型，内核的大小，一般用Size(w, h)表示，如Size(3, 3)表示kernel窗口大小为3x3
+	Point anchor = Point(-1,-1): 进行滤波操作的点，如果是默认值(-1, -1)说明对上述窗口中心点所对应的像素点进行操作
+		这里anchor就是滤波操作的位置点,就是滤波卷积核卷积得到的结构,替换卷积核那个位置上对应的图像的像素点
+		Point(-1,-1) 指结果替换 卷积核中心位置对应的像素点
+	bool normalize = true: 内核是否被归一化处理，有默认值true
+	int borderType = BORDER_DEFAULT: 用于腿短图像外部像素的某种便捷模式，有默认值BORDER_DEFAULT. 	
+	其实就是求像素点与周边像素点算出的平均值 取代当前 像素点值
+平均滤波还有一个成员 blur , 
+	发现 blur 与 bocFillter 应该工作内容是一样的,不知道为啥要分别写出两个独立函数
+	void blur(InputArray src, OutputArray dst, Size ksize, 
+		Point anchor=Point(-1,-1), int borderType=BORDER_DEFAULT )
+	InputArray src: 输入图像，可以是Mat类型，图像深度是CV_8U、CV_16U、CV_16S、CV_32F以及CV_64F其中的某一个。
+	OutputArray dst: 输出图像，深度和类型与输入图像一致
+	Size ksize: 滤波模板kernel的尺寸，一般使用Size(w, h)来指定，如Size(3,3)
+	Point anchor=Point(-1, -1): 字面意思是锚点，也就是处理的像素位于kernel的什么位置，
+		默认值为(-1, -1)即位于kernel中心点，如果没有特殊需要则不需要更改
+	int borderType=BORDER_DEFAULT: 用于推断图像外部像素的某种边界模式，有默认值BORDER_DEFAULT
+	例子: 变化滑动条演示滤波效果
+	Mat g_srcImage;         //定义输入图像
+	Mat g_dstImage;         //定义目标图像
+	const int g_nTrackbarMaxValue = 9;      //定义轨迹条最大值
+	int g_nTrackbarValue;                   //定义轨迹条初始值
+	int g_nKernelValue;                     //定义kernel尺寸
+	void on_kernelTrackbar(int, void*);     //定义回调函数
+	int main()
+	{
+	    g_srcImage = imread("lena.jpg");
+	    //判断图像是否加载成功
+	    if(g_srcImage.empty())
+	    {
+	        cout << "图像加载失败!" << endl;
+	        return -1;
+	    }
+	    else
+	        cout << "图像加载成功!" << endl << endl;	
+	    namedWindow("原图像",WINDOW_AUTOSIZE);     //定义窗口显示属性
+	    imshow("原图像",g_srcImage);	
+	    g_nTrackbarValue = 1;
+	    namedWindow("均值滤波", WINDOW_AUTOSIZE);   //定义滤波后图像显示窗口属性	
+	    //定义轨迹条名称和最大值
+	    char kernelName[20];
+	    sprintf(kernelName, "kernel尺寸 %d", g_nTrackbarMaxValue);    	
+	    //创建轨迹条
+	    createTrackbar(kernelName, "均值滤波", &g_nTrackbarValue, g_nTrackbarMaxValue, on_kernelTrackbar);
+	    on_kernelTrackbar(g_nTrackbarValue, 0);	
+	    waitKey(0);	
+	    return 0;
+	}	
+	void on_kernelTrackbar(int, void*)
+	{
+	    //根据输入值重新计算kernel尺寸
+	    g_nKernelValue = g_nTrackbarValue * 2 + 1;	
+	    //均值滤波函数
+	    blur(g_srcImage, g_dstImage, Size(g_nKernelValue, g_nKernelValue));	
+	    imshow("均值滤波", g_dstImage);
+	}
+高斯滤波: void GaussianBlur(InputArray src, OutputArray dst, Size ksize, 
+		double sigmaX, double sigmaY=0, int borderType=BORDER_DEFAULT )	
+	InputArray src: 输入图像，可以是Mat类型，图像深度为CV_8U、CV_16U、CV_16S、CV_32F、CV_64F。
+	OutputArray dst: 输出图像，与输入图像有相同的类型和尺寸。
+	Size ksize: 高斯内核大小，这个尺寸与前面两个滤波kernel尺寸不同，
+		ksize.width和ksize.height可以不相同但是这两个值必须为正奇数，如果这两个值为0，他们的值将由sigma计算。
+	double sigmaX: 高斯核函数在X方向上的标准偏差
+	double sigmaY: 高斯核函数在Y方向上的标准偏差，
+		如果sigmaY是0，则函数会自动将sigmaY的值设置为与sigmaX相同的值，
+		如果sigmaX和sigmaY都是0，这两个值将由ksize.width和ksize.height计算而来。
+		具体可以参考getGaussianKernel()函数查看具体细节。建议将size、sigmaX和sigmaY都指定出来。
+	int borderType=BORDER_DEFAULT: 推断图像外部像素的某种便捷模式，
+		有默认值BORDER_DEFAULT，如果没有特殊需要不用更改，具体可以参考borderInterpolate()函数。	
+中值滤波:
+	中值滤波是一种典型的非线性滤波，是基于排序统计理论的一种能够有效抑制噪声的非线性信号处理技术，
+	基本思想是用像素点邻域灰度值的中值来代替该像素点的灰度值，让周围的像素值接近真实的值从而消除孤立的噪声点。
+	该方法在取出脉冲噪声、椒盐噪声的同时能保留图像的边缘细节。这些优良特性是线性滤波所不具备的。
+	中值滤波首先也得生成一个滤波模板，将该模板内的各像素值进行排序，
+	生成单调上升或单调下降的二维数据序列，二维中值滤波输出为g(x, y)=medf{f(x-k, y-1),(k, l∈w)}，
+	其中f(x,y)和g(x,y)分别是原图像和处理后图像, w为输入的二维模板，能够在整幅图像上滑动，
+	通常尺寸为3*3或5*5区域，也可以是不同的形状如线状、圆形、十字形、圆环形等。
+	通过从图像中的二维模板取出奇数个数据进行排序，用排序后的中值取代要处理的数据即可。
+	中值滤波对消除椒盐噪声非常有效，能够克服线性滤波器带来的图像细节模糊等弊端，
+	能够有效保护图像边缘信息，是非常经典的平滑噪声处理方法。
+	在光学测量条纹图像的香味分析处理方法中有特殊作用，但在条纹中心分析方法中作用不大。
+	中值滤波相较于线性滤波中的均值滤波优点在前面已经提到，取得良好滤波效果的代价就是耗时的提升，
+	可能达到均值滤波的数倍，而且对于细节较多的图像也不太适用。
+	void medianBlur(InputArray src, OutputArray dst, int ksize)
+	InputArray src: 输入图像，图像为1、3、4通道的图像，当模板尺寸为3或5时，
+		图像深度只能为CV_8U、CV_16U、CV_32F中的一个，如而对于较大孔径尺寸的图片，图像深度只能是CV_8U。
+	OutputArray dst: 输出图像，尺寸和类型与输入图像一致，可以使用Mat::Clone以原图像为模板来初始化输出图像dst
+	int ksize: 滤波模板的尺寸大小，必须是大于1的奇数，如3、5、7……
+双边滤波:
+	void bilateralFilter(InputArray src, OutputArray dst, int d, double sigmaColor, 
+		double sigmaSpace, int borderType=BORDER_DEFAULT )
+	InputArray src: 输入图像，可以是Mat类型，图像必须是8位或浮点型单通道、三通道的图像。
+	OutputArray dst: 输出图像，和原图像有相同的尺寸和类型。
+	int d: 表示在过滤过程中每个像素邻域的直径范围。如果这个值是非正数，则函数会从第五个参数sigmaSpace计算该值。
+	double sigmaColor: 颜色空间过滤器的sigma值，这个参数的值月大，
+		表明该像素邻域内有月宽广的颜色会被混合到一起，产生较大的半相等颜色区域。
+	double sigmaSpace: 坐标空间中滤波器的sigma值，如果该值较大，
+		则意味着颜色相近的较远的像素将相互影响，从而使更大的区域中足够相似的颜色获取相同的颜色。
+		当d>0时，d指定了邻域大小且与sigmaSpace五官，否则d正比于sigmaSpace.
+	int borderType=BORDER_DEFAULT: 用于推断图像外部像素的某种边界模式，有默认值BORDER_DEFAULT.
+	双边滤波器可以很好的保存图像边缘细节而滤除掉低频分量的噪音，
+	但是双边滤波器的效率不是太高，花费的时间相较于其他滤波器而言也比较长。
+	对于简单的滤波而言，可以将两个sigma值设置成相同的值，如果值<10，则对滤波器影响很小，
+	如果值>150则会对滤波器产生较大的影响，会使图片看起来像卡通。 
+各滤波比较: https://blog.csdn.net/keith_bb/article/details/54429750
+通用滤波算法:
+	从上面的滤波算法知道,滤波几乎计划就是通过 卷积核对图片执行卷积操作的算法,
+	所以这里给出了通用的卷积算法
+	void cv::filter2D  ( InputArray  src,  
+	  OutputArray  dst,  
+	  int  ddepth,  
+	  InputArray  kernel,  
+	  Point  anchor = Point(-1,-1),  
+	  double  delta = 0,  
+	  int  borderType = BORDER_DEFAULT  
+	 )  
+	InputArray src: 输入图像
+	OutputArray dst: 目标图像，其尺寸和通道与输入图像一致
+	int ddepth: 期望的目标图像类型，其对应关系如下：
+		inputdepth		ddepth
+		CV_8U		->	-1,CV_16S,CV_32F,CV_64F
+		CV_16U,CV_16S	->	-1,CV_32F,CV_64F
+		CV_32F		->	-1,CV_32F,CV_64F
+		CV_64F		->	-1,CV_64F
+	InputArray kernel: 自定义的卷积核kernel，单通道浮点型矩阵， 如果想在不同的通道使用不同的卷积kernel，
+		可以将图像首先使用split函数将不同的颜色通道分离，然后对每个颜色通道单独进行处理。
+	Point anchor = Point(-1, -1): 锚点，要进行处理的像素值位于kernel中的相对位置，有默认值(-1, -1)位于模板中心。
+		即将kernel的锚点放置到目标像素点上方，kernel其他部分覆盖像素点领域
+	double delta = 0: 在存入目标图像之前可以增加的常数
+	int borderType = BORDER_DEFAULT: 用于推断图像外部像素的边界模式，详细信息可以查看cv::BorderTypes.
+	该函数适用于任意的线性滤波器，支持就地操作，涉及到图像外部像素计算则按照指定的边界模式插入异常像素值。
+	kernel不是锚点周围的镜像。如果需要真正的卷积运算，使用cv::flip将内核翻转并将新的锚点设置为：
+		(kernel.cols-anchor.x-1, kernel.rows-anchor.y-1).
+	如果大尺寸(11或以上)kernel函数使用DFT-based算法(离散傅里叶算法)，
+	而对于较小的尺寸函数使用这个函数直接算法进行计算
+
+
+初步认识形态学
+	例如 基本操作膨胀和腐蚀，
+	高级的形态学操作，例如建立在膨胀和腐蚀操作基础之上,的操作
+	首先形态学的主要用途是获取物体拓扑和结果信息，
+	它通过物体和结构元素的某些运算，得到物体更本质的形态，在图像处理中的主要应用有：
+		(1). 利用形态学的基本运算对图像进行观察和处理，从而达到改善图像质量的目的
+		(2). 描述和定义图像的各种几何参数和特征如面积、周长、连通、颗粒度、骨架和方向性
+	通过腐蚀和膨胀两种基本的形态学操作实现开运算、闭运算、形态梯度、顶帽、黑帽五种形态学操作。 
+膨胀:
+	膨胀(dilate)就是求局部最大值的操作，
+	从数学的角度来讲膨胀或者腐蚀就是将一幅二维图像或图像的一部分(称之为A)与一个模板也就是核(称为B)进行卷集运算的过程。
+	核可以是任何形状和大小，与之前介绍的模板一样，核有一个可定义的锚点。
+	膨胀操作是将图像A与任意形状的内核B(通常为正方形或者圆形)进行卷集
+	内核B中可定义的锚点通称定义为内核中心点
+	进行膨胀操作时，将内核B在图像A上进行滑动操作，将内核B覆盖的区域的最大像素值提取并提到内核B锚点位置的像素。 
+	例如 粗体黑字经膨胀处理后会变细体黑字,
+	因为膨胀将会导致图像中的亮区开始扩展，因为白色的像素值要远远大于黑色的像素值。
+	void dilate(InputArray src, OutputArray dst, InputArray kernel, 
+		Point anchor=Point(-1,-1), int iterations=1, int borderType=BORDER_CONSTANT, 
+		const Scalar& borderValue=morphologyDefaultBorderValue() )
+	InputArray src: 输入图像，可以是Mat类型，对于图像通道数量没有要求，
+		但是图像深度应为CV_8U、CV_16U、CV_16s、CV_32F或CV_64F其中之一。
+	OutputArray dst: 输出图像，与原图像有相同的尺寸和类型。
+	InpurArray kernel: 用于膨胀操作的kernel，当参数Mat()=NULL时，
+		kernel是一个锚点位于中心的3x3模板。
+	Point anchor = Point(-1, -1): 锚点位置
+	int iterations=1: 迭代使用膨胀的次数
+	int borderType = BORDER_CONSTANT: 用于推断图像外部像素的某种边界模式，
+		其有默认值BORDER_CONSTANT,可以通过cv::BorderTypes查询其他的方法。
+	const Scalar & borderValue = morphologyDefaultBorderValue() : 边界为常数时的边界值，
+		有默认值morphologyDefaultBorderValue()，一般不用进行设置，
+		如果有特殊需要，可以查看 createMorphologyFilter()函数得到详细信息。
+	其中,可以通过getStructuringElement函数来制定 kernel 的形状和尺寸，其函数原型如下：
+	Mat cv::getStructuringElement   (   int     shape,
+	        Size    ksize,
+	        Point   anchor = Point(-1,-1) 
+	    ) 
+		int shape: kernel的形状，由cv::MorphShapes指定，如下 
+			分别是矩形(MORPH_RECT)、交叉形(MORPH_CROSS)、椭圆形(MORPH_ELLIPSE)
+		Size ksize: kernel的尺寸
+		Point anchor = Point(-1, -1): 锚点位置
+腐蚀 
+	腐蚀是提取内核覆盖下的像素最小值
+	进行腐蚀操作时，将内核窗口在图像A上进行滑动，将内核B覆盖的区域最小像素值提取并代替锚点位置的像素值
+	例如 粗体黑字经腐蚀处理后会变 加粗粗体黑字,
+	因为腐蚀操作将会导致图像中像素值较低的元素进行扩展，造成黑色部分加粗
+	void cv::erode  (   InputArray      src,
+	        OutputArray     dst,
+	        InputArray      kernel,
+	        Point   anchor = Point(-1,-1),
+	        int     iterations = 1,
+	        int     borderType = BORDER_CONSTANT,
+	        const Scalar &      borderValue = morphologyDefaultBorderValue() 
+	    )  
+	InputArray src: 输入图像可以是Mat类型，可以是任意通道图像，
+		图像深度只能是CV_8U、CV_16U、CV_16S、CV_32F或CV_64F其中的一个。
+	OutputArray dst: 输出图像，与输入图像尺寸类型一致。
+	Input Array kernel: 用于腐蚀操作的kernel，当参数=Mat()即NULL时，kernel是一个锚点位于中心的3x3模板。
+		可以通过getStructuringElement函数来制定kernel的形状和尺寸，具体用法请参考对膨胀的表述
+	Point anchor = Point(-1, -1): 锚点位置
+	int iterations = 1: 迭代腐蚀操作次数，有默认值1
+	int borderType = BORDER_CONSTANT: 用于推断图像外部像素的某种边界模式，
+		其有默认值BORDER_CONSTANT,可以通过cv::BorderTypes查询其他的方法。
+	const Scalar & borderValue = morphologyDefaultBorderValue(): 
+		边界为常数时的边界值，有默认值morphologyDefaultBorderValue()，
+		一般不用进行设置，如果有特殊需要，可以查看 createMorphologyFilter()函数得到详细信息。
+开运算(Opening) 
+	通过先对图像腐蚀再膨胀实现
+	能够排除小团块物体(假设物体较背景明亮)，开运算的结果删除了不能包含结构元素的对象区域，
+	平滑了对象的轮廓，断开了狭窄的连接，去掉了细小的突出部分，
+	例如 一张黑色图中有许多 白色噪点,开运算后可以消除白色噪点
+闭运算(Closing)
+	闭运算在数学上是先膨胀再腐蚀的结果
+	能够排除小型黑洞(黑色区域)，能够平滑对象的轮廓，
+	但是与开运算不同的是闭运算一般会将狭窄的缺口连接起来形成细长的弯口，
+形态梯度(Morphological Gradient)
+	形态梯度是膨胀图与腐蚀图之差
+	比如可以使用其实现 抓取轮廓
+顶帽(Top Hat)
+	顶帽操作是原图像与开运算结果图之差
+	开运算的结果是放大了裂缝或局部降低亮度的区域，
+	因此从原图中减去开运算后的图得到的效果图能够突出比原图轮廓周围的区域更明亮的区域，
+	且这一操作与选择的核的大小有关。
+	顶帽操作往往用来分离比邻近点亮一些的板块，
+	在一幅图像具有大幅背景而微小物品比较有规律的情况下，可以使用顶帽运算进行背景提取。
+黑帽(Black Hat)
+	黑帽运算是闭运算结果图与原图像之差，
+	黑帽运算后的效果图突出了比原图轮廓周围的区域更暗的区域，
+	这一操作也与选择的核尺寸有关。所以黑帽运算用来分离比邻近点暗一些的斑块，效果图有着非常完美的轮廓
+morphologyEx() opencv中提供了形态学操作函数, 
+	可以实现开运算、闭运算、形态学梯度、顶帽、黑帽等五种相对高级的操作，
+	也可以实现膨胀核腐蚀两种基本的形态学操作
+	void cv::morphologyEx   (InputArray src,
+	        OutputArray dst,
+	        int op,
+	        InputArray kernel,
+	        Point anchor = Point(-1,-1),
+	        int iterations = 1,
+	        int borderType = BORDER_CONSTANT,
+	        const Scalar & borderValue = morphologyDefaultBorderValue() 
+	)   
+	InputArray src: 输入图像，可以是Mat类型，对于图像通道数无要求，但图像深度必须是CV_8U、CV_16U、CV_16S、CV_32F或CV_64F
+	OutPutArray dst: 目标图像，与原图像尺寸核类型相同
+	int op: 形态学运算的类型，可以通过MorphTypes查看，如下所示：
+		标识符 | 运算类型
+		MORPH_OPEN： 开运算
+		MORPH_CLOSE ：闭运算
+		MORPH_GRADIENT： 形态学梯度
+		MORPH_TOPHAT：顶帽运算
+		MORPH_BLACKHAT： 黑帽运算
+		MORPH_ERODE ：腐蚀运算
+		MORPH_DILATE ：膨胀运算
+		MORPH_HITMISS: 击中击不中运算(只支持CV_8UC1类型的二值图像)
+	InputArray kernel: 形态学运算的内核，如果是Mat()则表示的是参考点位于内核中心3x3的核，
+		前面也提到一般使用前需要定义一个Mat变量结合getStructuringElement()函数使用，
+		getStructuringElement会返回指定形状和尺寸的结构元素，
+	Point anchor=Point(-1, -1): 锚点位置
+	int iterations=1: 迭代使用函数的次数，默认值为1
+	int borderType=BORDER_CONSTANT: 用于推断图像外部像素的某种边界模式，有默认值BORDER_CONSTANT
+	const Scalar & borderValue=morphologyDefaultBorderValue(): 
+		当边界为常数时的边界值，可以通过createMorphologyFilter() 查看更多细节。
+	这些形态学操作都是可执行就地操作(in-place)，对于多通道图像，每个图像通道进行单独操作。
+	更多内容: https://blog.csdn.net/keith_bb/article/details/54578186
+图片是缩放:
+	高斯金字塔:向下采样 缩小 信息丢失
+		void cv::pyrDown ( 
+			InputArray src,
+			OutputArray dst,
+			const Size & dstsize = Size(),
+			int borderType = BORDER_DEFAULT 
+		)
+		InputArray src: 输入图像，可以是Mat类型
+		OutputArray dst: 输出图像，尺寸由第三个参数指定，类型与输入图像一致
+		const Size & dstsize=Size(): 输出图像的尺寸，有默认值Size()，
+			在默认情况下将会由Size((src.cols+1)/2, (src.rows+1)/2)计算得到并且还要满足以下条件
+			|dstsize.width*2-src.cols|<=2
+			|dstsize.height*2-src.rows|<=2
+		int borderType=BORDER_DEFAULT: 用于推断图像外部像素的某种边界模式，有默认值BORDER_DEFAULT
+	拉普拉斯金字塔:向上采样 放大图像 信息基本不变
+		void cv::pyrUp  (   InputArray      src,
+		        OutputArray     dst,
+		        const Size &    dstsize = Size(),
+		        int     borderType = BORDER_DEFAULT 
+		    )   
+		InputArray src: 输入图像
+		OutputArray dst: 输出图像
+		const Size & dstsize=Size(): 输出图像尺寸，有默认值Size()，在使用默认值的情况下，
+			输出图像的尺寸由Size((src.cols*2),(src.rows*2))计算得到，但是必须满足以下条件
+			|dstsize.width - src.cols*2|<=(dstsize.width mod 2)
+			|dstsize.height - src.rows*2|<=(dstsize.height mod 2)
+			其中mod时求余函数，即dstsize.width mod 2是dstsize.width除以2的余数。
+		int borderType=BORDER_DEFAULT: 用于推断图像外部像素的某种边界模式，有默认值BORDER_DEFAULT，
+			具体可以查看函数BorderTypes获取详细信息(需要注意的是与膨胀腐蚀不同，这里不支持BORDER_CONSTANT模式) 
+	通用的缩放函数	
+		void cv::resize  ( InputArray  src,  
+		  OutputArray  dst,  
+		  Size  dsize,  
+		  double  fx = 0,  
+		  double  fy = 0,  
+		  int  interpolation = INTER_LINEAR  
+		 ) 
+		InputArray src: 输入图像，可以是Mat类型
+		OutputArray dst: 输出图像，其尺寸由第三个参数dsize(如果dsize不为0)，当dsize为0，
+			输出图像的尺寸由src.size()、fx和fy计算得到，但是输出图像类型与输入图像一致
+		Size dsize: 输出图像的尺寸，如果dsize设置为0，则dsize的值将由下式计算得到
+		dsize=Size(round(fx*src.cols), round(fy*src.rows))
+			需要注意的是dsize和fx、fy不能同时为0
+		double fx = 0: 水平方向上的缩放系数，当fx为0时，将由如下公式计算得到
+			(double)dsize.width/src.cols
+		double fy = 0: 垂直方向上的缩放系数，如果fy为0，将由如下公式计算得到
+			(double)dsize.height/src.rows
+		int interpolation=INTER_LINEAR: 图像缩放的插值算法类型，默认是INTER_LINEAR(线性插值)，
+			在opencv3.2中通过查看InterpolationFlags查看详细信息，
+		以上的情况是没有初始化目标图像的类型和尺寸也就是没有提前设置好目标图像的类型和尺寸
+		而是由函数根据size.size，dsize,fx和fy计算得到，
+		如果想调整输入图像适应已经创建好的目标图像的时候应该这样调用resize()函数：
+		resize(src, dst, dst.size(), 0, 0, interpolation);
+		如果指定图像在水平方向和垂直方向的缩放系数，则调用方式如下：
+		resize(src, dst, Size(), 0.5, 0.5, interpolation);
+		一般情况下，如果要缩小图像用cv::INTER_AREA算法实现，
+		而放大图像如果想取得较好的效果则使用cv::INTER_CUBIC，此插值算法效果好但是速度慢，
+		而cv::INTER_LINEAR插值相对较快而且效果也是可以接受						
+图像阈值操作threshold
+	double cv::threshold  ( InputArray  src,  
+	  OutputArray  dst,  
+	  double  thresh,  
+	  double  maxval,  
+	  int  type  
+	 ) 
+	InputArray src: 输入图像，可以是Mat类型，图像必须为单通道8位或32位浮点型图像
+	OutputArray dst: 输出图像，与输入图像尺寸和类型相同
+	double thresh: 设定的阈值
+	double maxval: 使用THRESH_BINARY和THRESH_BINARY_INV类型时,需要用到的最大值
+	int type: 阈值化类型，可以通过ThresholdTypes查看，
+		THRESH_BINARY 二进制阈值化
+			像素点与thresh比较,>thresh,像素点值改为maxval,否则改为0
+		THRESH_BINARY_INV 反二进制阈值化
+			像素点与thresh比较,>thresh,像素点值改为0,否则改为maxval
+		THRESH_TRUNC 截断阈值化
+			像素点与thresh比较,>thresh,像素点值改为thresh,否则像素点值不变
+		THRESH_TOZERO 阈值化为0
+			像素点与thresh比较,>thresh,像素点值不变,否则改为0
+		THRESH_TOZERO_INV 反阈值化为0
+			像素点与thresh比较,>thresh,像素点值改为0,否则像素点值不变
+	一般图像执行 threshold处理前,需要 需要先转成灰阶图
+	例子:
+		cvtColor(g_srcImage, g_srcGrayImage, COLOR_RGB2GRAY);   //将图像转化为灰度图
+		threshold(g_srcGrayImage,thresholdimage,20,255,THRESH_BINARY);
+自适应阀值的图像阀值操作 adaptiveThreshold
+	void cv::adaptiveThreshold  ( InputArray  src,  
+	  OutputArray  dst,  
+	  double  maxValue,  
+	  int  adaptiveMethod,  
+	  int  thresholdType,  
+	  int  blockSize,  
+	  double  C  
+	 ) 
+	InputArray src: 输入图像，8位单通道图像
+	OutputArray dst: 目标图像，与输入图像有相同的尺寸和类型
+	double maxValue: 给像素赋予的满足阈值类型的非零值
+	int adaptiveMethod: 用于指定自适应阈值的算法，具体可以查看adaptiveThresholdTypes给出的具体内容，
+		ADAPTIVE_THRESH_MEAN_C方法的阈值时由blockSize确定的像素(x, y)
+		在blockSize x blockSize范围内的邻域像素值减参数C得到的平均值，
+		ADAPTIVE_THRESH_GAUSSIAN_C中阈值是blockSize x blockSize领域范围内减去C后的加权和。
+		默认的sigma用于指定的blockSize，可通过getGaussianKernel查看详细信息。
+	int thresholdType: 阈值类型，其取值有两种类型分别是：
+		THRESH_BINARY 二进制阈值化
+			像素点 与 自适应阀值 比较,大于自适应阀值,像素点值改为maxValue,否则改为0
+		THRESH_BINARY_INV 反二进制阈值化
+			像素点 与 自适应阀值 比较,大于自适应阀值,像素点值改为0,否则改为maxValue
+		int blockSize: 用于计算阈值大小的像素邻域尺寸，取值为3\5\7……
+		double C: 自适应阈值算法中减去的常数值，通常是正数，在极少情况下式0或负值。
+	同样 一般图像执行 threshold处理前,需要 需要先转成灰阶图
+	例子:
+		cvtColor(g_srcImage, g_srcGrayImage, COLOR_RGB2GRAY);   //将图像转化为灰度图
+		adaptivethreshold(g_srcGrayImage,thresholdimage,255,
+			ADAPTIVE_THRESH_MEAN_C,THRESH_BINARY,5);
+边界检测
+	一般边界地方是 像素值变化率最大的地方,也就是说傅立叶变换后,频率比较高的地方,梯度最大的地方
+	最多高频简谐波叠加的地方!!
+	canny算子 Laplacian算子 Sobel算子
+	详细: https://blog.csdn.net/keith_bb/article/details/56008306
+霍夫变换 从图像中识别几何形状的基本方法之一
+	标准霍夫变换(Standard Hough Transform, SHT)、
+	多尺度霍夫 变换(Multi-Scale Hough Transform, MSHT)
+	累计概率霍夫变换(Progressive Probabilistic Hough Transform, PPHT).
+	霍夫线变换是用来寻找直线的方法，在使用霍夫线变换之前首先要对图像进行边缘检测的处理，
+	也即霍夫线变换的直接输入只能是边缘二值图像
+	在opencv中标准霍夫变换(SHT)和多尺度霍夫变换(MSHT)是由HoughLines函数调用的。其定义如下：
+	void cv::HoughLines  ( InputArray  image,  
+	  OutputArray  lines,  
+	  double  rho,  
+	  double  theta,  
+	  int  threshold,  
+	  double  srn = 0,  
+	  double  stn = 0,  
+	  double  min_theta = 0,  
+	  double  max_theta = CV_PI  
+	 ) 
+	image: 8位单通道二进制图像，可以载入任意图像由函数修改成此格式
+	lines: 输出直线矢量，每一条线有两个元素的矢量(ρθ)表示，
+		ρ是离坐标原点(0, 0)也就是图像左上角的距离，
+		θ是弧度线条旋转角度(0度表示垂直线，π/2度表示水平线)。
+	rho: 以像素为单位的距离精度，其它表述还有是直线搜索时的进步尺寸的单位半径
+	theta: 以弧度为单位的角度精度。其它表述还有是直线搜索时的进步尺寸的单位角度。
+	threshold: 累加平面的阈值参数，即识别某部分为图中的一条直线时它在累加平面中必须达到的值。
+		大于阈值threshold的直线才可以被检测通过并返回到结果中。
+	srn: 对于多尺度的霍夫变换，这是第三个参数进步尺寸rho的除数距离。
+		粗略的累加器进步尺寸直接是第三个参数rho， 而精确的累加器进步尺寸为rho/srn。有默认值0
+	stn对于多尺度霍夫变换，stn表示第四个参数进步尺寸的单位角度theta的除数距离。
+		且如果srn和stn同时为0， 就表示使用经典的霍夫变换，扶着这两个参数都应该为正数。
+		经典霍夫变换和多尺度霍夫变换就是在这进行区分的。有默认值0
+	例子片段:
+	    Canny(srcImage, midImage, 50, 200, 3);        //首先对图像进行边缘检测
+	    cvtColor(midImage, dstImage, COLOR_GRAY2BGR);
+	    //进行霍夫变换
+	    vector<Vec2f> lines;            //定义一个矢量结构用于存放得到的线段矢量集合
+	    HoughLines(midImage, lines, 1, CV_PI/180,230, 0, 0);
+	    //在图中绘出线段
+	    for(size_t i = 0; i < lines.size(); i++)
+	    {
+	        float rho = lines[i][0];
+	        float theta = lines[i][1];
+	        Point pt1, pt2;
+	        double a = cos(theta), b = sin(theta);
+	        double x0 = a * rho, y0 = b * rho;
+	        pt1.x = cvRound(x0 + 1000*(-b));
+	        pt1.y = cvRound(y0 + 1000*(a));
+	        pt2.x = cvRound(x0 - 1000*(-b));
+	        pt2.y = cvRound(y0 - 1000*(a));
+	        line(dstImage, pt1, pt2, Scalar(0, 0, 255), 1, LINE_AA);
+	    }
+	    imshow("霍夫线变换", dstImage);
+	
+	针对PPHT:	
+	void cv::HoughLinesP    (   InputArray      image,
+	        OutputArray     lines,
+	        double      rho,
+	        double      theta,
+	        int     threshold,
+	        double      minLineLength = 0,
+	        double      maxLineGap = 0 
+	    )   
+	image: 8位单通道二进制图像，可以载入任意图像由函数修改成此格式
+	lines: 线段输出矢量，每一条之先都由四个矢量元素(x1, y1, x2, y2)表示，
+		其中(x1, y1)和(x2, y2)分别是检测到直线线段的两个端点。
+	rho: 以像素为单位的直线搜寻步长
+	theta: 以弧度为单位的直线搜寻步长
+	threshold: 累加器阈值参数，只有大于threshold的直线结果才能被检测通过并返回到结果中
+	minLineLength: 线段长度最小值，如果线段长度小于这个值则线段结果不显示，有默认值0
+	maxLineGap: 允许点连接到相同直线的中间距离的最大值，
+		如果超过这个最大值则点不会被划分到该直线。有默认值0
+	例子片段:
+	    Canny(srcImage, midImage, 50, 200, 3);        //首先对图像进行边缘检测
+	    cvtColor(midImage, dstImage, COLOR_GRAY2BGR);
+	    //进行霍夫变换
+	    vector<Vec4i> lines;
+	    HoughLinesP(midImage, lines, 1, CV_PI/180, 200, 30, 10);
+	    for(size_t i = 0; i < lines.size(); i++)
+	    {
+	        line(dstImage, Point(lines[i][0], lines[i][1]), Point(lines[i][2], lines[i][3]),
+	            Scalar(0, 0, 255), 1, 8);
+	    }	
+	    imshow("霍夫线变换", dstImage);
+
+	霍夫圆变换
+	出于对运算效率的考虑，opencv实现的是一个比标准霍夫圆变换更为灵活的检测方法：
+	霍夫梯度法，也叫2-1霍夫变换(21HT)
+	void cv::HoughCircles   (   InputArray      image,
+	        OutputArray     circles,
+	        int     method,
+	        double      dp,
+	        double      minDist,
+	        double      param1 = 100,
+	        double      param2 = 100,
+	        int     minRadius = 0,
+	        int     maxRadius = 0 
+	    )   
+	image: 输入图像为8位单通道灰度图
+	circles: 检测到圆的输出矢量，每个矢量都是三个浮点元素构成(x,y,radius)
+	method: 检测方法，可以查看HoughModes查看具体细节，但目前只有HOUGH_GRADIENT(霍夫梯度)一种方法可以使用。
+	dp: 用来检测圆心的累加器图像的分辨率与输入图像之比的倒数，
+		且此参数允许创建一个比输入图像分辨率低的累加器。
+		例如，如果dp=1，累加器和输入图像具有相同的分辨率，
+		如果dp=2累加器便有输入图像一半那么大的宽度和高度。
+	minDist: 霍夫检测到的圆的圆心之间的最小距离，即让算法能明显区分的两个不同圆之间的最小距离。
+		这个参数如果太小的话，多个相邻的圆可能被错误的检测成了一个重合的圆。
+		繁殖这个参数设置太大，某些圆就不能被检测出来了。也就是超过这个距离就是两个圆，否则是一个圆。
+	param1: 指定检测方法的第一个参数，当前可用方法是HOUGH_GRADIENT,
+		它表示传递给Canny边缘检测算子的高阈值(低阈值是高阈值的一半)，有默认值100
+	param2: 指定检测方法的第二个参数，对于HOUGH_GRADIENT方法，它表示在检测阶段圆心的累加器阈值。
+		它越小就越可以检测到更多根本不存在的圆，而它越大的话能通过检测的圆就更加接近完美的圆形了。有默认值100
+	minRadius: 圆的最小半径
+	maxRadius: 圆的最大半径
+	例子片段:
+	    cvtColor(srcImage, grayImage, COLOR_BGR2GRAY);	//转灰度图
+	    GaussianBlur(grayImage, grayImage, Size(3, 3), 2, 2);       //高斯滤波
+	    //霍夫圆检测
+	    HoughCircles(grayImage, circles, CV_HOUGH_GRADIENT, 1, minDist, param1, param2, 0, 0);
+	    //绘制检测到的圆
+	    for(size_t i = 0; i < circles.size(); i++)
+	    {
+	        Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
+	        int radius = cvRound(circles[i][2]);
+	        circle(srcImage, center, 3, Scalar(0, 0, 255), -1, 8, 0);
+	        circle(srcImage, center, radius, Scalar(0, 0, 255), 3, 8, 0);
+	    }
+	    imshow(windowName, srcImage);
+图像重映射: remap 
+	比如现象变换,上下翻转等等,,
+	详细: https://blog.csdn.net/keith_bb/article/details/56295873
+仿射变换warpAffine
+	仿射变换是指在向量空间中进行一次线性变换(乘以一个矩阵)并加上一个平移(加上一个向量)，
+	变换为另一个向量空间的过程
+	仿射变换可以通过一系列的原子变换的复合来实现包括：
+	平移(Translation)、缩放(Scale)、翻转(Flip)、旋转(Rotation)和错切(Shear).
+	void cv::warpAffine     (   InputArray      src,
+	        OutputArray     dst,
+	        InputArray      M,
+	        Size    dsize,
+	        int     flags = INTER_LINEAR,
+	        int     borderMode = BORDER_CONSTANT,
+	        const Scalar &      borderValue = Scalar() 
+	    )
+	src: 输入图像
+	dst: 输出图像，尺寸由dsize指定，图像类型与原图像一致
+	M: 2X3的变换矩阵
+	dsize: 指定图像输出尺寸
+	flags: 插值算法标识符，有默认值INTER_LINEAR，如果插值算法为WARP_INVERSE_MAP, 
+		warpAffine函数使用如下矩阵进行图像转换
+	borderMode: 边界像素模式，有默认值BORDER_CONSTANT
+	borderValue: 边界取值，有默认值Scalar()即0
+	其中会搭配使用 变换矩阵
+	getRotationMatrix2D函数	:获得旋转变换需要用到的 变换矩阵
+	Mat cv::getRotationMatrix2D     (   Point2f     center,
+	        double      angle,
+	        double      scale 
+	    )   
+		center: Point2f类型，表示原图像的旋转中心
+		angle: double类型，表示图像旋转角度，角度为正则表示逆时针旋转，角度为负表示逆时针旋转（坐标原点是图像左上角）
+		scale: 缩放系数 
+	还有getAffineTransform()获得指定的仿射变换需要的变换矩阵
+	详细:图像直方图均衡化equalizeHist
+
+图像直方图 及 均衡化equalizeHist
+	所谓图像直方图是统计图像的像素值分布的的一种统计图!!
+	绘画图像直方图: https://blog.csdn.net/keith_bb/article/details/56680997
+	equalizeHist()函数实现的图像直方图均衡化算法就是把直方图的每个灰度级进行归一化处理，
+	求每种灰度的累积分布，得到一个映射的灰度映射表，然后根据相应的灰度值来修正原图中的每个像素的像素值。
+	是一种增强图像对比度的一种算法!!
+	详情:https://blog.csdn.net/keith_bb/article/details/56510842
+图像模板匹配matchTemplate()
+	基本方法就是 通过一小块图片片段,扫描匹配未知图片探索是否找到吻合的部分!!
+	详情: https://blog.csdn.net/keith_bb/article/details/70050080
+反向投影calcBackProject()	
+	先得到 反映 图像的 像素值区间分布 的直方图, 
+	然后 直方图投影回到图片上来,直观像素值区间 在图像上的直观分布
+	详情:https://blog.csdn.net/keith_bb/article/details/70154219
+寻找图像轮廓:findContours()
+	特别注意参数hierarchy:
+	可选的输出向量(std::vector)，包含了图像的拓扑信息，作为轮廓数量的表示hierarchy包含了很多元素，
+	每个轮廓contours[i]对应hierarchy中hierarchy[i][0]~hierarchy[i][3],
+	分别表示后一个轮廓，前一个轮廓，父轮廓，内嵌轮廓的索引，如果没有对应项，则相应的hierarchy[i]设置为负数。
+	mode轮廓检索模式，可以通过cv::RetrievalModes()查看详细信息，
+	就是说用来存储 父子关系的拓扑信息
+	注意,所得到的 是物理逻辑轮廓,
+	比如 用圆珠笔勾画一个圆圈, 然后拍下图片,再findContours() 会得到的是4条轮廓, 而不是1条!!!
+	因为是在黑白交接处 找出轮廓的,而且黑白交界处分别在黑白两处各有一条轮廓
+	那么圆圈这条黑色闭合线在白纸上,意味着有两处黑白交接,所以有4条轮廓
+	还例如说, 一个白纸上的一个黑色圆形,有两条轮廓
+	还例如说, 白纸上一条直线,线段有 两条轮廓
+	详情还是 网上自己找找
+寻找凸包convexHull()
+	概念比较模糊!!,大概知道,但例程结果令人困惑
+多边形包围图像轮廓
+	根据得到 的轮廓 绘制 圆或者矩阵 包住
+	典型的 强调图像主要特征的的 一个辅助方法
+	详情: https://blog.csdn.net/keith_bb/article/details/70194821
+	
+
+
+
+20180523
+整理:
+实现了 opengl + opencv的 AR 
+	具体指向 other/opencv+opengl/实践项目/gl/main3.cpp
+实现了 opencv + zbar 的 二维码识别  
+	具体指向 other/opencv+opengl/实践项目/qr/lelimg_qrdet.cpp
+注意都是 win 上codeblock上实践的项目!! 这里做充分备份!!
+掌握了如何使用 opencv opengl zbar
+	具体内容都在 other/opencv+opengl/实践项目 上
+	
+glut使用基础笔记!!
+void display (void)  //glut显示函数
+{....
+    glFlush();	//把缓冲内容送到硬件更新显示
+    glutSwapBuffers  //如果开启了 GLUT_DOUBLE 双缓冲区,则可调用,更换缓冲区
+		     //因为 glFlush() 只是发出了指令,缓冲内容送到硬件更新显示是一个耗时过程
+		     //所以最好使用双缓冲, 切换到新缓冲,开始执行新图像处理工作,
+		     //而不用害怕冲突,或者等待而耗时!!
+}
+
+static void key(unsigned char key, int x, int y)  //glut按键事件
+{
+    switch (key)
+    {
+        case 27 :
+        case 'q':
+            exit(0);
+            break;
+    }
+    glutPostRedisplay();	//执行 glut显示函数 更新显示内容
+
+}
+
+void idle(void)
+{
+    glutPostRedisplay();	//执行 glut显示函数 更新显示内容
+}
+main{
+...
+    glutInit(&argc,argv);	//初始化
+    glutInitDisplayMode(GLUT_DOUBLE|GLUT_RGBA);	//初始化显示模式
+    glutInitWindowPosition(100,100);	//初始化窗口模式
+    glutInitWindowSize(imagewidth,imageheight);	//初始化窗口大小
+    glutCreateWindow("bilibili");	//窗口名字
+    glutDisplayFunc(&display);	//注册 glut显示函数
+    glutKeyboardFunc(key);	//注册 glut按键事件
+    glutIdleFunc(&idle);	//注册 glut 空闲处理
+    glutMainLoop();	//开始 glut 消息处理主循环,
+			//并执行了一次 glut显示函数
+...
+}
+期中 AR项目里 使用了 相机内参数,现在还不知道是啥?
+
+
+
+
+
+
+
+
+
+
+
+20180524
+win装python 共存安装python2,python3
+	分别按装 python2.7,python3.6 到 c:\python27, c:\python36
+	添加环境变量 : c:\python27;c:\python36;c:\python27\scripts;c:\python36\scripts
+	修改 c:\python27的python.exe,pythonw.exe 为 python2.exe,pythonw2.exe
+	同理修改 c:\python36的python.exe,pythonw.exe
+	更新pip:
+		python3 -m pip install --upgrade pip
+		python2 -m pip install --upgrade pip
+添加python虚拟环境
+	pip3 install virtualenv
+	跑到要放置虚拟环境的目录:cd /d c:\python36\virtual_env
+	virtualenv RL
+	RL\Scripts\activate	//激活
+在分析学习RL前还是先好好熟悉 openaigym
+	从gym官网知道, mujoco 是付费的,robotics 基于mujoco
+	要使用 robotics 不只是完整安装了openaigym就可以,还要配置安装mujoco
+	还有安装openaigym 需要好多以依赖包,当更新了swig工具时
+	gym[box2d] 要重新安装能工作,不然出现所谓RAMLIST错误
+	所以现在只能 使用 artari 和 普通的 classical control 来做研究
+
+http://lib.csdn.net/article/aimachinelearning/68113
+
+
+
+
+
+
+
+
+
+
+20180604
+linux 实现 qr opgl opcv
+使用 codeblock
+	glut等opengl工具,ubuntu 本身就有,不需要去安装
+	只需要在 Linker settings : Other linker options 上添加 -lGL -lGLU -lglut 就好了
+	还有,不需要专门去建立glut.project,直接empty.project就可以了
+	就这样 gl+cv 成功实现了AR demo
+zbar前准备:
+	编译安装 libiconv : https://blog.csdn.net/chqiwei/article/details/53559306
+	下载http://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.14.tar.gz
+	前需要打补丁:(补丁内容)
+		--- a/srclib/stdio.in.h
+		+++ b/srclib/stdio.in.h
+		@@ -695,8 +695,10 @@ _GL_CXXALIASWARN (gets);
+		 /* It is very rare that the developer ever has full control of stdin,
+		    so any use of gets warrants an unconditional warning.  Assume it is
+		    always declared, since it is required by C89.  */
+		+#if defined(__GLIBC__) && !defined(__UCLIBC__) && !__GLIBC_PREREQ(2, 16)
+		 _GL_WARN_ON_USE (gets, "gets is a security hole - use fgets instead");
+		 #endif
+		+#endif
+	配置编译安装 zlib
+		$ ./configure --prefix=/xxx/aaa     make_install的安装路径
+		$ make
+		$ make install
+	编译安装 libpng  
+		$ ./configure --prefix=/xxx/aaa     make_install的安装路径
+		$ make
+		$ make install
+		(.config 会检测系统是否有 zblib,然而使用了系统自带的,而不是我们专门编译的!!)
+编译zbar demo
+	首先使用 GCC 比起 针对win的mingw32_gcc 还是有点区别的,
+	比如 在.hpp 文件里定义的 class :
+		class XXX.hpp
+		{....}		//错误声明
+		class XXX
+		{....};		//错误声明	
+	还有使用了独立的 libiconv 和 libpng 库, 因为用了最新版,所以一些函数样式需要改变
+	比如 iconv(..)的参数
+	比如没有 png_set_to_gray_1_2_4_to_8
+	只有 png_set_expend_to_gray_1_2_4_to_8
+	还有 由于 ubuntu本身有 libiconv,libpng ,
+	编译时,头文件#include <png.h> #include <iconv.h>自动链接到系统的,
+	但是比编译demo时,我们用到的是另外独立编译的库,所以需要把头文件改了,改到独立库的目录去
+	比如 #include "install/include/png.h"
+	可以看出.codeblock 编译的一般会链接到系统里的头文件.
+	还有处理动态库的问题,ubuntu动态库.so与win的.dll有些许区别
+实现摄像头抓捕识别qr
+	注意在 linux环境下使用 opencv waitkey 与在 win的区别
+	在linux 上严格 输出 类型规范为 char !!还要加上强制转置(char)
+学会了源码补丁的制作和 缝补操作
+	https://blog.csdn.net/qq_22918577/article/details/49103865
+	原始的源码目录为src_code，修改后的源码目录为src_code_new。	
+	diff  -urN    src_code  src_code_new   > changes.patch	//制作出补丁 changes.patch
+	补丁 changes.patch 内容:
+		diff -urN src_code/srclib/stdio.in.h src_code_new/srclib/stdio.in.h
+		--- src_code/srclib/stdio.in.h	2011-08-07 21:42:06.000000000 +0800
+		+++ src_code_new/srclib/stdio.in.h	2018-06-04 13:37:36.116935888 +0800
+		@@ -695,8 +695,10 @@
+		 /* It is very rare that the developer ever has full control of stdin,
+		    so any use of gets warrants an unconditional warning.  Assume it is
+		    always declared, since it is required by C89.  */
+		+#if defined(__GLIBC__) && !defined(__UCLIBC__) && !__GLIBC_PREREQ(2, 16)
+		 _GL_WARN_ON_USE (gets, "gets is a security hole - use fgets instead");
+		 #endif
+		+#endif
+	这时,我们把源码目录src_code里的所有内容,拷贝一份到 OOXX目录里
+	即 src_code 与 OOXX 目录里的内容完全一样
+	我们给 OOXX 打补丁
+	cd OOXX
+	patch -p1 <../changes.patch	//给OOXX打上 changes.patch 补丁
+	这时就会发现: 
+		本来
+		OOXX/srclib/stdio.in.h 和 src_code/srclib/stdio.in.h 是一样的
+		后来
+		OOXX/srclib/stdio.in.h 和 src_code_new/srclib/stdio.in.h 一样
+		695 行内容做过了修改
+	去除补丁恢复旧文件:
+	patch -RE -p1 <../change.patch //去除 changes.patch 补丁
+	这时就会发现: 
+		本来
+		OOXX/srclib/stdio.in.h 和 src_code_new/srclib/stdio.in.h 一样
+		后来
+		OOXX/srclib/stdio.in.h 和 src_code/srclib/stdio.in.h 一样
+		695 行内容恢复原样	
+	diff 命令:
+		diff的功能就是用来比较两个文件的不同，然后记录下来，也就是所谓的diff补丁。
+		语法格式：diff 【选项】 源文件（夹） 目的文件（夹），>补丁
+			-r 是一个递归选项，设置了这个选项，
+			   diff会将两个不同版本源代码目录中的所有对应文件全部都进行一次比较，
+			   包括子目录文件。 
+			-N 选项确保补丁文件将正确地处理已经创建或删除文件的情况。
+			-u 选项以统一格式创建补丁文件，这种格式比缺省格式更紧凑些。
+	patch 命令:
+		patch就是利用diff制作的补丁来实现源文件（夹）和目的文件（夹）的转换。
+		这样说就意味着你可以有源文件（夹）――>目的文件（夹），也可以目的文件（夹）――>源文件（夹）。
+		参数:
+		-p0 选项要从当前目录查找目的文件（夹）
+		-p1 选项要忽略掉第一层目录，从当前目录开始查找。
+	    	实例说明：
+		--- old/modules/pcitable Mon Sep 27 11:03:56 1999
+		+++ new/modules/pcitable Tue Dec 19 20:05:41 2000
+		---开头表示旧文件
+		+++开头表示新文件
+	    	如果使用参数-p0，那就表示从当前目录找一个叫做old的文件夹，在它下面寻找modules下的pcitable文件来执行patch操作。
+	    	如果使用参数-p1，那就表示忽略第一层目录（即不管old），从当前目录寻找modules的文件夹，
+		在它下面找pcitable。这样的前提是当前目 录必须为modules所在的目录。
+		而diff补丁文件则可以在任意位置，只要指明了diff补丁文件的路径就可以了。
+		当然，可以用相对路径，也可以用绝 对路径。不过我一般习惯用相对路径。
+		-E  选项说明如果发现了空文件，那么就删除它
+		-R  选项说明在补丁文件中的“新”文件和“旧”文件现在要调换过来了（实际上就是给新版本打补丁，让它变成老版本）
+学习了动态库 .so 的链接 : https://blog.csdn.net/csdnxw/article/details/1650650
+	一般应用程序执行,不会从应用程序所在目录寻找需要用到的动态库
+	一般会根据系统设置的路径寻找必要动态库
+ 	关于 error while loading shared libraries: libXXX.so.1.2.3: 
+		cannot open shared object file: No such file or directory
+	如果libXXX.so.1.2.3的确存在，就把libXXX.so.1.2.3所在的目录加入到 /etc/ld.so.conf 中，
+	或者在 /etc/ld.so.conf.d/ 下新建一文件，如 XXX.conf ，其内容是libXXX.so.1.2.3所在的目录
+	如 /home/kingders/xxpp (不用分号,一行一个路径, 可以用 # 号注释内容)
+	如果提示是error while loading shared libraries: libXXX.so，但你的系统上有libXXX.so.5，
+	你可以为libXXX.so.5做一个软链接  ln -s libXXX.so.5 libXXX.so.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
 
 ?????????
 
 
 
 	
-
 
 	
 
