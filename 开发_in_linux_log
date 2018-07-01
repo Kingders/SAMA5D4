@@ -16588,7 +16588,7 @@ zbar前准备:
 	还有使用了独立的 libiconv 和 libpng 库, 因为用了最新版,所以一些函数样式需要改变
 	比如 iconv(..)的参数
 	比如没有 png_set_to_gray_1_2_4_to_8
-	只有 png_set_expend_to_gray_1_2_4_to_8
+	只有 png_set_expand_to_gray_1_2_4_to_8
 	还有 由于 ubuntu本身有 libiconv,libpng ,
 	编译时,头文件#include <png.h> #include <iconv.h>自动链接到系统的,
 	但是比编译demo时,我们用到的是另外独立编译的库,所以需要把头文件改了,改到独立库的目录去
@@ -16678,6 +16678,786 @@ zbar前准备:
 
 
 
+20160612
+花了两天时间,把 cmake 学了,基本够用
+主要例子有两个, 一个是简单的,一个是多文件目录的!!
+项目源码放在 (    )
+简单的: 
+cmaketest 只有一个 main.cpp 文件
+	同级目录建立一个CMakeLists.txt,内容如下:
+	# 惯例,指定最低版本
+	cmake_minimum_required(VERSION 2.8)
+	# 惯例,项目名字
+	PROJECT(hello)
+	# 换成 G++ 编译器
+	set(CMAKE_CXX_COMPILER "/usr/bin/g++")  
+	# 指定最终生成可执行文件 地方 
+	set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ./bin)
+	# 设置变量, 可以允许 换行 缩进 空格 来分割参数
+	set(OPCV249_INCLUDE /home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/opcv_output/install_usr_local/include/opencv-2.4.9)
+	set(OPCV249_LIB_DIR /home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib)
+	set(OPCV249_LIBS  LINK_PRIVATE 
+		libopencv_calib3d.so libopencv_flann.so libopencv_legacy.so
+		libopencv_ocl.so libopencv_ts.a libopencv_video.so libopencv_contrib.so libopencv_gpu.so
+		libopencv_ml.so libopencv_photo.so libopencv_videostab.so libopencv_core.so libopencv_highgui.so
+		libopencv_stitching.so libopencv_features2d.so libopencv_imgproc.so
+		libopencv_objdetect.so libopencv_superres.so libopencv_nonfree.so)
+	# 把 ./ 路径的所有源码文件路径作为参数 压入 指定变量
+	aux_source_directory(./ DIR_SRC)
+	# 添加 头文件搜索路径
+	include_directories(${OPCV249_INCLUDE})
+
+	# 寻找 库文件 如成功 库文件的完整路径 压入变量, 只能单个寻找,不能批量寻找 
+	#find_library(LIBPATH "libopencv_calib3d.so.2.4" "libopencv_flann.so.2.4" 
+	#	/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib)
+	#错误语法:不能批量寻找 find_library(LIBPATH ${OPCV249_LIBS} /home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib)
+	#IF(NOT LIBPATH)
+	#MESSAGE(FATAL_ERROR "libopencv not found")
+	#ENDIF(NOT LIBPATH)
+
+	# 添加 外部库文件链接路径,不保证链接的库都来来自这里的独立库
+	link_directories(${OPCV249_LIB_DIR})
+	#也可以: link_directories(/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib)
+
+	# 编译所有 .o文件, 并链接最后生成可执行文件 hello
+	add_executable(hello ${DIR_SRC})
+
+	# 链接可执行文件过程,用到的补充cmake工具 target_link_libraries()
+	# 一定在 add_executable 之后!!
+	# 指定了把哪些库链接进来
+	# 还有,库文件名参数 不能含有非 .so .a 后缀名的文件,否则不能使用 -l参数识别
+	# 例如 libopencv_calib3d.so.2.4.9 并不能使用 -l识别
+	# 会说 -llibopencv_calib3d.so.2.4.9 找不到
+	# .so 动态库, .a静态库
+	target_link_libraries(hello ${OPCV249_LIBS})
+	#如果使用了find_library,用这句: target_link_libraries(hello ${LIBPATH})
+	# 这种链接的方式无法确保 100% 链接自己的独立库!!
+	# 因为 使用了 -l 参数链接库文件,会优先自动搜索系统路径,然后才搜索自定义库文件路径
+然后 mkdir build && cd build  建立并进入子目录build在这里执行编译生成过程
+cmake .. 搜索上级的 CMakeLists.txt,然后在现处的 build 建立 makefile 等文件
+make 编译生成 可执行文件 
+最后再build/bin下得到 hello可执行文件
+如上面所说,编译的链接过程不能保证 链接库是自己编译的还是系统的,所以有第二种方法!
+	同样,在main.cpp 文件
+	同级目录删除旧的CMakeLists.txt,重新建立一个内容如下:	
+	同级目录建立一个CMakeLists.txt,内容如下:
+	# 惯例,指定最低版本
+	cmake_minimum_required(VERSION 2.8)
+	# 惯例,项目名字
+	PROJECT(hello)
+	# 换成 G++ 编译器
+	set(CMAKE_CXX_COMPILER "/usr/bin/g++")  
+	# 指定最终生成可执行文件 地方 
+	set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ./bin)
+	# 设置 变量, 可以允许 换行 缩进 空格 来分割参数
+	set(OPCV249_INCLUDE /home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/opcv_output/install_usr_local/include/opencv-2.4.9)
+	set(OPCV249_LIB_DIR /home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib)
+	set(OPCV249_LIBS  
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_calib3d.so.2.4.9
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_flann.so.2.4.9
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_legacy.so.2.4.9
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_ocl.so.2.4.9 
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_ts.a 
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_video.so.2.4.9 
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_contrib.so.2.4.9 
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_gpu.so.2.4.9
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_ml.so.2.4.9 
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_photo.so.2.4.9 
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_videostab.so.2.4.9 
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_core.so.2.4.9 
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_highgui.so.2.4.9
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_stitching.so.2.4.9 
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_features2d.so.2.4.9 
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_imgproc.so.2.4.9
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_objdetect.so.2.4.9 
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_superres.so.2.4.9 
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_nonfree.so.2.4.9
+	)
+	
+	# 把 ./ 路径的所有源码文件路径作为参数 压入 指定变量
+	aux_source_directory(./ DIR_SRC)
+	# 添加 头文件搜索路径
+	include_directories(${OPCV249_INCLUDE})
+	
+	# 直接 指定所需要库文件 及其 给出绝对文件路径
+	LINK_LIBRARIES(${OPCV249_LIBS})  
+	# 编译所有 .o文件, 并链接最后生成可执行文件 hello
+	add_executable(hello ${DIR_SRC})
+	# 这种情况下,直接100% 与自己编译的独立库链接.
+然后 mkdir build && cd build  建立并进入子目录build在这里执行编译生成过程
+cmake .. 搜索上级的 CMakeLists.txt,然后在现处的 build 建立 makefile 等文件
+make 编译生成 可执行文件 
+最后再build/bin下得到 hello可执行文件,
+#-------补充学习
+	#告知当前使用的是交叉编译方式  
+	# SET(CMAKE_SYSTEM_NAME Linux)  
+	#设置c编译器  
+	# SET(CMAKE_C_COMPILER "arm-none-linux-gnueabi-gcc")  
+	#设置c++编译器  
+	# SET(CMAKE_CXX_COMPILER "arm-none-linux-gnueabi-g++")  
+	
+	#设置编译器查找路径以及库位置信息
+	#不一定需要设置  
+	# SET(CMAKE_FIND_ROOT_PATH "/home/test/Develop/arm-none-linux-gnueabi-4.4.0_ARMv5TE/arm-none-linux-gnueabi")  
+	# SET(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)  
+	# SET(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)  
+	# SET(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY) 
+
+复杂例子:cmake_pjt -> qr
+qr
+├── build
+│   └── ...
+│
+├── include
+│   ├── config.h.in
+│   ├── Makefile.am.inc
+│   └── zbar
+│       ├── Decoder.h
+│       ├── Exception.h
+│       ├── Image.h
+│       ├── ImageScanner.h
+│       ├── Processor.h
+│       ├── QZBar.h
+│       ├── QZBarImage.h
+│       ├── Scanner.h
+│       ├── Symbol.h
+│       ├── Video.h
+│       ├── Window.h
+│       └── zbargtk.h
+│
+├── libiconv
+│   └── install
+│       ├── include
+│       │   ├── iconv.h
+│       │   ├── libcharset.h
+│       │   └── localcharset.h
+│       └── lib
+│           ├── charset.alias
+│           ├── libcharset.a
+│           ├── libcharset.la
+│           ├── libcharset.so -> libcharset.so.1.0.0
+│           ├── libcharset.so.1 -> libcharset.so.1.0.0
+│           ├── libcharset.so.1.0.0
+│           ├── libiconv.la
+│           ├── libiconv.so -> libiconv.so.2.5.1
+│           ├── libiconv.so.2 -> libiconv.so.2.5.1
+│           ├── libiconv.so.2.5.1
+│           └── preloadable_libiconv.so
+│   
+├── libpng
+│   └── install
+│       ├── include
+│       │   ├── libpng16
+│       │   │   ├── pngconf.h
+│       │   │   ├── png.h
+│       │   │   └── pnglibconf.h
+│       │   ├── pngconf.h -> libpng16/pngconf.h
+│       │   ├── png.h -> libpng16/png.h
+│       │   └── pnglibconf.h -> libpng16/pnglibconf.h
+│       └── lib
+│           ├── libpng16.a
+│           ├── libpng16.la
+│           ├── libpng16.so -> libpng16.so.16.32.0
+│           ├── libpng16.so.16 -> libpng16.so.16.32.0
+│           ├── libpng16.so.16.32.0
+│           ├── libpng.a -> libpng16.a
+│           ├── libpng.la -> libpng16.la
+│           └── libpng.so -> libpng16.so
+├── zbar
+│   ├── CMakeLists.txt
+│   ├── config.c
+│   ├── config.h
+│   ├── debug.h
+│   ├── decoder
+│   │   ├── code128.c
+│   │   ├── code128.h
+│   │   ├── code39.c
+│   │   ├── code39.h
+│   │   ├── ean.c
+│   │   ├── ean.h
+│   │   ├── i25.c
+│   │   ├── i25.h
+│   │   ├── pdf417.c
+│   │   ├── pdf417.h
+│   │   ├── pdf417_hash.h
+│   │   ├── qr_finder.c
+│   │   └── qr_finder.h
+│   ├── decoder.c
+│   ├── decoder.h
+│   ├── error.c
+│   ├── error.h
+│   ├── event.h
+│   ├── image.c
+│   ├── image.h
+│   ├── img_scanner.c
+│   ├── img_scanner.h
+│   ├── libzbar.rc
+│   ├── Makefile.am.inc
+│   ├── mutex.h
+│   ├── processor.h
+│   ├── qrcode
+│   │   ├── bch15_5.c
+│   │   ├── bch15_5.h
+│   │   ├── binarize.c
+│   │   ├── binarize.h
+│   │   ├── isaac.c
+│   │   ├── isaac.h
+│   │   ├── qrdec.c
+│   │   ├── qrdec.h
+│   │   ├── qrdectxt.c
+│   │   ├── rs.c
+│   │   ├── rs.h
+│   │   ├── util.c
+│   │   └── util.h
+│   ├── qrcode.h
+│   ├── refcnt.c
+│   ├── refcnt.h
+│   ├── scanner.c
+│   ├── svg.h
+│   ├── symbol.c
+│   ├── symbol.h
+│   ├── thread.h
+│   ├── timer.h
+│   ├── video.h
+│   ├── window.h
+│   └── zbar.h
+├── zlib
+│   └── install
+│      ├── include
+│      │   ├── zconf.h
+│      │   └── zlib.h
+│      └── lib
+│          ├── libz.a
+│          ├── libz.so -> libz.so.1.2.11
+│          ├── libz.so.1 -> libz.so.1.2.11
+│          └── libz.so.1.2.11
+│ 
+├── CMakeLists.txt
+├── CMakeLists.txt_for_main_backup
+├── main.cpp_backup
+├── lelimg_qrdet.cpp
+├── Levels.cpp
+├── Levels.hpp
+└── readme	
+基本上 zbar子文件夹是源码目录 其他是 指定库目录,真正需要编译的是根目录的源码和 zbar里的源码,
+所以这两个目录下都有 CMakeLists.txt 配置文件
+(注意没有自编编译的opencv库,因为太大了,没放这了)
+然后这里有两个不一样的项目,一个 main.cpp,一个是 lelimg_qrdet.cpp,因为两个main函数,
+所以比如如果要使用其中 lelimg_qrdet.cpp 时,既要把 main.cpp 与其对应的 CMakeLists.txt 注释掉
+	qr目录下的 CMakeLists.txt:
+	cmake_minimum_required(VERSION 2.8)
+	PROJECT(qr)
+	# .c和.cpp都用 G++ 编译, zbar的源码很奇怪.c++的标准,却是.c文件的名字
+	set(CMAKE_CXX_COMPILER "/usr/bin/g++")  
+	SET(CMAKE_C_COMPILER "/usr/bin/g++")  
+	# 改 bin文件的执行地
+	set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ./bin)
+	# 设置 变量 可以允许 换行 缩进 空格 来分割参数
+	set(BASE_INCLUDE 
+	#c++标准头文件路径 与编译器版本相关 例如 cstdlib,我们用的是系统4.8.5版本的g++
+		/usr/include/c++/4.8.5
+	)
+	set(OPCV249_INCLUDE 
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/opcv_output/install_usr_local/include/opencv-2.4.9
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/opcv_output/install_usr_local/include/opencv-2.4.9/opencv2
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/opcv_output/install_usr_local/include/opencv-2.4.9/opencv
+	)
+	set(ZBAR_INCLUDE 
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/cmake_pjt/qr/zbar
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/cmake_pjt/qr/include/
+	)
+	set(ZLIB_INCLUDE /home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/cmake_pjt/qr/zlib/install/include)
+	set(LIBPNG_INCLUDE /home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/cmake_pjt/qr/libpng)
+	set(LIBICONV_INCLUDE /home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/cmake_pjt/qr/libiconv)
+	set(QR_INCLUDE ${BASE_INCLUDE} ${LIBICONV_INCLUDE} ${OPCV249_INCLUDE} ${ZBAR_INCLUDE} ${ZLIB_INCLUDE} ${LIBPNG_INCLUDE} )
+	
+	# set(OPCV249_LIB_DIR /home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib)
+	set(OPCV249_LIBS  
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_calib3d.so.2.4.9
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_flann.so.2.4.9
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_legacy.so.2.4.9
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_ocl.so.2.4.9 
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_ts.a 
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_video.so.2.4.9 
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_contrib.so.2.4.9 
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_gpu.so.2.4.9
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_ml.so.2.4.9 
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_photo.so.2.4.9 
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_videostab.so.2.4.9 
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_core.so.2.4.9 
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_highgui.so.2.4.9
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_stitching.so.2.4.9 
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_features2d.so.2.4.9 
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_imgproc.so.2.4.9
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_objdetect.so.2.4.9 
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_superres.so.2.4.9 
+		/home/infortech-ubuntu-1404/1tb_disk/install_usr_local/lib/libopencv_nonfree.so.2.4.9
+	)
+	set(LIBICONV_LIBS  
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/cmake_pjt/qr/libiconv/install/lib/libcharset.so.1.0.0
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/cmake_pjt/qr/libiconv/install/lib/libiconv.so.2.5.1
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/cmake_pjt/qr/libiconv/install/lib/libcharset.a   
+	        /home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/cmake_pjt/qr/libiconv/install/lib/preloadable_libiconv.so
+	)
+	set(ZLIB_LIBS
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/cmake_pjt/qr/zlib/install/lib/libz.a
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/cmake_pjt/qr/zlib/install/lib/libz.so.1.2.11
+	)
+	set(LIBPNG_LIBS
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/cmake_pjt/qr/libpng/install/lib/libpng16.so.16.32.0
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/cmake_pjt/qr/libpng/install/lib/libpng16.a
+	)
+	set(QR_LIBS ${LIBPNG_LIBS} ${OPCV249_LIBS} ${ZLIB_LIBS} ${LIBICONV_LIBS} )
+	# 链接库先后顺序非常讲究 比如说这里在链接 OPCV249_LIBS 之前先接 自编译的libpng,不然会自动取系统的libpng 
+	# png 链接只静态库没有问题,如果有动态库,会优先链接动态库!!
+
+	# 包含子文件夹 这里说明这个CMakeLists.txt 的变量 可以传递到子目录的CMakeLists.txt使用
+	add_subdirectory(zbar)
+
+	# 把 ./ 路径的所有源码文件路径作为参数 压入 指定变量
+	aux_source_directory(./ DIR_SRC)
+	# 添加 头文件搜索路径
+	include_directories(${QR_INCLUDE})
+	# 直接 指定所需要库文件 及其 给出绝对文件路径 
+	LINK_LIBRARIES(${QR_LIBS})  
+	# 编译所有 .o文件, 并链接最后生成可执行文件 qr
+	add_executable(qr ${DIR_SRC})
+
+	# 这里给链接成可执行文件qr 附加补充条件
+	# 因为是补充命令target_link_libraries 只能在add_executable 命令之后
+	# 除了 LINK_LIBRARIES 指定的链接库外, 还需要通过 -l 参数链接 libzbar 这个库
+	# 这个变量 libzbar 并没有被这个CMakeLists.txt定义,
+	# 但它是 zbar 子目录的CMakeLists.txt 传递上来的变量
+	target_link_libraries(qr libzbar)
+然后 子目录zbar 的配置文件 CMakeLists.txt:
+	# cmake的最低版本号还是要填的
+	cmake_minimum_required(VERSION 2.8)
+
+	# 这个子目录的 CMakeLists.txt, 可继承使用 父文件夹 CMakeLists.txt的头文件定义的变量
+	# 因为 父文件夹 CMakeLists.txt 使用 add_subdirectory(zbar) 建立了关系
+	# 添加头文件路径 库路径 
+	include_directories(${QR_INCLUDE})
+	LINK_LIBRARIES(${ZLIB_LIBS} ${LIBICONV_LIBS})  
+		
+	# 把当前目录的 所有源码路径都 压入 ZBAR_ROOT变量
+	aux_source_directory(. ZBAR_ROOT)
+	# zbar又有两个子目录,难道还要做一次 add_subdirectory,然后在两个子目录里再做一次 CMakeLists.txt 么?
+	# 其实并不需要,也可以直接这种方法,
+	# 分别把 不同子目录下的源码都压入 指定 变量
+	aux_source_directory(./qrcode QRCODE_SUB)
+	aux_source_directory(./decoder DECODER_SUB)
+	
+	# 编译所有源码生成.o文件, 并链接最后生成一个 库文件  libzbar
+	# 这个 libzbar 除了是一个实体库文件外,也是一个传递给父文件夹CMakeLists.txt使用的一个变量
+	add_library(libzbar ${QRCODE_SUB} ${DECODER_SUB} ${ZBAR_ROOT})
+然后跑到 qr->build
+cmake ..
+make
+最后生成可执行的 qr 
+
+
+
+
+
+
+
+20180613
+先移植 zbar 到 a5d4
+新建的 arm_pjt -> qr 同样 lelimg_qrfet 和 main 两个项目共用资源
+先移植 main 简单实现 zbar 识别
+编译必要的库:
+iconv:
+	./configure --host=arm-linux-gnueabihf --enable-shared --enable-static --prefix=/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/arm_pjt/qr/libiconv/install
+	make CROSS_COMPILE=arm-linux-gnueabihf- ARCH=arm
+	make install
+zlib
+	./configure --prefix=/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/arm_pjt/qr/zlib/install
+	主动修改 makefile 文件,把所有编译工具换成 arm-linux-gnueabihf-XX
+	由于 makefile 并没有使用 CROSS_COMPILE ARCH,所以 make CROSS_COMPILE=arm-linux-gnueabihf- ARCH=arm 没有作用
+	make
+	make install
+libpng
+	export LDFLAGS="-L/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/arm_pjt/qr/zlib/install/lib"
+	export CPPFLAGS="-I/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/arm_pjt/qr/zlib/install/include"
+	./configure --host=arm-linux-gnueabihf --prefix=/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/arm_pjt/qr/libpng/install 
+	make
+	make install
+使用cmake 编译项目,
+同样地,main.cpp 对应的 CMakeLists.txt内容为:
+	cmake_minimum_required(VERSION 2.8)
+	# 这也是一种习惯,表明我们 项目对应linux系统,不管是不是嵌入式
+	set(CMAKE_SYSTEM_NAME Linux)	
+	PROJECT(qr)
+
+
+	#由于是 arm 环境,所以要指定 对应的 环境,以这个目录为开始,让项目优先再这里查询需要的头和库
+	#这里有必要重点讨论!!
+	#这个目录一般是 指定到 交叉编译环境安装目录...
+	set(CMAKE_FIND_ROOT_PATH 
+		"/opt/gcc-linaro-arm-linux-gnueabihf-4.7-2013.04-20130415_linux/arm-linux-gnueabihf"
+	)  
+	#从来不在指定目录下查找工具程序
+	set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+	#只在指定目录下查找库文件
+	set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+	#只在指定目录下查找头文件
+	set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+	#这里有必要重点讨论!!
+	#如果项目是面向 pc机子本身, CMAKE_FIND_ROOT_PATH 一般默认是 / ,
+	#	编译后的项目运行时,一般会在使用 /usr/lib/libxx.so 路径下的动态库工作
+	#如果项目是面向 某嵌入式机子, CMAKE_FIND_ROOT_PATH 一般默认是编译工具路径例如:
+	#	/opt/gcc-linaro-arm-linux-gnueabihf-4.7/arm-linux-gnueabihf ,
+	#	而编译器也有 arm 格式的 libxx.so, 一般放在:
+	#	/opt/gcc-linaro-arm-linux-gnueabihf-4.7/arm-linux-gnueabihf/usr/lib/libxx.so
+	#	编译后的项目在嵌入式平台工作时,也会寻找 /usr/lib/libxx.so 路径下的libxx.so工作
+	#如果项目是面向 某嵌入式机子, 而编译器也有 arm 格式的 libxx.so, 放在:
+	#	/opt/gcc-linaro-arm-linux-gnueabihf-4.7/arm-linux-gnueabihf/bilibili/libxx.so
+	#	编译后的项目在嵌入式平台工作时,也会寻找 /bilibili/libxx.so 路径下的libxx.so工作
+	#就是所 编译器文件夹的文件布局基本上应该等于对应嵌入平台的根文件系统的文件布局
+	#但是很多时候来两者布局并不一致,所以就得再嵌入平台上做好多匹配库路径的工作!!
+
+
+	# 全换成 G++,因为zbar虽然.c文件但使用了c++标准来写
+	set (CMAKE_CXX_COMPILER "/opt/gcc-linaro-arm-linux-gnueabihf-4.7-2013.04-20130415_linux/bin/arm-linux-gnueabihf-g++")  
+	set(CMAKE_C_COMPILER "/opt/gcc-linaro-arm-linux-gnueabihf-4.7-2013.04-20130415_linux/bin/arm-linux-gnueabihf-g++") 
+	# 改 bin文件的执行地
+	set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ./bin)
+	# 设置 变量 可以允许 换行 缩进 空格 来分割参数 注意没有使用到opencv,所以opencv的内容都删了
+	set(BASE_INCLUDE 
+		#c++标准头路径 与编译器版本相关 例如 cstdlib
+		#这里就是 编译工具路径下的文件布局还是很不统一规范的,
+		#即使设置了CMAKE_FIND_ROOT_PATH,也难免也有找不到头和库的问题,
+		#那就需要自己额外补充
+		#/opt/gcc-linaro-arm-linux-gnueabihf-4.7-2013.04-20130415_linux/arm-linux-gnueabihf/libc/usr/include
+	)
+	set(ZBAR_INCLUDE 
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/arm_pjt/qr/zbar
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/arm_pjt/qr/include/
+		)
+	set(ZLIB_INCLUDE /home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/arm_pjt/qr/zlib/install/include)
+	set(LIBPNG_INCLUDE /home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/arm_pjt/qr/libpng)
+	set(LIBICONV_INCLUDE /home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/arm_pjt/qr/libiconv)
+	set(QR_INCLUDE ${BASE_INCLUDE} ${LIBICONV_INCLUDE} ${ZBAR_INCLUDE} ${ZLIB_INCLUDE} ${LIBPNG_INCLUDE} )
+	
+	#嵌入平台一般缺各种动态库,所以避免麻烦,项目直接链接静态库.a 把所有用到的都绑到程序里比较快捷
+	set(BASE_LIBS
+		#即使设置了CMAKE_FIND_ROOT_PATH,也难免也有找不到头和库的问题,
+		#那就需要自己额外补充
+		# 解决 undefined reference to `clock_gettime' 缺库
+		/opt/gcc-linaro-arm-linux-gnueabihf-4.7-2013.04-20130415_linux/arm-linux-gnueabihf/libc/usr/lib/arm-linux-gnueabihf/	librt.a
+		# 解决 undefined reference to `__libc_do_syscall' 缺库
+		/opt/gcc-linaro-arm-linux-gnueabihf-4.7-2013.04-20130415_linux/arm-linux-gnueabihf/libc/usr/lib/arm-linux-gnueabihf/libc.a
+	)
+	set(LIBICONV_LIBS  
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/arm_pjt/qr/libiconv/install/lib/libiconv.a
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/arm_pjt/qr/libiconv/install/lib/libcharset.a   
+	)
+	set(ZLIB_LIBS
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/arm_pjt/qr/zlib/install/lib/libz.a
+	)
+	set(LIBPNG_LIBS
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/arm_pjt/qr/libpng/install/lib/libpng16.a
+	)
+	set(QR_LIBS ${BASE_LIBS} ${LIBPNG_LIBS} ${ZBAR_LIBS} ${ZLIB_LIBS} ${LIBICONV_LIBS} )
+	# 链接库先后顺序非常讲究 比如说这里在链接 ZBAR_LIBS 之前先接 自编译的libpng,不然会自动取系统的libpng 
+	# png 链接只静态库没有问题,如果有动态库,会优先链接动态库!!
+	
+
+	add_subdirectory(zbar)
+	aux_source_directory(./ DIR_SRC)
+	include_directories(${QR_INCLUDE})
+	LINK_LIBRARIES(${QR_LIBS})  
+	add_executable(qr ${DIR_SRC})
+	target_link_libraries(qr libzbar)
+同样地,zbar子目录 对应的 CMakeLists.txt内容为:	
+	cmake_minimum_required(VERSION 2.8)
+	# 继承 父文件夹 CMakeLists.txt set的所有变量,这里直接使用
+	# 添加头文件路径 库路径
+	include_directories(${QR_INCLUDE})
+	LINK_LIBRARIES(${BASE_LIBS} ${ZLIB_LIBS} ${LIBICONV_LIBS} ${LIBPNG_LIBS})  
+
+	aux_source_directory(. ZBAR_ROOT)
+	aux_source_directory(./qrcode QRCODE_SUB)
+	aux_source_directory(./decoder DECODER_SUB)
+
+	add_library(libzbar ${QRCODE_SUB} ${DECODER_SUB} ${ZBAR_ROOT})
+然后回到 arm_pjt/qr/build
+cmake ..
+make
+在 build/bin 得到 qr 可执行程序
+然后 a5d4:
+udhcpc
+tftp -gl qr 200.200.200.100  //下载可执行程序
+tftp -gl though.png 200.200.200.100	//下载图片
+chmod 777 qr	//改权限
+./qr	//执行
+
+
+回顾架设 a5d4-ov640 环境,测试 qr-det!!
+at91-sama5d4_xplained.dts:
+	sp2519与ov2640 共用了 i2c 0x30的六位地址,把sp2519 改其他地址
+内核编译
+	make ARCH=arm menuconfig	//注意不是 make menuconfigure
+lcd 显示:
+	lcd framebuffer 驱动初始化没有问题,但是不显示,,
+	设置 menuconfig:
+		Graphaics Support -> Frame buffer Devices -> AT91/AT32 LCD Controler support
+				  -> Blacklight & LCD device support -> Lowlevel LCD controls
+								     -> Lowlevel Backlight controls
+								     -> Generic PWM based Backlight Driver
+	10分钟自动关屏幕:
+		直接在此 log grep 10分钟自动关屏幕 查看解决方法!!
+摄像头,使用了蓝色版本的模块
+	基本上改了 dts 就能用!!
+	rootfs 带有 gstreamer0.1 所以以下指令测试:
+	gst-launch v4l2src device="/dev/video0" ! video/x-raw-yuv,width=640,height=480 ! ffmpegcolorspace ! fbdevsink		
+	lcd 可以看到采集图像!!
+交叉编译 opencv
+使用 cmake_gui cmake opencv 项目
+设置好 source 和 build 路径
+configure 选 specify options for cross-compiling
+	targetsystm 随便填,一般填 linux 即可
+	version processor 不用管
+	targetroot 就是 CMAKE_FIND_ROOT_PATH 
+  	targetroot 相关的对应 CMAKE_FIND_ROOT_PATH_MODE_PROGRAM
+		CMAKE_FIND_ROOT_PATH_MODE_LIBRARY
+		CMAKE_FIND_ROOT_PATH_MODE_INCLUDE
+ 	search in targetroot then native system 等于 ONLY
+	其他选项分别对应 BOTH NEVER
+	C 和 C++ 编译器需要选 arm-linux-gnueabihf-的
+	然后configure出错 因为用不着 CUDA 所以 with CUDA 剔除
+	更改 安装目录: CMAKE_INSTALL_PREFIX
+	特别注意!!
+	BUILD_SHARED_LIBS 设置生成的是静态库还是动态库!!!
+然后开始 make 编译: 
+	错误1
+	Linking CXX shared library ../../lib/libopencv_core.so
+	/opt/gcc-linaro-arm-linux-gnueabihf-4.7-2013.04-20130415_linux/bin/../lib/gcc/arm-linux-gnueabihf/4.7.3/../../../../arm-linux-	gnueabihf/bin/ld: ../../3rdparty/lib/libzlib.a(inflate.c.obj): relocation R_ARM_THM_MOVW_ABS_NC against `a local symbol' can not be used when making a shared object; recompile with -fPIC
+../../3rdparty/lib/libzlib.a: could not read symbols: Bad value
+	当一个动态库liba.so需要 链接上libusb-1.0.a时，出现如下错误
+	推测是因为指编译libusb时需要加上-fPIC参数 注意,是 CFLAGS 和CXXFLAGS 都加 -fPIC 不是其他地加,对应gcc g++
+	错误2
+	../../lib/libopencv_core.so: undefined reference to `pthread_spin_init'
+	../../lib/libopencv_core.so: undefined reference to `pthread_spin_unlock'
+	../../lib/libopencv_core.so: undefined reference to `pthread_spin_lock'
+	../../lib/libopencv_core.so: undefined reference to `pthread_spin_destroy'
+	../../lib/libopencv_core.so: undefined reference to `pthread_once'
+	../../lib/libopencv_core.so: undefined reference to `clock_gettime'
+	找不到pthread链接库，打开文件夹下的CmakeCache.txt进行修改
+	CMAKE_EXE_LINKER_FLAGS:STRING=-lpthread -lrt
+	错误3
+	后来发现 需要用摄像头,需要支持v4l2 但是 编译opencv时,没有假加入 with _libv4l with_v4l 的 configure
+	原因是 specify options for cross-compiling 时,没有填写正确的 targetsystm 和 processor
+	先 file -> delete cache,然后重新configure 选 specify options for cross-compiling
+	targetsystm 填 LINUX 不能填linux !!!  processor 填 arm 
+	然后就出来了!!
+这里必须深入 认识 cmake 一番,cmake的 通用变量
+	CMAKE_AR : 指定 ar 工具 如 arm-linux-gnueabihf-ar
+	CMAKE_CXX_COMPILER : 指定 c++ 编译工具 如 arm-linux-gnueabihf-g++
+	CMAKE_CXX_FLAGS: c++编译时 添加的 通用变量项 如 -fPIC -lpng
+	CMAKE_CXX_FLAGS_DEBUG: c++编译debug分支时 一般添加上的变量项 如 -g
+	CMAKE_C_COMPILER : 指定 c 编译工具 如 arm-linux-gnueabihf-gcc
+	CMAKE_C_FLAGS: c编译时 添加的 通用变量项 如 -fPIC -lpng
+	CMAKE_C_FLAGS_DEBUG: c编译debug分支时 一般添加上的变量项 如 -g
+	CMAKE_EXE_LINKER_FLAGS: 链接成可执行文件时需要用到的 变量 如 -lpthead -lrt
+	CMAKE_FIND_ROOT_PATH: 编译过程中用到的所有头和库都从这个文件夹或其子文件夹里找
+	CMAKE_FIND_ROOT_PATH_MODE_PROGRAM:编译使用到的工具 是否从CMAKE_FIND_ROOT_PATH里找,一般填never,即否定
+	CMAKE_FIND_ROOT_PATH_MODE_LIBRARY:编译使用到的库 一般填only,仅从CMAKE_FIND_ROOT_PATH及子文件夹里找
+	CMAKE_FIND_ROOT_PATH_MODE_INCLUDE:编译使用到的头 一般填only,仅从CMAKE_FIND_ROOT_PATH及子文件夹里找
+	CMAKE_INSTALL_PREFIX: 编译后文件的安装目录
+	CMAKE_LINKER: 链接工具 例如: arm-linux-gnueabihf-ld
+	CMAKE_MAKE_PROGRAM: make 工具,这是个读取makefile的统筹工具,所以不是交叉编译工具,
+		所以做交叉编译时,完全可以用系统PC自带的
+	CMAKE_NM: nm工具	
+	CMAKE_OBJCOPY: objcopy工具
+	CMAKE_OBJDUMP:objdump 工具
+	CMAKE_RANLIB:ranlib 工具 
+	CMAKE_STRIP:strip 工具
+		nm objcopy objdump ranlib strip 工具 都与c,c++工具同配置例如 arm-linux-gnueabihf-
+	CMAKE_EXE_LINKER_FLAGS: 编译生成 可执行文件 用到的 变量参数 如 -lpthead -lrt
+	CMAKE_MODULE_LINKER_FLAGS: 编译生成 module模块 用到的 变量参数
+	CMAKE_SHARED_LINKER_FLAGS: 编译生成 动态库 用到的 变量参数
+	CMAKE_STATIC_LINKER_FLAGS: 编译生成 静态库 用到的 变量参数
+	CMAKE_SYSTEM_NAME: 系统名字 一般 linux 这个没有多大用处
+开始测试 opencv 
+	经过折腾,认识到两个要点, 
+	一定要静态编译,动态编译要不就是缺库,要不就是版本不对,要不就是路径冲突
+		要静态编译,首先opcv库必须是静态库,那么就要重新编译opcv
+		特别地 BUILD_SHARED_LIBS 这个cmake参数 设置生成的是静态库还是动态库
+		要编译成静态库, BUILD_SHARED_LIBS=0
+	静态编译 库参数在编译命令上的位置顺序比较敏感,一般,越基础的库越放在最后面
+arm_pjt -> cv 项目实例
+	只有一个 main.cpp ,从图片中提取边框然后输出结果图片
+	其CMakeLists.txt 内容为:
+
+	#解说过的必要设置	
+	cmake_minimum_required(VERSION 2.8)
+	PROJECT(cv)
+	set(CMAKE_FIND_ROOT_PATH 
+		"/opt/gcc-linaro-arm-linux-gnueabihf-4.7-2013.04-20130415_linux/arm-linux-gnueabihf"
+	)  
+	set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+	set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+	set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+	set (CMAKE_CXX_COMPILER "/opt/gcc-linaro-arm-linux-gnueabihf-4.7-2013.04-20130415_linux/bin/arm-linux-gnueabihf-g++")  
+	set(CMAKE_C_COMPILER "/opt/gcc-linaro-arm-linux-gnueabihf-4.7-2013.04-20130415_linux/bin/arm-linux-gnueabihf-gcc") 
+	set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ./bin)
+
+	#网上说明的全静态库链接 注意 是 -pthread 不是 -lpthread 未完全理解参数设置的方法
+	#这个地方是全静态链接生成 可执行文件的重点, 需要好好分析
+	set(CMAKE_EXE_LINKER_FLAGS "-static -pthread -lstdc++ ")
+
+	# 头 和 库参数设置
+	set(OPCV249_INCLUDE 
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/opcv_arm/install/include
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/opcv_arm/install/include/opencv2
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/opcv_arm/install/include/opencv
+	)
+	set(CV_INCLUDE ${OPCV249_INCLUDE} )
+
+	set(BASE_LIBS /opt/gcc-linaro-arm-linux-gnueabihf-4.7-2013.04-20130415_linux/arm-linux-gnueabihf/libc/usr/lib/arm-linux-gnueabihf/librt.a)
+	set(OPCV249_LIBS  
+		#静态链接,越基础的库放在越后面	
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/opcv_arm/install/lib/libopencv_imgproc.a
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/opcv_arm/install/lib/libopencv_highgui.a
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/opcv_arm/install/lib/libopencv_core.a	
+	)
+	set(3RDPARTY_LIBS
+		#opcv静态库 需要用到的 第三方静态库,越基础的库放在越后面		
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/opcv_arm/3rdparty/lib/libIlmImf.a
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/opcv_arm/3rdparty/lib/liblibjasper.a
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/opcv_arm/3rdparty/lib/liblibjpeg.a
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/opcv_arm/3rdparty/lib/liblibpng.a
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/opcv_arm/3rdparty/lib/liblibtiff.a
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/opcv_arm/3rdparty/lib/libzlib.a
+	)
+	set(CV_LIBS ${OPCV249_LIBS} ${3RDPARTY_LIBS} ${BASE_LIBS} )
+
+	# 曾经解说过的
+	aux_source_directory(./ DIR_SRC)
+	include_directories(${CV_INCLUDE})
+	LINK_LIBRARIES(${CV_LIBS})  
+	add_executable(cv ${DIR_SRC})
+
+最后make 编译出可执行文件 cv 通过:
+	arm-linux-gnueabihf-ldd --root /opt/gcc-linaro-arm-linux-gnueabihf-4.7-2013.04-20130415_linux  cv
+	查看发现没有链接到任何一个动态库,这样才算前静态链接编译成功!!!
+
+	
+
+
+
+20180621
+中途总结,成功拼接 cam opcv zbar 静态编译成bin 并在 开发板上执行!!
+CmakeLists.txt
+	# 上述分析过
+	cmake_minimum_required(VERSION 2.8)
+	set(CMAKE_SYSTEM_NAME Linux)
+	PROJECT(qr)
+	set(CMAKE_FIND_ROOT_PATH 
+		"/opt/gcc-linaro-arm-linux-gnueabihf-4.7-2013.04-20130415_linux/arm-linux-gnueabihf"
+	)  
+	set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+	set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+	set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+	set (CMAKE_CXX_COMPILER "/opt/gcc-linaro-arm-linux-gnueabihf-4.7-2013.04-20130415_linux/bin/arm-linux-gnueabihf-g++")  
+	set(CMAKE_C_COMPILER "/opt/gcc-linaro-arm-linux-gnueabihf-4.7-2013.04-20130415_linux/bin/arm-linux-gnueabihf-g++") 
+	set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ./bin)
+	#全静态库链接 注意 是 -pthread 不是 -lpthread
+	set(CMAKE_EXE_LINKER_FLAGS "-static -pthread -lstdc++ ")
+
+
+	# 设置 变量 可以允许 换行 缩进 空格 来分割参数
+	set(OPCV249_INCLUDE 
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/opcv_arm/install/include
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/opcv_arm/install/include/opencv2
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/opcv_arm/install/include/opencv
+	)
+	set(ZBAR_INCLUDE 
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/arm_pjt/qr/zbar
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/arm_pjt/qr/include/
+	)
+	set(ZLIB_INCLUDE 
+		#使用 opcv249 的 zlib, opcv与zbar共用同一个库
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/opencv-2.4.9/3rdparty/zlib
+	)
+	set(LIBPNG_INCLUDE 
+		#使用 opcv249 的 libpng, opcv与zbar共用同一个库
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/opencv-2.4.9
+	)
+	set(LIBICONV_INCLUDE /home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/arm_pjt/qr/libiconv)
+	set(QR_INCLUDE ${OPCV249_INCLUDE} ${LIBICONV_INCLUDE} ${ZBAR_INCLUDE} ${ZLIB_INCLUDE} ${LIBPNG_INCLUDE})
+
+	set(BASE_LIBS
+		#有clock_getime unreference 的错误,需要链接 rt库 (realtime库) 
+		/opt/gcc-linaro-arm-linux-gnueabihf-4.7-2013.04-20130415_linux/arm-linux-gnueabihf/libc/usr/lib/arm-linux-gnueabihf/librt.a)
+	set(OPCV249_LIBS  
+		#静态链接,越基础的库放在越后面              
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/opcv_arm/install/lib/libopencv_imgproc.a
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/opcv_arm/install/lib/libopencv_highgui.a
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/opcv_arm/install/lib/libopencv_core.a	
+	)
+	set(LIBICONV_LIBS  
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/arm_pjt/qr/libiconv/install/lib/libiconv.a
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/arm_pjt/qr/libiconv/install/lib/libcharset.a   
+	)
+	set(ZLIB_LIBS
+		#使用 opcv249 的 zlib, opcv与zbar共用同一个库
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/arm_pjt/qr/zlib/install/lib/libz.a
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/opcv_arm/install/share/OpenCV/3rdparty/lib/libzlib.a	
+	)
+	set(LIBPNG_LIBS
+		#使用 opcv249 的 libpng, opcv与zbar共用同一个库
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/opcv_arm/install/share/OpenCV/3rdparty/lib/liblibpng.a
+	)
+	set(3RDPARTY_LIBS
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/opcv_arm/3rdparty/lib/libIlmImf.a
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/opcv_arm/3rdparty/lib/liblibjasper.a
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/opcv_arm/3rdparty/lib/liblibjpeg.a
+		/home/infortech-ubuntu-1404/1tb_disk/qr+opencv+gl/opcv_arm/3rdparty/lib/liblibtiff.a
+	)
+	set(QR_LIBS ${LIBPNG_LIBS} ${OPCV249_LIBS} ${3RDPARTY_LIBS} ${ZLIB_LIBS} ${LIBICONV_LIBS} ${BASE_LIBS} )
+	# 链接库先后顺序非常讲究 比如说这里在链接 ZBAR_LIBS 之前先接 自编译的libpng,不然会自动取系统的libpng 
+	# png 链接只静态库没有问题,如果有动态库,会优先链接动态库!!
+
+	# 上述 也分析过,不再说明
+	add_subdirectory(zbar)
+	aux_source_directory(./ DIR_SRC)
+	include_directories(${QR_INCLUDE})
+	LINK_LIBRARIES(${QR_LIBS})  
+	add_executable(qr ${DIR_SRC})
+	target_link_libraries(qr libzbar)
+接下来就是优化算法,和处理内存泄露的问题!!
+	zbar解码太慢,发现是 二维码图片的大小问题, 本来是500x500的, 要降到150x150,比较合适,
+	再降下去,解码错误率会增大
+	长期工作 解码函数zbar_scan_image速度越慢的问题,本质是 qr_thres 的分配问题!!这里应该出现了泄漏问题!!!
+	还有 warpPerspective() 也愈来越耗时!!! 也是与 qr_thres 再分配有关系!!
+	也可能是跟堆栈有关系!!
+	先不处理,先解决图像预处理时间
+
+获取图片后:
+	cvtColor + invalidate  89ms
+色即处理寻找 mark: 200ms
+	channelwrite 80ms
+	targetcopy 1ms
+	threshold  3ms
+	canny	60ms
+	findcontour 20ms
+	两个for循环找 mark 10ms	
+变换 qr图: 43ms
+解码 qr图: 106 ms
+	zbar_scan_image 106ms
+最后发现, 其实不使用 channelwrite或者invalidate 并没有什么大问题,
+现在关键看主预处理函数 threshold()
+	重点 parallel_for_ 这是一个并行算法器
+	往里面添加需要并行的任务, 提高任务速度
+	threshold,我们这里的主要任务是 ThresholdRunner-> thesh_8u
+	这个函数也没有多少核心内容,主要还是按像素地改变数据!!
+	然而自己写的threshold用了20ms,opcv的却只要3ms??
+	疑点1: 使用了 parallel_for_ 从20ms 降到16ms,并没有降到4ms!!
+	疑点2: 使用了 HAVE_TEGRA_OPTIMIZATION,但这是针对英伟达gpu的芯片,并没有用到!!
+	疑点3: CV_SSE2	这是intel扩充指令集,并没有用到
+	疑点4: CV_ENABLE_UNROLLED 使用了,不过只降了1ms
 
 
 
@@ -16689,7 +17469,13 @@ zbar前准备:
 
 	
 
-?????????
+
+
+
+
+	
+
+??????????????????
 
 
 
