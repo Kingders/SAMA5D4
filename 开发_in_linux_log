@@ -17458,6 +17458,11 @@ CmakeLists.txt
 	疑点2: 使用了 HAVE_TEGRA_OPTIMIZATION,但这是针对英伟达gpu的芯片,并没有用到!!
 	疑点3: CV_SSE2	这是intel扩充指令集,并没有用到
 	疑点4: CV_ENABLE_UNROLLED 使用了,不过只降了1ms
+	后面怀疑 TBB ,但是TBB 只针对多核.
+	后面 怀疑是, 生成多个线程,然后工作时完全占用cpu资源,
+	怀疑使用了 优化的编译选项:使用 CMAKE_CXX_FLAGS : -fpermissive -O3 -DNDEBUG,后降到 5ms!! 
+所有图像前期处理去掉,只剩下zbar也是可以工作的,
+	zbar本身也做了简单的图像预处理!!	
 
 
 
@@ -17467,15 +17472,120 @@ CmakeLists.txt
 
 
 
+
+20180710
+a5d4 gcc环境实现裸机移植zbar程序
+先实现裸机包程序
+	cd examples/isi
+	由于isi只能在 ddram上工作,所以默认就是以ddram环境来编译程序的
+	而我使用一个现成的 bootstrap: 把 0x40000 开始 0x80000个字节数据 送到 0x26f00000 地址执行
+	而且还会对这 0x80000 字节,执行 ecc 校对
+	所以需要对 链接脚本, target/sama5d4/toolchain/gnu/ddram.ld 修改:
+		ddr (W!RX) : ORIGIN = 0x26f00000, LENGTH = 32m
+	make TARGET=sama5d4-ek 		//默认以ddram环境来编译程序
+	由于生成 bin文件没有 0x80000 个字节那么大,为了通过ecc检测,需要,erase all 才烧写程序
+	sudo sam-ba -p serial:ttyACM1:115200 -b sama5d4-xplained -a nandflash -c erase
+	sudo sam-ba -p serial:ttyACM1:115200 -b sama5d4-xplained -a nandflash -c writeboot:build/at91bootstrap-sama5d4_xplained.bin
+	sudo sam-ba -p serial:ttyACM1:115200 -b sama5d4-xplained -a nandflash -c writeboot:build/isi_sama5d4-ek_ddram.bin:0x40000
+	成功烧写运行
+但是由于移植使用 zbar opencv ,所以使用 atmel 的裸机包,无法写大型裸机软件,
+需要另外使用 camke 框架
+	一直说没有找到标志, 发现不是 加上-Wl,-Map,xx.map 的问题,而是链接库先后顺序的问题
+	最后还有 汇编 问题 ...,还有 c库链接问题
+	反正最后 全部用 gcc 编译时, 成功.
+	最后测试 g++ 和 gcc 编译的内容混用的问题!!!
+	其实就是 .c .cpp .s 混编译的问题
+	g++ 编译 .c .cpp时,都当作 c++ 格式编译, 编译,S时, 按 c 格式,
+	gcc 只能编译 .c .S, 按 c 格式编译,
+	以下是 g++ 编译 .c .s .cpp 的情况下:
+		.cpp 调用 .s:  在.cpp上声明 要调用的.s函数 extern "C" void xxx(void);
+		.s 调用 .cpp:  在.cpp用 extern "C"{....}包含 .s要调用到的函数
+		注意到,
+			被 .cpp 用 extern "C"{....}包含的函数,可能不能调用其他的 .cpp 函数
+			如果要调用其他 .cpp 函数,如下例子:
+			BB.cpp: extern "C"{ 
+				include "AA.h"
+				void KK(void){.. XAXA() ..}  
+				}
+			AA.h:   extern "C" void XAXA(void);	//这一步是重点
+			AA.cpp: void XAXA(void){...}
+	还有 .cpp struct 初始化变量的问题!!!!不能乱序,只能顺序,隔着不需要初始化的也不能落下,也需要给初始值
+	假设 g++ 编译 .cpp , gcc编译 .c 的情况下
+		在一些 .cpp 用到 .c 对应 .h 文件,以链接.c对应的函数时, .h要添加以下包含代码
+		#ifdef __cplusplus
+		extern "C"
+		{
+		#endif
+		.....
+		#ifdef __cplusplus
+		}
+		#endif
+		这时 gcc 编译时, 自动忽略,仍然按 c 格式编译
+		g++ 编译时,会识别到需要链接 c 标准接口函数
+	总结一下 extern "C" 的作用:
+	g++ 编译含 extern "C" 声明的 函数, 会编译出 c 标准接口函数 , 这些函数 可以直接被 其他c函数直接调用
+	g++ 要链接到 c 标准接口函数时,需要在 .cpp 使用 extern "C" 声明要用到的外部 c 标准接口函数
+使用 arm-none-eabi-g++: 链接自己的 libc.a 时,总是连不上还有 syscall.c 的 c 标准接口库
+当把 syscalls.c取出来编译成.o直接连接时反而成功!!
+但是不管.o文件是gcc还是g++编译, 最后一步链接成文件, 使用 arm-none-eabi-gcc 可以链接通过
 	
 
 
 
 
 
-	
 
-???????????????????
+
+
+
+
+
+20180716
+分析裸机码移植zbar !!
+使用isi codec 通道 和 lcd high-end layer
+转换一张yuv图片 在 裸机上显示!!,注意 uyvy 和 yuyv 分布都是 yuv422 格式,
+然后,测试显示yuv422-uyvy 图片,成功!!
+移植 zbar 到单机, qrdectxt 用到 iconv库,试图修改 qrdectxt 去掉!!
+img_scanner.c : 去掉 getimeofday... http://www.cnblogs.com/greyorbit/p/8456814.html
+syscalls.c 补充了 两个没有用的函数 _open _gettimeofday
+发现其实 calloc可用, 是 arm-none-eabi 自带的库
+后来发现 调用 zbar/image.c 的函数时,莫名要链接 libc 的 _open_r 和 _open,
+	但,zbar/image.c 的函数并没有要打开文件的操作,所以非常诡异!!
+	最后,发现,虽然某个地方莫名其妙要链接上,但是实际上并没有使用
+接下来最麻烦的是 calloc 函数,貌似并不在堆里申请内存,而是破坏了栈结构,导致系统崩溃
+最终查到是 .ld文件路径错了.所以 堆大小一直没有改变!!!!,所以一直出同样错!!
+	arm-none-eabi-提供的库函数 malloc..并没有问题,但是他们最终要链接到一个针对板级的函数
+	就是 utils/syscalls.c:_sbrk()
+	由于堆大小一直没有改变 只有0x200,非常小,导致 _sbrk()出错!!最后导致malloc,calloc 出错!!
+	然而并未成功精确定位 arm-none-eabi-里 malloc 源代码位置
+	必须 学习写一个自己的 通用的 的 malloc calloc 程序
+可能要重构 alloc 和 free 还要学习 链接文件.ld
+裸机程序, gcc 的 ld 文件规范:
+	定义 存储空间:
+	MEMORY
+	{
+		sram        (W!RX) : ORIGIN = 0x200000,   LENGTH = 128K /* sram */
+		ddr         (W!RX) : ORIGIN = 0x26f00000, LENGTH = 128M  /* ddr */
+		ddr_nocache  (RWX) : ORIGIN = 0x24000000, LENGTH = 16M  /* ddr (non-cached) */
+	}
+	这里定义了3个空间: W!RX RWX 是对空间属性的描述, 然后就是空间的始地址,和大小
+	W: 空间可供 读写section 使用
+	R: 可供 读section 使用
+	x: 可供 执行section 使用
+	!: 可做 其他分配使用
+经过 codeblock 端的 lnx_project/qr 验证, yuv 的y分量可以被读取作为解码数据rawdata!!
+qr解码主要在 qrdec.c/_zbar_qr_decode 执行!!就是再一次处理图片然后再解码!!
+最后通过 qrdectxt.c/qr_code_data_list_extract_text,处理文本信息
+	注意由于去掉了iconv,所以 临时修改 case QR_MODE_BYTE 的内容,以显示qr数据
+接下来要解决的是速度问题!!
+
+
+
+
+
+
+
+??????????????????
 
 
 
